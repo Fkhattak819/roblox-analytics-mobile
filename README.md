@@ -5,6 +5,7 @@ StudioPulse is an iOS-first analytics companion for Roblox creators. The product
 Start here:
 
 - [Mac and iOS development playbook](docs/MAC_IOS_DEVELOPMENT_PLAYBOOK.md)
+- [AWS backend learning and scaling guide](docs/AWS_BACKEND_LEARNING_AND_SCALING_GUIDE.md)
 - [Ready-to-paste overnight Codex goal](NIGHT_GOAL.md)
 - [Figma implementation manifest](docs/FIGMA_IMPLEMENTATION_MANIFEST.md)
 - [Local Figma node-map snapshot](design-system-state-studiopulse-onboarding.json)
