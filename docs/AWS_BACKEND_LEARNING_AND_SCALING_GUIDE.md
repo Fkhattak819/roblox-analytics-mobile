@@ -6,7 +6,7 @@
 
 **Audience:** Fahd, building StudioPulse while learning AWS
 
-**Product:** StudioPulse, a native iOS analytics companion for Roblox creators
+**Product:** StudioPulse, an Expo-managed React Native analytics companion for Roblox creators
 
 ## The goal
 
@@ -17,7 +17,7 @@ The first release should serve a small set of creators and official Roblox analy
 The design in this guide uses:
 
 ```text
-SwiftUI iOS app
+Expo React Native app
     -> API Gateway HTTP API
         -> Lambda backend-for-frontend
             -> DynamoDB snapshots and account state
@@ -101,11 +101,44 @@ Delay the Roblox connection until this path works with deterministic sample data
 
 This list gives you a useful AWS survey without asking you to learn EC2, Kubernetes, VPC routing, relational databases, streaming platforms, or every AWS product at once.
 
+## How Expo changes the client side
+
+The backend design stays the same, but the client build and security guidance changes:
+
+| Client concern | StudioPulse choice |
+| --- | --- |
+| Fast development | Expo Go with `npx expo start` |
+| Production-like native runtime | Expo development build with `expo-dev-client` |
+| Preview and store binaries | EAS Build with `eas.json` profiles |
+| Navigation | Expo Router when included in the initialized project |
+| Secure session storage | `expo-secure-store` |
+| API calls | TypeScript client around `fetch` |
+| Tests | The test runner configured in `package.json`, plus TypeScript checks |
+
+Expo Go is a useful learning and prototyping client with a fixed native runtime. It cannot load arbitrary native modules or test every production configuration. Move to a development build when you need custom native dependencies, app icons, URL schemes, remote push notifications, or behavior that must match the release binary. Use EAS Build for preview and production artifacts.
+
+The app bundle may contain public configuration such as an API base URL and environment name. It must not contain a Roblox Open Cloud key, OAuth client secret, AWS credential, or `.ROBLOSECURITY` value. Store StudioPulse session tokens with `expo-secure-store`, and keep Roblox credentials in the backend secret boundary.
+
+The mobile development loop is:
+
+```text
+npx expo start
+    -> test sample mode and local fixtures
+npx tsc --noEmit
+    -> verify TypeScript
+npx expo export
+    -> verify the production JavaScript bundle
+eas build --profile preview --platform <platform>
+    -> verify a project-specific native build when needed
+```
+
+Keep the client repository independent from the AWS implementation. The client should depend on stable StudioPulse domain models such as `Experience`, `MetricSnapshot`, `Freshness`, and `SyncStatus`, not DynamoDB item shapes or Roblox API responses.
+
 ## The recommended architecture
 
 ```mermaid
 flowchart LR
-    App["SwiftUI iOS app"] --> API["API Gateway HTTP API"]
+    App["Expo React Native app"] --> API["API Gateway HTTP API"]
     Auth["Cognito user pool"] --> API
     API --> BFF["Lambda BFF"]
     BFF --> DB["DynamoDB"]
@@ -121,7 +154,7 @@ flowchart LR
 
 ### Request path
 
-1. The iOS app sends a request to API Gateway.
+1. The Expo app sends a request to API Gateway.
 2. API Gateway checks the StudioPulse JWT through a Cognito authorizer.
 3. Lambda validates the route parameters and the workspace claim.
 4. Lambda reads a normalized snapshot from DynamoDB.
@@ -344,7 +377,7 @@ For the first learning milestone:
 2. Create a test user without using a real Roblox credential.
 3. Validate the token issuer, audience, expiration, and subject.
 4. Map the stable Cognito `sub` to a StudioPulse user record.
-5. Keep the app's access and refresh tokens in iOS Keychain.
+5. Keep the app's access and refresh tokens in `expo-secure-store`.
 
 For the Roblox identity milestone, test Authorization Code + PKCE with Roblox as an OIDC provider. Roblox identity and Roblox Open Cloud analytics authorization remain separate connections. A Roblox ID token does not grant Analytics Query API access.
 
@@ -431,7 +464,7 @@ Use:
 - Compressed JSON for early audit snapshots.
 - Parquet and Athena only when historical analysis justifies them.
 
-Do not serve a private bucket directly to the iOS app. Let the backend authorize access, or issue a short-lived signed URL for a specific artifact.
+Do not serve a private bucket directly to the Expo app. Let the backend authorize access, or issue a short-lived signed URL for a specific artifact.
 
 ### Secrets Manager and KMS: protect real credentials
 
@@ -450,7 +483,7 @@ When you add real Roblox analytics access:
 
 A customer-managed KMS key creates a monthly storage charge. That cost belongs in the security budget once you store real tenant credentials. Do not weaken credential protection to preserve a $0 target.
 
-Never use `.ROBLOSECURITY` for StudioPulse. Never ship a Roblox Open Cloud key in the iOS application.
+Never use `.ROBLOSECURITY` for StudioPulse. Never ship a Roblox Open Cloud key in the mobile application.
 
 ### CloudWatch: learn from the system
 
@@ -489,7 +522,7 @@ Set log retention for development instead of keeping indefinite logs. Add alarms
 
 ## The StudioPulse data contract
 
-The backend should return a stable domain shape so the iOS UI does not depend on AWS or Roblox response formats.
+The backend should return a stable domain shape so the React Native UI does not depend on AWS or Roblox response formats.
 
 Example snapshot shape:
 
@@ -686,7 +719,7 @@ Registered-user count alone should not trigger Aurora, Kinesis, ECS, AppSync, or
 
 ### Keep the API contract stable
 
-The iOS app should know about `Experience`, `MetricSnapshot`, `Freshness`, and `SyncStatus`. It should not know whether the backend uses DynamoDB, Aurora, S3, or a cache.
+The Expo app should know about `Experience`, `MetricSnapshot`, `Freshness`, and `SyncStatus`. It should not know whether the backend uses DynamoDB, Aurora, S3, or a cache.
 
 Define protocols in the backend:
 
@@ -724,9 +757,9 @@ Do not add Kinesis, Firehose, or a large event lake until you have a measured ev
 | Credential | Lives in | Used by | Never put in |
 | --- | --- | --- | --- |
 | AWS developer session | IAM Identity Center or temporary role | Local CLI and CDK | Git, app bundle, screenshots |
-| StudioPulse access token | iOS Keychain | iOS app | Logs or analytics snapshots |
-| Roblox Open Cloud key | Secrets Manager/KMS boundary | Roblox worker only | iOS app, Git, chat, DynamoDB plaintext |
-| Roblox OAuth client secret | Backend secret store | OAuth callback/token exchange | iOS app or public repository |
+| StudioPulse access token | Expo SecureStore | Expo app | Logs or analytics snapshots |
+| Roblox Open Cloud key | Secrets Manager/KMS boundary | Roblox worker only | Mobile app, Git, chat, DynamoDB plaintext |
+| Roblox OAuth client secret | Backend secret store | OAuth callback/token exchange | Mobile app or public repository |
 | Webhook secret, if added | Secrets Manager | Webhook verifier | Logs or request records |
 
 ### Tenant isolation
@@ -798,7 +831,7 @@ Use a dedicated development account or stack. Do not point tests at production c
 
 Keep an OpenAPI 3.1 document. Verify that:
 
-- Swift models match response shapes.
+- TypeScript models match response shapes.
 - Error envelopes remain stable.
 - New optional fields do not break old clients.
 - Pagination and freshness states remain explicit.
@@ -938,7 +971,7 @@ Practice:
 
 - Query one explicitly authorized universe.
 - Cache the normalized result.
-- Show freshness in the iOS UI.
+- Show freshness in the React Native UI.
 - Test an empty result and a transient upstream failure.
 - Rotate or revoke the development key after the test.
 
@@ -1022,17 +1055,17 @@ Scalability does not mean adding every high-scale AWS service on day one. It mea
 - [ ] Universe ID is explicit and verified.
 - [ ] Key scope is `universe.analytics:read` unless a named feature requires more.
 - [ ] Key access is restricted to intended universes.
-- [ ] Key value stays outside Git and iOS.
+- [ ] Key value stays outside Git and the mobile bundle.
 - [ ] The connector handles 202 polling.
 - [ ] The connector handles 429 and transient errors.
 - [ ] Empty and sparse results render honestly.
 - [ ] Query provenance includes metric, window, granularity, status, and retrieval time.
 
-### iOS
+### Expo mobile app
 
 - [ ] Sample mode works with no AWS connection.
 - [ ] The app reads StudioPulse snapshots rather than Roblox directly.
-- [ ] Tokens use Keychain.
+- [ ] Tokens use Expo SecureStore.
 - [ ] The UI labels freshness and source.
 - [ ] Offline and stale states are tested.
 - [ ] Sign-out clears session state.
@@ -1073,6 +1106,11 @@ Check these links again before deployment because AWS pricing and product behavi
 - [Amazon CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/)
 - [AWS KMS pricing](https://aws.amazon.com/kms/pricing/)
 - [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/)
+- [Expo app development overview](https://docs.expo.dev/workflow/overview/)
+- [Expo Go and development builds FAQ](https://docs.expo.dev/develop/development-builds/faq/)
+- [Expo Router](https://docs.expo.dev/router/introduction/)
+- [Expo SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/)
+- [EAS Build](https://docs.expo.dev/build/introduction/)
 - [Roblox Open Cloud](https://create.roblox.com/docs/cloud)
 - [Roblox API key management](https://create.roblox.com/docs/cloud/auth/api-keys)
 - [Roblox Open Cloud scopes](https://create.roblox.com/docs/cloud/reference/scopes)

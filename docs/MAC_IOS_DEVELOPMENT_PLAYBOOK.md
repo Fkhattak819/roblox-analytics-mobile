@@ -1,4 +1,6 @@
-# StudioPulse Mac and iOS Development Playbook
+# StudioPulse Mac and iOS Development Playbook (Legacy)
+
+> **Legacy document:** This file describes an abandoned native SwiftUI/Tuist iOS plan. The current client uses Expo-managed React Native and TypeScript. Follow [the Expo development playbook](EXPO_DEVELOPMENT_PLAYBOOK.md) for new work.
 
 Status: implementation plan, not production evidence  
 Last updated: 2026-08-22  
