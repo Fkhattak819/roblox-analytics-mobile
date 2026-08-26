@@ -1,0 +1,106 @@
+{
+  "workflow": "StudioPulse onboarding light and dark",
+  "fileKey": "WCcDt0bYdwuoypf03dYcCg",
+  "status": "phase-4-complete",
+  "sourcePages": {
+    "dark": "0:1",
+    "light": "187:104"
+  },
+  "targetPage": "201:104",
+  "sections": {
+    "foundations": "201:105",
+    "components": "201:106",
+    "screensLight": "201:107",
+    "screensDark": "201:108"
+  },
+  "documentation": {
+    "foundationsFrame": "204:104"
+  },
+  "collections": {
+    "primitives": "VariableCollectionId:200:104",
+    "theme": "VariableCollectionId:200:105",
+    "dimensions": "VariableCollectionId:200:106",
+    "themeModes": {
+      "light": "200:1",
+      "dark": "200:3"
+    }
+  },
+  "variables": {
+    "primitiveIds": ["VariableID:200:107", "VariableID:200:108", "VariableID:200:109", "VariableID:200:110", "VariableID:200:111", "VariableID:200:112", "VariableID:200:113", "VariableID:200:114", "VariableID:200:115", "VariableID:200:116", "VariableID:200:117", "VariableID:200:118", "VariableID:200:119", "VariableID:200:120", "VariableID:200:121", "VariableID:200:122", "VariableID:200:123", "VariableID:200:124", "VariableID:200:125", "VariableID:200:126", "VariableID:200:127", "VariableID:200:128", "VariableID:200:129", "VariableID:200:130"],
+    "dimensionIds": ["VariableID:200:131", "VariableID:200:132", "VariableID:200:133", "VariableID:200:134", "VariableID:200:135", "VariableID:200:136", "VariableID:200:137", "VariableID:200:138", "VariableID:200:139", "VariableID:200:140", "VariableID:200:141", "VariableID:200:142", "VariableID:200:143", "VariableID:200:144", "VariableID:200:145", "VariableID:200:146", "VariableID:200:147", "VariableID:200:148", "VariableID:200:149", "VariableID:200:150"],
+    "semanticIds": ["VariableID:200:151", "VariableID:200:152", "VariableID:200:153", "VariableID:200:154", "VariableID:200:155", "VariableID:200:156", "VariableID:200:157", "VariableID:200:158", "VariableID:200:159", "VariableID:200:160", "VariableID:200:161", "VariableID:200:162", "VariableID:200:163", "VariableID:200:164", "VariableID:200:165", "VariableID:200:166", "VariableID:200:167", "VariableID:200:168", "VariableID:200:169", "VariableID:200:170", "VariableID:200:171", "VariableID:200:172", "VariableID:200:173", "VariableID:200:174", "VariableID:200:175", "VariableID:200:176"]
+  },
+  "styles": {
+    "text": ["S:00db2e232ddad4dd3c0bb36040f3910492af4ee0,", "S:60cf8ee5d89e8da9eb7634be7a3314f6f7706348,", "S:809f1a6617b7579194efb6e23b4e9c2e27083cb9,", "S:b88ee97a83bb75a3f5ec83ed4c22c34260055ba0,", "S:c1b48e391415069f74052cdc8e3a6565a4a4a172,", "S:001561e930e63f5f526ba1aef992444a50e094c8,", "S:b2d1759f955d655a4890bfd5c85a30a0800af84d,", "S:19d18e39c9ee3d7c763c3b885a9c1c347a7e653f,"],
+    "effects": ["S:85daee1353f4f1e6f01316f6405c19f4f28ad98f,", "S:86d8d93d5f1695b58d3fa9c22e5a1f82dd25bb52,"]
+  },
+  "components": {
+    "button": "205:111",
+    "buttonPrimary": "205:107",
+    "buttonSecondary": "205:109",
+    "progress": "207:104",
+    "progressSteps": ["205:112", "205:119", "205:126", "205:133", "205:140", "205:147"],
+    "statusRow": "207:126",
+    "statusConnected": "207:105",
+    "statusReadOnly": "207:112",
+    "statusOptional": "207:119",
+    "experienceCard": "207:169",
+    "experienceDefault": "207:148",
+    "experienceSelected": "207:158",
+    "analyticsPreview": "208:149",
+    "previewTrend": "208:104",
+    "previewBenchmark": "208:118",
+    "previewSales": "208:134",
+    "robloxMark": "208:152"
+  },
+  "screens": {
+    "light": {
+      "welcome": {"wrapper": "209:104", "screen": "209:108"},
+      "robloxOAuth": {"wrapper": "209:245", "screen": "209:249"},
+      "analyticsAccess": {"wrapper": "210:141", "screen": "210:145"},
+      "chooseExperiences": {"wrapper": "210:290", "screen": "210:294"},
+      "salesSetup": {"wrapper": "210:342", "screen": "210:346"},
+      "ready": {"wrapper": "210:394", "screen": "210:398"}
+    },
+    "dark": {
+      "welcome": {"wrapper": "210:450", "screen": "210:454"},
+      "robloxOAuth": {"wrapper": "210:467", "screen": "210:471"},
+      "analyticsAccess": {"wrapper": "210:496", "screen": "210:500"},
+      "chooseExperiences": {"wrapper": "210:529", "screen": "210:533"},
+      "salesSetup": {"wrapper": "210:554", "screen": "210:558"},
+      "ready": {"wrapper": "210:584", "screen": "210:588"}
+    }
+  },
+  "motion": {
+    "trendLine": "208:116",
+    "trendEndpoint": "208:117",
+    "salesLine": "208:147",
+    "salesEndpoint": "208:148",
+    "durationSeconds": 2,
+    "behavior": "line reveal with endpoint pulse",
+    "animatedScreens": ["209:108", "210:346", "210:454", "210:558"]
+  },
+  "qa": {
+    "screenSize": "393x852",
+    "screenCount": 12,
+    "contentRail": {"x": 26, "width": 340},
+    "bottomActions": {"primaryY": 706, "secondaryY": 770, "height": 52},
+    "homeIndicator": {"x": 129.5, "y": 837, "width": 134, "height": 5},
+    "backChevrons": ["212:358", "212:360", "212:362", "212:364", "212:366", "212:368", "212:370", "212:372"],
+    "result": "full light and dark visual QA passed"
+  },
+  "plan": {
+    "viewport": "393x852",
+    "themes": ["Light", "Dark"],
+    "steps": [
+      "Welcome",
+      "Roblox OAuth",
+      "Read-only Analytics",
+      "Choose Experiences",
+      "Sales Setup",
+      "Ready"
+    ],
+    "font": "Geist; Builder Sans pass deferred by user",
+    "motion": "chart reveal and endpoint pulse"
+  }
+}

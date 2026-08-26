@@ -1,0 +1,13 @@
+# Xcode and Swift build products
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# macOS metadata
+.DS_Store
