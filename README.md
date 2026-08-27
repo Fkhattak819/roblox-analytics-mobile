@@ -1,50 +1,24 @@
-# Welcome to your Expo app 👋
+# StudioPulse
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+StudioPulse is an iOS-first analytics companion for Roblox creators. The product is currently at the design and technical-planning stage; production implementation has not started.
 
-## Get started
+Start here:
 
-1. Install dependencies
+- [Mac and iOS development playbook](docs/MAC_IOS_DEVELOPMENT_PLAYBOOK.md)
+- [Ready-to-paste overnight Codex goal](NIGHT_GOAL.md)
+- [Figma implementation manifest](docs/FIGMA_IMPLEMENTATION_MANIFEST.md)
+- [Local Figma node-map snapshot](design-system-state-studiopulse-onboarding.json)
 
-   ```bash
-   npm install
-   ```
+The connected live Figma file is the visual source of truth. The local JSON is a node map and fallback record only; every Figma-derived SwiftUI screen must be read live and visually compared before it can be called a 1:1 recreation.
 
-2. Start the app
+The existing `StudioPulse/` and `StudioPulse.xcodeproj/` directories are placeholders. The `.xcodeproj` does not currently contain a `project.pbxproj`, so the first Mac development session must treat this as a greenfield SwiftUI scaffold.
 
-   ```bash
-   npx expo start
-   ```
+## Product contract
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Native iOS app, currently designed for a 393 x 852 point iPhone canvas.
+- Persistent destinations: Home, Experiences, Analytics, Sales, More.
+- Sample mode works before any account or credential is connected.
+- The first real-data release is read-only toward Roblox experiences.
+- Roblox OAuth identity and Roblox Open Cloud analytics access are separate connections.
+- Roblox API keys never ship in the iOS app and `.ROBLOSECURITY` is never requested.
+- Official aggregate analytics must remain visually distinct from optional live-sale instrumentation.

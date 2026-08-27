@@ -41,3 +41,14 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Xcode and Swift build products
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
