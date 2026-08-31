@@ -1,0 +1,12 @@
+{
+  "name": "studiopulse-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "../node_modules/.bin/tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "node --experimental-strip-types src/server.ts",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  }
+}
