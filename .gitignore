@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+cdk.out/
 
 # Native
 .kotlin/
