@@ -1,4 +1,6 @@
 import { loadConfig } from "../config.js";
+import { createAwsAuthService } from "../modules/auth/auth-runtime.js";
+import type { AuthService } from "../modules/auth/auth-service.js";
 import { routeRequest } from "../router.js";
 
 type HttpApiEvent = {
@@ -6,6 +8,8 @@ type HttpApiEvent = {
   path?: string;
   body?: string | null;
   isBase64Encoded?: boolean;
+  headers?: Record<string, string | undefined>;
+  queryStringParameters?: Record<string, string | undefined> | null;
   requestContext?: {
     http?: {
       method?: string;
@@ -22,6 +26,8 @@ type HttpApiResponse = {
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
+let cachedAuthService: AuthService | undefined;
+let cachedAuthConfigKey: string | undefined;
 
 function parseBody(event: HttpApiEvent): unknown {
   if (!event.body) return undefined;
@@ -39,14 +45,19 @@ function parseBody(event: HttpApiEvent): unknown {
 
 export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
   try {
+    const config = loadConfig();
+    const authService = getAuthService(config);
     const result = await routeRequest(
       {
         method: event.requestContext?.http?.method ?? event.httpMethod ?? "GET",
         path: event.rawPath ?? event.path ?? "/",
+        query: event.queryStringParameters ?? undefined,
+        headers: lowerCaseHeaders(event.headers),
         body: parseBody(event),
       },
-      loadConfig(),
+      config,
       "aws",
+      { authService },
     );
 
     return {
@@ -67,4 +78,22 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
       isBase64Encoded: false,
     };
   }
+}
+
+function getAuthService(config: ReturnType<typeof loadConfig>): AuthService | undefined {
+  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}`;
+  if (key !== cachedAuthConfigKey) {
+    cachedAuthConfigKey = key;
+    cachedAuthService = createAwsAuthService(config);
+  }
+  return cachedAuthService;
+}
+
+function lowerCaseHeaders(
+  headers: Record<string, string | undefined> | undefined,
+): Record<string, string | undefined> | undefined {
+  if (!headers) return undefined;
+  return Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
+  );
 }

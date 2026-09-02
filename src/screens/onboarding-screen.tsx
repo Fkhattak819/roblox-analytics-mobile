@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -15,6 +15,7 @@ import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
+import { signInWithRoblox } from '@/services/roblox-auth';
 
 const palette = {
   canvas: '#0B0D12',
@@ -321,6 +322,22 @@ function AnimatedTrendChart() {
 }
 
 function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+  const [connecting, setConnecting] = useState(false);
+
+  const connect = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    try {
+      await signInWithRoblox();
+      onPrimary();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      Alert.alert('Couldn’t connect Roblox', message);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   return (
     <>
       <RobloxMark top={112} />
@@ -344,9 +361,10 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample
         top={580}
       />
       <Actions
-        onPrimary={onPrimary}
+        disabled={connecting}
+        onPrimary={() => void connect()}
         onSecondary={onSample}
-        primaryLabel="Continue with Roblox"
+        primaryLabel={connecting ? "Connecting…" : "Continue with Roblox"}
         secondaryLabel="Explore sample data"
       />
     </>

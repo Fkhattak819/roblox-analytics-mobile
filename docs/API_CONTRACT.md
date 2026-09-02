@@ -8,7 +8,11 @@ The canonical machine-readable contract is [`contracts/openapi.json`](../contrac
 | --- | --- | --- |
 | `GET /v1/health` | Active | Deployment checks |
 | `GET /v1/sample/home` | Active | Expo Sample/AWS development mode |
-| `GET /v1/auth/roblox/start` | Scaffolded, disabled | Future Roblox identity connection |
+| `GET /v1/auth/roblox/start` | Implemented; AWS activation pending | Creates persisted one-time PKCE state and returns the authorization URL |
+| `GET /v1/auth/roblox/callback` | Implemented; AWS activation pending | Consumes state, obtains Roblox identity, revokes Roblox tokens, and redirects to the app |
+| `POST /v1/auth/session/exchange` | Implemented; AWS activation pending | Trades a one-time mobile code for an opaque app session |
+| `GET /v1/auth/session` | Implemented; AWS activation pending | Reads the current authenticated Roblox identity |
+| `POST /v1/auth/logout` | Implemented; AWS activation pending | Revokes the current app session |
 | `POST /v1/connections/analytics/validate` | Scaffolded, disabled in AWS | Future Open Cloud analytics connection |
 
 Scaffolded routes must fail closed. They cannot accept or persist a Roblox credential until their storage, redaction, authentication, and audit requirements are implemented and tested.
@@ -32,7 +36,7 @@ These routes are an implementation inventory, not deployed API promises. Add eac
 
 ## Data flow
 
-1. Expo authenticates to the application backend; it never receives AWS credentials.
+1. Expo opens Roblox OAuth, receives a one-time callback code, and stores only the resulting app session token in the platform keychain. It never receives AWS credentials, the Roblox OAuth secret, or Roblox access/refresh tokens.
 2. Screen requests read tenant-scoped snapshots from the API, not directly from Roblox.
 3. A sync request creates a job and sends work to SQS.
 4. A worker calls Roblox Open Cloud, polls asynchronous query jobs when required, normalizes results, and writes snapshots to DynamoDB.
@@ -40,7 +44,7 @@ These routes are an implementation inventory, not deployed API promises. Add eac
 
 ## Security gates before real credentials
 
-- Complete Roblox OAuth authorization-code flow with PKCE, server-side state persistence, callback exchange, expiry, and replay protection.
+- Roblox OAuth identity is implemented with PKCE, server-side state persistence, short expiries, atomic one-time exchanges, and replay protection. The development credential still needs to be created and loaded into AWS Secrets Manager before activation.
 - Authenticate every non-sample route and derive tenant identity from the session, never from a client-provided tenant ID.
 - Accept only a dedicated least-privilege Roblox Open Cloud key; never request `.ROBLOSECURITY`.
 - Encrypt accepted keys with a customer-managed KMS key, redact request bodies and headers, and never return secret material.

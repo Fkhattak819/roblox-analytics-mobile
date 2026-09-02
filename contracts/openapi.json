@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "roblox-analytics-mobile API",
-    "version": "0.1.0",
-    "description": "Credential-free development API contract. Operations marked as scaffolded remain disabled until their security prerequisites are implemented."
+    "version": "0.2.0",
+    "description": "Development API contract for sample data and Roblox identity sessions. Analytics credential submission remains disabled until its separate security gates are complete."
   },
   "servers": [
     {
@@ -58,21 +58,147 @@
         "operationId": "startRobloxOAuth",
         "tags": ["Authentication"],
         "summary": "Start Roblox OAuth",
-        "description": "Scaffolded and intentionally disabled until OAuth state persistence and the callback exchange are implemented.",
+        "description": "Creates server-side one-time PKCE state and returns only the Roblox authorization URL.",
         "responses": {
-          "501": {
-            "description": "OAuth flow is not implemented",
+          "200": {
+            "description": "Roblox authorization is ready to open",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NotConfiguredResponse" }
+                "schema": { "$ref": "#/components/schemas/OAuthStartResponse" }
               }
             }
           },
           "503": {
-            "description": "OAuth client configuration is absent",
+            "description": "OAuth client configuration is absent or unavailable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NotConfiguredResponse" }
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/roblox/callback": {
+      "get": {
+        "operationId": "completeRobloxOAuth",
+        "tags": ["Authentication"],
+        "summary": "Complete Roblox OAuth",
+        "description": "Consumes one-time PKCE state, obtains the stable Roblox user identity, revokes the short-lived Roblox authorization, and redirects to the mobile app with a one-time exchange code.",
+        "parameters": [
+          { "name": "code", "in": "query", "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "schema": { "type": "string" } },
+          { "name": "error", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the registered roblox-analytics-mobile scheme",
+            "headers": {
+              "Location": {
+                "required": true,
+                "schema": { "type": "string", "pattern": "^robloxanalyticsmobile://" }
+              }
+            }
+          },
+          "400": {
+            "description": "OAuth state is malformed, expired, or already consumed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "502": {
+            "description": "Roblox rejected or could not complete the OAuth exchange",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/session/exchange": {
+      "post": {
+        "operationId": "exchangeAppSession",
+        "tags": ["Authentication"],
+        "summary": "Exchange a one-time mobile code for an app session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SessionExchangeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new opaque app session",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionExchangeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed exchange code",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Exchange code is expired or already consumed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/session": {
+      "get": {
+        "operationId": "getAppSession",
+        "tags": ["Authentication"],
+        "summary": "Read the current app session",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "The current app session",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Session is missing, expired, or revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutAppSession",
+        "tags": ["Authentication"],
+        "summary": "Revoke the current app session",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Session revoked" },
+          "401": {
+            "description": "A valid bearer token is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
               }
             }
           }
@@ -123,6 +249,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque app session token"
+      }
+    },
     "schemas": {
       "HealthResponse": {
         "type": "object",
@@ -157,6 +290,59 @@
           "forwardD1Retention": { "type": "number", "minimum": 0, "maximum": 100 },
           "averagePlaytimeMinutes": { "type": "number", "minimum": 0 }
         }
+      },
+      "OAuthStartResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["authorizationUrl"],
+        "properties": {
+          "authorizationUrl": {
+            "type": "string",
+            "pattern": "^https://apis\\.roblox\\.com/oauth/v1/authorize\\?"
+          }
+        }
+      },
+      "RobloxUserProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sub"],
+        "properties": {
+          "sub": { "type": "string", "pattern": "^[0-9]+$" },
+          "name": { "type": "string" },
+          "nickname": { "type": "string" },
+          "preferredUsername": { "type": "string" },
+          "profileUrl": { "type": "string", "format": "uri" },
+          "pictureUrl": { "type": "string", "format": "uri" }
+        }
+      },
+      "SessionExchangeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code"],
+        "properties": {
+          "code": { "type": "string", "minLength": 32, "maxLength": 128, "writeOnly": true }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expiresAt", "user"],
+        "properties": {
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "user": { "$ref": "#/components/schemas/RobloxUserProfile" }
+        }
+      },
+      "SessionExchangeResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SessionResponse" },
+          {
+            "type": "object",
+            "required": ["token"],
+            "properties": {
+              "token": { "type": "string", "minLength": 32, "readOnly": true }
+            }
+          }
+        ]
       },
       "AnalyticsConnectionRequest": {
         "type": "object",
@@ -206,7 +392,8 @@
         "additionalProperties": false,
         "required": ["error"],
         "properties": {
-          "error": { "type": "string" }
+          "error": { "type": "string" },
+          "message": { "type": "string" }
         }
       }
     }
