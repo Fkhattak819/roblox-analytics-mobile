@@ -51,7 +51,14 @@ export async function routeRequest(
 
   if (request.method === "GET" && request.path === "/v1/auth/roblox/start") {
     const result = createOAuthStart(config);
-    return result.error ? response(503, result) : response(200, result);
+    if (result.error) return response(503, { status: "not_configured", message: result.error });
+
+    // Never return the PKCE verifier or nonce before server-side OAuth session
+    // persistence and the callback exchange are implemented.
+    return response(501, {
+      status: "not_configured",
+      message: "Roblox OAuth callback and state persistence are not enabled in this scaffold.",
+    });
   }
 
   if (request.method === "POST" && request.path === "/v1/connections/analytics/validate") {

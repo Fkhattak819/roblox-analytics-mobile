@@ -24,6 +24,7 @@ npm start
 
 Start here:
 
+- [API contract and backend route plan](docs/API_CONTRACT.md)
 - [Mac and iOS development playbook](docs/MAC_IOS_DEVELOPMENT_PLAYBOOK.md)
 - [Ready-to-paste overnight Codex goal](NIGHT_GOAL.md)
 - [Figma implementation manifest](docs/FIGMA_IMPLEMENTATION_MANIFEST.md)

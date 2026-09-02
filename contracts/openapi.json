@@ -1,0 +1,214 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "roblox-analytics-mobile API",
+    "version": "0.1.0",
+    "description": "Credential-free development API contract. Operations marked as scaffolded remain disabled until their security prerequisites are implemented."
+  },
+  "servers": [
+    {
+      "url": "https://bqrr070bkf.execute-api.us-east-2.amazonaws.com",
+      "description": "AWS development"
+    }
+  ],
+  "tags": [
+    { "name": "System" },
+    { "name": "Sample" },
+    { "name": "Authentication" },
+    { "name": "Connections" }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": ["System"],
+        "summary": "Check API availability",
+        "responses": {
+          "200": {
+            "description": "The API is available",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sample/home": {
+      "get": {
+        "operationId": "getSampleHome",
+        "tags": ["Sample"],
+        "summary": "Load the deterministic Home sample",
+        "description": "This public development route contains no user or Roblox data.",
+        "responses": {
+          "200": {
+            "description": "A labeled sample Home snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HomeSnapshot" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/roblox/start": {
+      "get": {
+        "operationId": "startRobloxOAuth",
+        "tags": ["Authentication"],
+        "summary": "Start Roblox OAuth",
+        "description": "Scaffolded and intentionally disabled until OAuth state persistence and the callback exchange are implemented.",
+        "responses": {
+          "501": {
+            "description": "OAuth flow is not implemented",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotConfiguredResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "OAuth client configuration is absent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotConfiguredResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/analytics/validate": {
+      "post": {
+        "operationId": "validateAnalyticsConnection",
+        "tags": ["Connections"],
+        "summary": "Validate an analytics connection request",
+        "description": "Scaffolded and disabled in AWS. The API does not currently inspect, call Roblox with, or persist submitted credentials.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnalyticsConnectionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "501": {
+            "description": "Local shape validation passed, but cloud validation is not implemented",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalyticsConnectionPreview" }
+              }
+            }
+          },
+          "503": {
+            "description": "Credential submission is disabled in AWS development",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotConfiguredResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ok", "service", "mode"],
+        "properties": {
+          "ok": { "const": true },
+          "service": { "const": "roblox-analytics-mobile-backend" },
+          "mode": { "type": "string", "enum": ["local", "aws"] }
+        }
+      },
+      "HomeSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "source", "freshness", "portfolio", "message"],
+        "properties": {
+          "mode": { "type": "string", "enum": ["sample", "connected"] },
+          "source": { "type": "string", "enum": ["sample_data", "roblox_open_cloud"] },
+          "freshness": { "type": "string", "enum": ["fixture", "fresh", "stale", "syncing"] },
+          "asOf": { "type": "string", "format": "date-time" },
+          "portfolio": { "$ref": "#/components/schemas/HomePortfolio" },
+          "message": { "type": "string" }
+        }
+      },
+      "HomePortfolio": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revenueRobux", "dailyActiveUsers", "forwardD1Retention", "averagePlaytimeMinutes"],
+        "properties": {
+          "revenueRobux": { "type": "number", "minimum": 0 },
+          "dailyActiveUsers": { "type": "number", "minimum": 0 },
+          "forwardD1Retention": { "type": "number", "minimum": 0, "maximum": 100 },
+          "averagePlaytimeMinutes": { "type": "number", "minimum": 0 }
+        }
+      },
+      "AnalyticsConnectionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["apiKey", "universeIds"],
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "minLength": 10,
+            "writeOnly": true,
+            "description": "Dedicated Roblox Open Cloud key. Never log or return this value."
+          },
+          "universeIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        }
+      },
+      "AnalyticsConnectionPreview": {
+        "type": "object",
+        "required": ["status", "scope", "universeIds", "message"],
+        "properties": {
+          "status": { "const": "not_configured" },
+          "scope": { "const": "universe.analytics:read" },
+          "universeIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fingerprint": { "type": "string", "pattern": "^\\.\\.\\..{4}$" },
+          "message": { "type": "string" }
+        }
+      },
+      "NotConfiguredResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "message"],
+        "properties": {
+          "status": { "const": "not_configured" },
+          "message": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}

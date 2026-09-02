@@ -157,7 +157,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       functionName,
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
-      handler: "dist/lambda/api-handler.handler",
+      handler: "dist/backend/src/lambda/api-handler.handler",
       code: lambda.Code.fromAsset(backendRoot, {
         exclude: ["src/**", "tests/**", "tsconfig.json", "README.md", ".env*", ".gitignore"],
       }),

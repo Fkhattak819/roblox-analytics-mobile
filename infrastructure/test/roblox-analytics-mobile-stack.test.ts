@@ -24,7 +24,7 @@ test("development stack stays small, bounded, and credential-free", () => {
 
   template.hasResourceProperties("AWS::Lambda::Function", {
     FunctionName: "roblox-analytics-mobile-dev-api",
-    Handler: "dist/lambda/api-handler.handler",
+    Handler: "dist/backend/src/lambda/api-handler.handler",
     Runtime: "nodejs22.x",
     Environment: {
       Variables: Match.objectLike({ APP_ENV: "dev" }),

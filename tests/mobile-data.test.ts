@@ -11,6 +11,14 @@ test('validates the Home payload at the mobile boundary', () => {
     () => parseHomeSnapshot({ ...offlineSampleHome, source: 'unknown' }),
     /unsupported home snapshot metadata/,
   );
+  assert.throws(
+    () =>
+      parseHomeSnapshot({
+        ...offlineSampleHome,
+        portfolio: { ...offlineSampleHome.portfolio, forwardD1Retention: 101 },
+      }),
+    /outside its allowed range/,
+  );
 });
 
 test('Sample Mode stays offline', async () => {

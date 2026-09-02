@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fingerprintSecret, validateConnectionInput } from "../dist/modules/analytics/connection.js";
-import { sampleHome } from "../dist/modules/sample/sample.js";
-import { loadConfig } from "../dist/config.js";
-import { handler } from "../dist/lambda/api-handler.js";
-import { routeRequest } from "../dist/router.js";
+import { parseHomeSnapshot } from "../dist/contracts/src/home.js";
+import { fingerprintSecret, validateConnectionInput } from "../dist/backend/src/modules/analytics/connection.js";
+import { sampleHome } from "../dist/backend/src/modules/sample/sample.js";
+import { loadConfig } from "../dist/backend/src/config.js";
+import { handler } from "../dist/backend/src/lambda/api-handler.js";
+import { routeRequest } from "../dist/backend/src/router.js";
 
 test("validates an analytics connection and supports safe fingerprinting", () => {
   const result = validateConnectionInput({ apiKey: "secret-key-value", universeIds: ["123"] });
@@ -14,6 +15,7 @@ test("validates an analytics connection and supports safe fingerprinting", () =>
 
 test("sample mode is deterministic and labeled", () => {
   const data = sampleHome();
+  assert.deepEqual(parseHomeSnapshot(data), data);
   assert.equal(data.mode, "sample");
   assert.equal(data.source, "sample_data");
   assert.match(data.message, /Sample Data/);
@@ -51,4 +53,15 @@ test("AWS scaffold rejects Roblox credentials before inspecting them", async () 
   assert.equal(response.statusCode, 503);
   assert.equal(JSON.parse(response.body).status, "not_configured");
   assert.doesNotMatch(response.body, /do-not-process-this/);
+});
+
+test("OAuth scaffold never exposes its PKCE verifier or nonce", async () => {
+  const response = await routeRequest(
+    { method: "GET", path: "/v1/auth/roblox/start" },
+    loadConfig({ ROBLOX_OAUTH_CLIENT_ID: "configured-client" }),
+    "local",
+  );
+  const payload = JSON.stringify(response.body);
+  assert.equal(response.statusCode, 501);
+  assert.doesNotMatch(payload, /codeVerifier|nonce|authorizationUrl/);
 });
