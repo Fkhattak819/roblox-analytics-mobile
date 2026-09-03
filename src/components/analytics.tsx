@@ -15,6 +15,7 @@ import Animated, {
 import { LineChart } from '@/src/components/charts';
 import { Card, StudioText } from '@/src/components/ui';
 import { colors, radii, spacing } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -107,7 +108,7 @@ export function AnalyticsMetricCard({
   label,
   value,
   delta,
-  direction = 'positive',
+  direction,
 }: {
   label: string;
   value: string;
@@ -115,11 +116,7 @@ export function AnalyticsMetricCard({
   direction?: 'positive' | 'negative' | 'neutral';
 }) {
   const displayDelta = normalizeAnalyticsDelta(delta);
-  const deltaColor = direction === 'positive'
-    ? colors.green
-    : direction === 'negative'
-      ? colors.red
-      : colors.textMuted;
+  const deltaColor = metricTrendColor(displayDelta, direction);
 
   return (
     <Card style={styles.metricCard}>

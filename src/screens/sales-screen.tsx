@@ -23,6 +23,7 @@ import { experiences, liveSales, products, revenueTrend, type Sale } from '@/src
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
 import { colors, radii, spacing } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 const sections = ['Overview', 'Live', 'Products'] as const;
 type SalesSection = (typeof sections)[number];
@@ -48,7 +49,7 @@ function SalesMetric({ label, value, delta }: { label: string; value: string; de
     <Card style={styles.salesMetric}>
       <StudioText tone="muted" weight="medium" size={9}>{label}</StudioText>
       <StudioText weight="semibold" size={20}>{value}</StudioText>
-      <StudioText tone="green" weight="semibold" size={10}>{delta}</StudioText>
+      <StudioText weight="semibold" size={10} style={{ color: metricTrendColor(delta) }}>{delta}</StudioText>
     </Card>
   );
 }

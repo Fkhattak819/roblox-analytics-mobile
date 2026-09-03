@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { appEnvironment } from '@/services/backend-api';
@@ -14,6 +13,7 @@ import { colors, fonts } from '@/src/theme/tokens';
 export default function ExperiencePickerScreen() {
   const { setSelectedExperienceId } = useApp();
   const [query, setQuery] = useState('');
+  const [wideArtworkFailed, setWideArtworkFailed] = useState(false);
   const normalized = query.trim().toLowerCase();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
   const choices = useMemo(
@@ -50,9 +50,16 @@ export default function ExperiencePickerScreen() {
           <>
             <SectionLabel>SELECTED EXPERIENCE</SectionLabel>
             <Pressable onPress={() => choose('most-words-win')} style={({ pressed }) => [styles.selectedCard, pressed && styles.pressed]}>
-              <Image source={experienceArtwork.mostWordsWinWide} contentFit="cover" style={styles.heroArtwork} />
+              <Image
+                accessibilityLabel="Most Words Win game thumbnail"
+                source={wideArtworkFailed ? experiences[0].image : experienceArtwork.mostWordsWinWide}
+                resizeMode="cover"
+                fadeDuration={0}
+                onError={() => setWideArtworkFailed(true)}
+                style={styles.heroArtwork}
+              />
               <View style={styles.selectedInfo}>
-                <Image source={experiences[0].image} contentFit="cover" style={styles.selectedIcon} />
+                <Image source={experiences[0].image} resizeMode="cover" fadeDuration={0} style={styles.selectedIcon} />
                 <View style={styles.flex}>
                   <StudioText weight="semibold" size={16}>Most Words Win!</StudioText>
                   <StudioText tone="muted" size={11} numberOfLines={1}>
@@ -109,7 +116,7 @@ const styles = StyleSheet.create({
   sectionLabel: { letterSpacing: 0.1 },
   yourLabel: { marginTop: 15 },
   selectedCard: { borderWidth: 2, borderColor: '#3E70FF', borderRadius: 14, backgroundColor: '#171A20', overflow: 'hidden' },
-  heroArtwork: { width: '100%', aspectRatio: 1.78 },
+  heroArtwork: { width: '100%', height: 176, backgroundColor: colors.surfaceSoft },
   selectedInfo: { minHeight: 76, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
   selectedIcon: { width: 50, height: 50, borderRadius: 8 },
   checkCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#4675FF', alignItems: 'center', justifyContent: 'center' },

@@ -11,6 +11,7 @@ import { experiences, groups, type Experience } from '@/src/data/sample-data';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
 import { colors, fonts, radii, spacing } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 type ExperiencePresentation = {
   name: string;
@@ -321,7 +322,7 @@ function ExperienceCard({ experience, expanded = false, presentation }: { experi
 }
 
 function Stat({ label, value, delta }: { label: string; value: string; delta: string }) {
-  const deltaTone = delta.startsWith('-') || delta.startsWith('↓') ? colors.red : delta === '—' ? colors.textMuted : colors.green;
+  const deltaTone = metricTrendColor(delta);
   const formattedDelta = delta === '—'
     ? '—'
     : delta.startsWith('↑') || delta.startsWith('↓')

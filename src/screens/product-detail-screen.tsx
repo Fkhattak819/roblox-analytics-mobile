@@ -9,6 +9,7 @@ import { appEnvironment } from '@/services/backend-api';
 import { Card, PageHeader, PersistentTabBar, Screen, StudioText } from '@/src/components/ui';
 import { experiences, liveSales } from '@/src/data/sample-data';
 import { colors } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 export default function ProductDetailScreen() {
   if (appEnvironment.dataMode === 'aws_dev') {
@@ -92,7 +93,7 @@ function Segment({ label, selected = false }: { label: string; selected?: boolea
 }
 
 function Metric({ label, value, delta }: { label: string; value: string; delta: string }) {
-  return <Card style={styles.metric}><StudioText tone="muted" size={8}>{label}</StudioText><StudioText weight="semibold" size={20}>{value}</StudioText><StudioText tone="green" weight="semibold" size={9}>{delta}</StudioText></Card>;
+  return <Card style={styles.metric}><StudioText tone="muted" size={8}>{label}</StudioText><StudioText weight="semibold" size={20}>{value}</StudioText><StudioText weight="semibold" size={9} style={{ color: metricTrendColor(delta) }}>{delta}</StudioText></Card>;
 }
 
 function Legend({ color, label }: { color: string; label: string }) {

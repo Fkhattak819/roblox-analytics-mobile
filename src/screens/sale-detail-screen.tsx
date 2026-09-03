@@ -8,6 +8,7 @@ import { appEnvironment } from '@/services/backend-api';
 import { Card, Divider, PageHeader, PersistentTabBar, Screen, StudioText } from '@/src/components/ui';
 import { liveSales, revenueTrend } from '@/src/data/sample-data';
 import { colors } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 export default function SaleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -105,7 +106,7 @@ function DetailRow({ label, value, green = false }: { label: string; value: stri
 }
 
 function Metric({ label, value, delta }: { label: string; value: string; delta: string }) {
-  return <Card style={styles.metric}><StudioText tone="muted" size={9}>{label}</StudioText><StudioText weight="semibold" size={21}>{value}</StudioText><StudioText tone="green" weight="semibold" size={9}>{delta}</StudioText></Card>;
+  return <Card style={styles.metric}><StudioText tone="muted" size={9}>{label}</StudioText><StudioText weight="semibold" size={21}>{value}</StudioText><StudioText weight="semibold" size={9} style={{ color: metricTrendColor(delta) }}>{delta}</StudioText></Card>;
 }
 
 const styles = StyleSheet.create({

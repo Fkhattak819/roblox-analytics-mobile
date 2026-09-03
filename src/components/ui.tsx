@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, contentMaxWidth, fonts, radii, shadow, spacing } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type TextWeight = 'regular' | 'medium' | 'semibold' | 'bold';
@@ -279,6 +280,7 @@ export function MetricCard({
   change,
   icon,
   accent = colors.blue,
+  direction,
   children,
   onPress,
 }: React.PropsWithChildren<{
@@ -287,6 +289,7 @@ export function MetricCard({
   change?: string;
   icon?: IconName;
   accent?: string;
+  direction?: 'positive' | 'negative' | 'neutral';
   onPress?: () => void;
 }>) {
   return (
@@ -296,7 +299,7 @@ export function MetricCard({
         {icon ? <Ionicons name={icon} size={16} color={accent} /> : null}
       </View>
       <StudioText weight="bold" size={24}>{value}</StudioText>
-      {change ? <StudioText size={12} weight="semibold" style={{ color: change.startsWith('-') ? colors.red : colors.green }}>{change}</StudioText> : null}
+      {change ? <StudioText size={12} weight="semibold" style={{ color: metricTrendColor(change, direction) }}>{change}</StudioText> : null}
       {children}
     </Card>
   );

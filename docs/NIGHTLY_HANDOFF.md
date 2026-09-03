@@ -29,6 +29,8 @@ Updated: 2026-09-03 (America/Chicago)
 - Added a reusable, horizontally snapping mobile benchmark carousel to connected Home and Analytics. It reproduces all six values from the owner's Creator Dashboard capture: average playtime, D1 retention, D7 retention, payer conversion, ARPPU, and play-through rate, including percentiles and 50th/90th callouts.
 - Kept dashboard benchmarks separate from API-backed metrics and labeled their provenance `ROBLOX WEB`; no undocumented cookie-authenticated endpoint was introduced.
 - Re-ran the 393 x 852 simulator loop after correcting a clipped benchmark callout and the `3th` ordinal. Verified Home, Analytics, horizontal benchmark navigation, loading skeleton transition, and the connected Experiences artwork.
+- Extended connected Home beyond the Figma full-scroll frame. The page now includes a DAU hero, fast revenue/playtime cards, recent peak, game-quality carousel, strongest-change insight, six-section quick look, two deep trend cards, benchmarks, retention snapshot, monetization, acquisition funnel, performance health, three prioritized `Focus next` prompts, and per-section data coverage.
+- Home insight copy is derived only from returned metric values and comparisons. Missing snapshots remain `Not synced`, `Awaiting signal`, or `WAITING`; the UI does not infer health or fabricate live CCU, server counts, product rankings, or Roblox metrics.
 
 ## Verification
 

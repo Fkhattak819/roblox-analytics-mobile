@@ -1,38 +1,49 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { RobloxBenchmark } from '@/src/data/roblox-benchmarks';
 import { Card, StudioText } from '@/src/components/ui';
 import { colors } from '@/src/theme/tokens';
+import { metricTrendColor } from '@/src/utils/metric-trend';
 
 export function AnalyticsBenchmarkCarousel({
   benchmarks,
 }: {
   benchmarks: readonly RobloxBenchmark[];
 }) {
+  const { width: viewportWidth } = useWindowDimensions();
+  const cardWidth = Math.min(340, Math.max(280, viewportWidth - 54));
+  const snapInterval = cardWidth + 12;
+
   return (
     <ScrollView
       horizontal
       decelerationRate="fast"
-      snapToInterval={318}
+      disableIntervalMomentum
+      snapToAlignment="start"
+      snapToInterval={snapInterval}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.carousel}>
-      {benchmarks.map((benchmark) => <AnalyticsBenchmarkCard key={benchmark.id} benchmark={benchmark} />)}
+      {benchmarks.map((benchmark) => <AnalyticsBenchmarkCard key={benchmark.id} benchmark={benchmark} width={cardWidth} />)}
     </ScrollView>
   );
 }
 
-export function AnalyticsBenchmarkCard({ benchmark }: { benchmark: RobloxBenchmark }) {
+export function AnalyticsBenchmarkCard({ benchmark, width }: { benchmark: RobloxBenchmark; width?: number }) {
   const markerPosition = Math.max(1.5, Math.min(98, benchmark.percentile));
   const percentileLabel = ordinal(benchmark.percentile);
-  const changeColor = benchmark.direction === 'positive' ? colors.green : colors.textSecondary;
-  const changeBackground = benchmark.direction === 'positive' ? '#173827' : '#343740';
+  const changeColor = metricTrendColor(benchmark.change, benchmark.direction);
+  const changeBackground = changeColor === colors.green
+    ? colors.greenSoft
+    : changeColor === colors.red
+      ? colors.redSoft
+      : '#343740';
 
   return (
     <Card
       accessibilityLabel={`${benchmark.title}. ${benchmark.value}. ${benchmark.change}. ${percentileLabel} percentile. Median ${benchmark.median}. 90th percentile ${benchmark.topDecile}.`}
-      style={styles.card}>
+      style={[styles.card, width ? { width } : undefined]}>
       <View style={styles.titleRow}>
         <StudioText tone="secondary" weight="semibold" size={14} numberOfLines={2} style={styles.title}>
           {benchmark.title}
@@ -87,19 +98,19 @@ function BenchmarkCallout({ left, label, value }: { left: `${number}%`; label: s
 }
 
 const styles = StyleSheet.create({
-  carousel: { gap: 10, paddingRight: 18 },
-  card: { width: 308, height: 212, padding: 15, borderRadius: 13, backgroundColor: '#111216', borderColor: '#34363D' },
-  titleRow: { minHeight: 39, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  carousel: { gap: 12, paddingRight: 18 },
+  card: { width: 308, minHeight: 192, padding: 14, gap: 8, borderRadius: 13, backgroundColor: '#111216', borderColor: '#34363D' },
+  titleRow: { minHeight: 28, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   title: { flex: 1 },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   changePill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
-  scale: { height: 102, marginTop: 7 },
+  scale: { height: 86 },
   percentile: { position: 'absolute', top: 0, width: 58, marginLeft: -27, textAlign: 'center' },
-  trackRow: { position: 'absolute', left: 0, right: 0, top: 28, height: 8, flexDirection: 'row', gap: 6 },
+  trackRow: { position: 'absolute', left: 0, right: 0, top: 25, height: 8, flexDirection: 'row', gap: 6 },
   trackSegment: { height: 8, borderRadius: 5, backgroundColor: '#5A5B63' },
-  trackFill: { position: 'absolute', left: 0, top: 28, height: 8, borderRadius: 5 },
-  markerHalo: { position: 'absolute', top: 21, width: 22, height: 22, marginLeft: -11, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
+  trackFill: { position: 'absolute', left: 0, top: 25, height: 8, borderRadius: 5 },
+  markerHalo: { position: 'absolute', top: 18, width: 22, height: 22, marginLeft: -11, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
   marker: { width: 16, height: 16, borderRadius: 9, borderWidth: 3, borderColor: '#FFFFFF', backgroundColor: '#BFC2C8' },
-  callout: { position: 'absolute', top: 55, width: 76, minHeight: 43, marginLeft: -38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#191A1F' },
+  callout: { position: 'absolute', top: 46, width: 76, height: 40, marginLeft: -38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#191A1F' },
   calloutPointer: { position: 'absolute', top: -5, width: 10, height: 10, transform: [{ rotate: '45deg' }], backgroundColor: '#191A1F' },
 });
