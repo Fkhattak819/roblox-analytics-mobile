@@ -5,9 +5,9 @@ import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop, Text as SvgT
 import { StudioText } from '@/src/components/ui';
 import { colors, fonts } from '@/src/theme/tokens';
 
-function pointsFor(values: number[], width: number, height: number, inset = 8) {
-  const max = Math.max(...values);
-  const min = Math.min(...values);
+function pointsFor(values: number[], width: number, height: number, inset = 8, domain = values) {
+  const max = Math.max(...domain);
+  const min = Math.min(...domain);
   const range = max - min || 1;
   return values.map((value, index) => ({
     x: inset + (index / Math.max(1, values.length - 1)) * (width - inset * 2),
@@ -35,6 +35,7 @@ export function LineChart({
   selectedIndex,
   fillArea = true,
   dashedGrid = false,
+  yAxisLabels,
 }: {
   values: number[];
   color?: string;
@@ -45,14 +46,24 @@ export function LineChart({
   selectedIndex?: number;
   fillArea?: boolean;
   dashedGrid?: boolean;
+  yAxisLabels?: string[];
 }) {
   const [width, setWidth] = useState(330);
   const chartHeight = labels ? height - 24 : height;
-  const points = useMemo(() => pointsFor(values, width, chartHeight, 9), [chartHeight, values, width]);
+  const yAxisWidth = yAxisLabels?.length ? 32 : 0;
+  const plotWidth = Math.max(1, width - yAxisWidth);
+  const comparisonDomain = useMemo(
+    () => comparisonValues?.length ? [...values, ...comparisonValues] : values,
+    [comparisonValues, values],
+  );
+  const points = useMemo(
+    () => pointsFor(values, plotWidth, chartHeight, 9, comparisonDomain).map((point) => ({ ...point, x: point.x + yAxisWidth })),
+    [chartHeight, comparisonDomain, plotWidth, values, yAxisWidth],
+  );
   const linePath = useMemo(() => smoothPath(points), [points]);
   const comparisonPath = useMemo(
-    () => comparisonValues ? smoothPath(pointsFor(comparisonValues, width, chartHeight, 9)) : '',
-    [chartHeight, comparisonValues, width],
+    () => comparisonValues ? smoothPath(pointsFor(comparisonValues, plotWidth, chartHeight, 9, comparisonDomain).map((point) => ({ ...point, x: point.x + yAxisWidth }))) : '',
+    [chartHeight, comparisonDomain, comparisonValues, plotWidth, yAxisWidth],
   );
   const areaPath = points.length ? `${linePath} L ${points.at(-1)?.x} ${chartHeight} L ${points[0].x} ${chartHeight} Z` : '';
   const gradientId = `line-fill-${color.replace('#', '')}`;
@@ -73,7 +84,7 @@ export function LineChart({
         {[0.25, 0.5, 0.75].map((part) => (
           <Line
             key={part}
-            x1="0"
+            x1={yAxisWidth}
             y1={chartHeight * part}
             x2={width}
             y2={chartHeight * part}
@@ -82,6 +93,20 @@ export function LineChart({
             strokeDasharray={dashedGrid ? '3 5' : undefined}
           />
         ))}
+        {yAxisLabels?.map((label, index) => {
+          const y = 10 + (index / Math.max(1, yAxisLabels.length - 1)) * (chartHeight - 18);
+          return (
+            <SvgText
+              key={`${label}-${index}`}
+              x="0"
+              y={y}
+              fill={colors.textFaint}
+              fontFamily={fonts.medium}
+              fontSize="8">
+              {label}
+            </SvgText>
+          );
+        })}
         {fillArea ? <Path d={areaPath} fill={`url(#${gradientId})`} /> : null}
         {selected ? (
           <Line
@@ -105,7 +130,7 @@ export function LineChart({
           </>
         ) : null}
         {labels?.map((label, index) => {
-          const x = 9 + (index / Math.max(1, labels.length - 1)) * (width - 18);
+          const x = yAxisWidth + 9 + (index / Math.max(1, labels.length - 1)) * (plotWidth - 18);
           return (
             <SvgText
               key={`${label}-${index}`}

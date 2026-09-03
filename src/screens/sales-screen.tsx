@@ -1,9 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Line, Path } from 'react-native-svg';
 
+import type { AnalyticsDateRange, AnalyticsSnapshot } from '@/domain/analytics';
+import { appEnvironment } from '@/services/backend-api';
+import { AnalyticsDataStatus, AnalyticsErrorState, AnalyticsLoadingSkeleton, AnalyticsMetricCard } from '@/src/components/analytics';
 import { LineChart } from '@/src/components/charts';
 import {
   Badge,
@@ -16,6 +20,7 @@ import {
   uiStyles,
 } from '@/src/components/ui';
 import { experiences, liveSales, products, revenueTrend, type Sale } from '@/src/data/sample-data';
+import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 
@@ -161,26 +166,89 @@ function Overview({ onSelect }: { onSelect: (section: SalesSection) => void }) {
 function LiveSales() {
   return (
     <>
-      <Card style={styles.truthCard}>
-        <View style={uiStyles.row}>
-          <View style={styles.liveDot} />
-          <StudioText weight="bold" size={16}>Live signal active</StudioText>
-          <Badge label="Signed" tone="green" />
+      <Card style={styles.liveHero}>
+        <StudioText tone="muted" weight="medium" size={9}>ROBUX TODAY</StudioText>
+        <View style={styles.liveHeroValueRow}>
+          <StudioText weight="bold" size={29}>R$ 4,832</StudioText>
+          <StudioText tone="green" weight="semibold" size={12}>↑ 22.6%</StudioText>
         </View>
-        <StudioText tone="secondary" size={13} lineHeight={18}>
-          New purchases appear instantly as preliminary events. They become official after Roblox Open Cloud reconciliation.
-        </StudioText>
+        <View style={styles.liveStats}>
+          <LiveStat label="SALES" value="18" />
+          <LiveStat label="AVG SALE" value="R$ 268" />
+          <LiveStat label="VELOCITY" value="3.6 / min" />
+        </View>
+        <LiveStepChart />
       </Card>
-      <SectionTitle title="Recent purchases" subtitle="No player identity is collected" />
-      <Card style={styles.listCard}>
-        {liveSales.map((sale, index) => (
-          <React.Fragment key={sale.id}>
-            <SaleRow sale={sale} />
-            {index < liveSales.length - 1 ? <Divider /> : null}
-          </React.Fragment>
-        ))}
+
+      <Card onPress={() => router.push('/notifications')} style={styles.smartGrouping}>
+        <View style={uiStyles.flex}>
+          <StudioText tone="blue" weight="semibold" size={9}>SMART GROUPING</StudioText>
+          <StudioText weight="semibold" size={14}>12 routine sales grouped</StudioText>
+          <StudioText tone="muted" size={10}>R$ 2,180 · last 5 min</StudioText>
+        </View>
+        <StudioText tone="blue" weight="medium" size={11}>Open  ›</StudioText>
       </Card>
+
+      <SectionTitle title="Confirmed purchases" action="Filter  ›" />
+      <View style={styles.livePurchaseList}>
+        {liveSales.slice(0, 4).map((sale) => <LivePurchaseRow key={sale.id} sale={sale} />)}
+      </View>
+
+      <SectionTitle title="Sale alerts" subtitle="Choose signal, not noise" action="Configure  ›" onAction={() => router.push('/notifications')} />
+      <Card style={styles.alertModes}>
+        <AlertMode label="Every sale" value="OFF" />
+        <AlertMode label="Smart" value="ON" active />
+        <AlertMode label="Milestones" />
+        <AlertMode label="Digest" value="DAILY" last />
+      </Card>
+
+      <Card style={styles.liveDisclosure}>
+        <StudioText weight="semibold" size={13}>How exact alerts work</StudioText>
+        <StudioText tone="muted" size={11} lineHeight={16}>Exact purchase alerts require signed, opt-in SDK or webhook instrumentation. Official aggregate analytics stays read-only.</StudioText>
+      </Card>
+      <StudioText tone="muted" size={10} style={styles.privacyLine}>Player identity excluded by default  ·  Learn more  ›</StudioText>
     </>
+  );
+}
+
+function LiveStat({ label, value }: { label: string; value: string }) {
+  return <View style={styles.liveStat}><StudioText tone="muted" size={8}>{label}</StudioText><StudioText weight="semibold" size={18}>{value}</StudioText></View>;
+}
+
+function LiveStepChart() {
+  return (
+    <View style={styles.liveChart}>
+      <Svg width="100%" height="34" viewBox="0 0 325 34">
+        <Line x1="0" y1="31" x2="325" y2="31" stroke={colors.border} strokeWidth="1" />
+        <Path d="M0 30H24V25H53V28H85V18H110V24H143V12H168V20H206V16H242V8H276V13H325" fill="none" stroke={colors.green} strokeWidth="2" strokeLinejoin="round" />
+      </Svg>
+    </View>
+  );
+}
+
+function LivePurchaseRow({ sale }: { sale: Sale }) {
+  const statusTone = sale.status === 'Delayed' ? colors.yellow : colors.green;
+  return (
+    <Pressable onPress={() => router.push({ pathname: '/sale/[id]', params: { id: sale.id } })} style={({ pressed }) => [styles.livePurchaseRow, pressed && styles.pressed]}>
+      <View style={styles.liveProductTile}><StudioText weight="bold" size={14}>P</StudioText></View>
+      <View style={uiStyles.flex}>
+        <StudioText weight="semibold" size={13}>{sale.product}</StudioText>
+        <StudioText tone="muted" size={10}>{sale.experience} · {sale.time}</StudioText>
+      </View>
+      <View style={styles.livePurchaseAmount}>
+        <StudioText weight="semibold" size={13}>R$ {sale.price.toLocaleString()}</StudioText>
+        <StudioText weight="semibold" size={8} style={{ color: statusTone }}>{sale.status.toUpperCase()}</StudioText>
+      </View>
+    </Pressable>
+  );
+}
+
+function AlertMode({ label, value, active = false, last = false }: { label: string; value?: string; active?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.alertMode, !last && styles.alertModeDivider]}>
+      <StudioText size={12}>{label}</StudioText>
+      {value ? <StudioText tone={active ? 'green' : 'muted'} weight="semibold" size={9}>{value}</StudioText> : null}
+    </View>
   );
 }
 
@@ -213,6 +281,58 @@ function Products() {
       ))}
     </>
   );
+}
+
+function ConnectedSalesOverview({ snapshot, loading, error, reload }: { snapshot?: AnalyticsSnapshot; loading: boolean; error?: string; reload: () => void }) {
+  if (loading) return <AnalyticsLoadingSkeleton />;
+  if (error) return <AnalyticsErrorState message={error} onRetry={reload} />;
+  if (!snapshot) return null;
+  const revenueChart = snapshot.charts.find((chart) => chart.id === 'daily-revenue');
+  return (
+    <>
+      <Card onPress={() => router.push('/analytics/monetization')} accessibilityLabel="Open monetization analytics" style={styles.revenueHero}>
+        <StudioText tone="muted" weight="medium" size={9}>OFFICIAL ROBLOX MONETIZATION</StudioText>
+        <StudioText weight="bold" size={29}>{snapshot.metrics.find((metric) => metric.id === 'daily-revenue')?.displayValue ?? 'No revenue'}</StudioText>
+        <StudioText tone="muted" size={10}>Daily Robux spent · selected period</StudioText>
+        {revenueChart ? <View style={styles.revenueChart}><LineChart values={revenueChart.series[0]?.points.map((point) => point.value) ?? []} color={colors.blue} height={48} showLastDot={false} /></View> : null}
+      </Card>
+      <View style={styles.coreMetricsHeader}>
+        <StudioText weight="bold" size={17}>Core metrics</StudioText>
+        <Pressable hitSlop={8} onPress={() => router.push('/analytics/monetization')}><StudioText tone="blue" weight="medium" size={11}>View details ›</StudioText></Pressable>
+      </View>
+      <View style={styles.metricsGrid}>
+        {snapshot.metrics.map((metric) => (
+          <View key={metric.id} style={styles.connectedMetricCell}>
+            <AnalyticsMetricCard label={metric.label} value={metric.displayValue} delta={metric.change} direction={metric.direction} />
+          </View>
+        ))}
+      </View>
+      <AnalyticsDataStatus live text={snapshot.message} />
+      <Card style={styles.liveDisclosure}>
+        <StudioText weight="semibold" size={13}>Aggregate analytics only</StudioText>
+        <StudioText tone="muted" size={11} lineHeight={16}>Product rankings and individual purchase alerts are hidden until a supported, signed event source is configured.</StudioText>
+      </Card>
+    </>
+  );
+}
+
+function ConnectedSalesUnavailable({ section }: { section: Exclude<SalesSection, 'Overview'> }) {
+  return (
+    <Card style={styles.liveDisclosure}>
+      <StudioText weight="semibold" size={15}>{section === 'Live' ? 'Live sales are not configured' : 'Product-level sales are unavailable'}</StudioText>
+      <StudioText tone="muted" size={11} lineHeight={16}>{section === 'Live'
+        ? 'Official Roblox analytics are aggregate. Exact alerts require optional signed server events.'
+        : 'The current read-only Analytics Query connection does not expose a reliable product ranking feed.'}</StudioText>
+      {section === 'Live' ? <Pressable onPress={() => router.push('/live-sales-setup')}><StudioText tone="blue" weight="semibold" size={12}>Review optional setup ›</StudioText></Pressable> : null}
+    </Card>
+  );
+}
+
+function createSalesFallbackSnapshot(): AnalyticsSnapshot {
+  return {
+    mode: 'sample', source: 'sample_data', freshness: 'fixture', universeId: '10009166512', section: 'monetization', range: '7D',
+    metrics: [], charts: [], breakdowns: [], message: 'Sample sales summary',
+  };
 }
 
 function SalesExperienceSelector({ experience }: { experience: (typeof experiences)[number] }) {
@@ -261,21 +381,30 @@ function SalesSegments({ value, onChange }: { value: SalesSection; onChange: (se
 export default function SalesScreen() {
   const [section, setSection] = useState<SalesSection>('Overview');
   const [salesDateRange, setSalesDateRange] = useState<SalesDateRange>('7D');
-  const { liveSalesAlertsEnabled, selectedExperience } = useApp();
+  const { selectedExperience } = useApp();
+  const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
   const displayExperience = selectedExperience ?? experiences[0];
   const nextRange = salesRangeOptions[(salesRangeOptions.indexOf(salesDateRange) + 1) % salesRangeOptions.length];
-  const selectSection = (nextSection: SalesSection) => {
-    if (nextSection === 'Live' && !liveSalesAlertsEnabled) {
-      router.push('/live-sales-setup');
-      return;
-    }
-    setSection(nextSection);
-  };
-  const content = section === 'Live'
+  const selectSection = (nextSection: SalesSection) => setSection(nextSection);
+  const analyticsRange: AnalyticsDateRange = salesDateRange === '30D' ? '28D' : salesDateRange;
+  const sampleSnapshot = useMemo(createSalesFallbackSnapshot, []);
+  const analytics = useAnalyticsSnapshot({
+    universeId: '10009166512',
+    section: 'monetization',
+    range: analyticsRange,
+    sampleSnapshot,
+    enabled: isConnectedMode,
+  });
+  const sampleContent = section === 'Live'
     ? <LiveSales />
     : section === 'Products'
       ? <Products />
       : <Overview onSelect={selectSection} />;
+  const content = isConnectedMode
+    ? section === 'Overview'
+      ? <ConnectedSalesOverview snapshot={analytics.snapshot} loading={analytics.loading} error={analytics.error} reload={analytics.reload} />
+      : <ConnectedSalesUnavailable section={section} />
+    : sampleContent;
 
   return (
     <Screen contentContainerStyle={styles.screen}>
@@ -291,28 +420,30 @@ export default function SalesScreen() {
 
       <View style={styles.salesTitleRow}>
         <View style={uiStyles.flex}>
-          <StudioText weight="bold" size={28}>Sales</StudioText>
-          <StudioText tone="muted" size={11}>Official revenue · updated 2 min ago</StudioText>
+          <StudioText weight="bold" size={28}>{section === 'Live' ? 'Live sales' : 'Sales'}</StudioText>
+          <StudioText tone="muted" size={11}>{isConnectedMode
+            ? section === 'Overview' ? 'Roblox Open Cloud snapshot' : 'This data source is not configured'
+            : section === 'Live' ? 'Preliminary events · updates in real time' : 'Official revenue · updated 2 min ago'}</StudioText>
         </View>
-        <Pressable
+        {section === 'Live' && !isConnectedMode ? <View style={styles.livePill}><View style={styles.liveDot} /><StudioText tone="green" weight="semibold" size={9}>LIVE</StudioText></View> : <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Date range: ${salesRangeLabels[salesDateRange]}`}
           onPress={() => setSalesDateRange(nextRange)}
           style={({ pressed }) => [styles.dateRangeButton, pressed && styles.pressed]}>
           <StudioText weight="medium" size={11}>{salesRangeLabels[salesDateRange]}</StudioText>
           <Ionicons name="chevron-down" size={10} color={colors.textSecondary} />
-        </Pressable>
+        </Pressable>}
       </View>
 
       <SalesSegments value={section} onChange={selectSection} />
       {content}
-      <Card style={styles.footerTruth}>
+      {section === 'Overview' && !isConnectedMode ? <Card style={styles.footerTruth}>
         <Ionicons name="shield-checkmark-outline" size={19} color={colors.green} />
         <View style={uiStyles.flex}>
           <StudioText weight="semibold" size={13}>Truth you can trace</StudioText>
           <StudioText tone="muted" size={11}>Official totals come from Open Cloud. Live events are labeled until reconciled.</StudioText>
         </View>
-      </Card>
+      </Card> : null}
     </Screen>
   );
 }
@@ -377,6 +508,7 @@ const styles = StyleSheet.create({
   revenueChart: { marginTop: 6, marginHorizontal: -2, marginBottom: 1 },
   coreMetricsHeader: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  connectedMetricCell: { width: '48.4%' },
   salesMetric: { width: '48.85%', minHeight: 85, justifyContent: 'center', padding: 11, gap: 3, borderRadius: 12 },
   revenueSourcesCard: { padding: 12, gap: 7, borderRadius: 12 },
   sourceList: { gap: 13, marginTop: 4 },
@@ -384,6 +516,22 @@ const styles = StyleSheet.create({
   listCard: { paddingVertical: 4, gap: 0 },
   truthCard: { borderColor: '#5A4920', backgroundColor: '#1D1A13' },
   liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.green },
+  livePill: { minWidth: 84, height: 35, borderRadius: 18, borderWidth: 1, borderColor: '#17653A', backgroundColor: '#0F3422', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  liveHero: { height: 158, padding: 12, gap: 2, borderRadius: 13 },
+  liveHeroValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  liveStats: { flexDirection: 'row', marginTop: 7 },
+  liveStat: { flex: 1, gap: 1 },
+  liveChart: { height: 34, marginTop: 1 },
+  smartGrouping: { minHeight: 82, borderColor: '#36579C', backgroundColor: '#151B2A', borderRadius: 13, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  livePurchaseList: { gap: 7 },
+  livePurchaseRow: { minHeight: 72, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  liveProductTile: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#552765', alignItems: 'center', justifyContent: 'center' },
+  livePurchaseAmount: { alignItems: 'flex-end', gap: 3 },
+  alertModes: { padding: 0, gap: 0, overflow: 'hidden' },
+  alertMode: { minHeight: 38, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  alertModeDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  liveDisclosure: { gap: 4, backgroundColor: colors.backgroundRaised },
+  privacyLine: { textAlign: 'center', paddingBottom: 5 },
   saleRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 9 },
   saleIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.greenSoft },
   saleIconLive: { backgroundColor: colors.yellowSoft },

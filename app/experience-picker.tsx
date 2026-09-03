@@ -2,25 +2,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Badge, Card, IconButton, PageHeader, Screen, StudioText } from '@/src/components/ui';
-import { experiences } from '@/src/data/sample-data';
+import { appEnvironment } from '@/services/backend-api';
+import { StudioText } from '@/src/components/ui';
+import { experienceArtwork, experiences } from '@/src/data/sample-data';
 import { useApp } from '@/src/state/app-context';
-import { colors, fonts, radii, spacing } from '@/src/theme/tokens';
-
-const displayNames: Record<string, string> = {
-  'most-words-win': 'Most Words Win!',
-  'fling-squishies': 'Fling Squishies and People',
-  'wiggles-park': "Wiggle’s Park",
-};
+import { colors, fonts } from '@/src/theme/tokens';
 
 export default function ExperiencePickerScreen() {
-  const { selectedExperienceId, setSelectedExperienceId } = useApp();
+  const { setSelectedExperienceId } = useApp();
   const [query, setQuery] = useState('');
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const filtered = useMemo(() => experiences.filter((experience) =>
-    `${displayNames[experience.id] ?? experience.name} ${experience.creator}`.toLocaleLowerCase().includes(normalizedQuery)), [normalizedQuery]);
+  const normalized = query.trim().toLowerCase();
+  const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
+  const choices = useMemo(
+    () => (isConnectedMode ? experiences.slice(0, 1) : experiences.slice(0, 2))
+      .filter((item) => item.name.toLowerCase().includes(normalized)),
+    [isConnectedMode, normalized],
+  );
 
   const choose = (id: string | null) => {
     setSelectedExperienceId(id);
@@ -28,99 +28,92 @@ export default function ExperiencePickerScreen() {
   };
 
   return (
-    <Screen contentContainerStyle={styles.screenContent}>
-      <PageHeader
-        title="Choose experience"
-        subtitle="Portfolio scope"
-        right={<IconButton icon="close" accessibilityLabel="Close experience picker" onPress={() => router.back()} />}
-      />
-
-      <View style={styles.contextRow}>
-        <Badge label="SAMPLE DATA" tone="blue" />
-        <StudioText tone="muted" size={12}>Changes only what this read-only preview displays.</StudioText>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.handle} />
+      <View style={styles.header}>
+        <View style={styles.flex}>
+          <StudioText weight="semibold" size={23}>Choose experience</StudioText>
+          <StudioText tone="muted" size={13}>Switch the Analytics workspace</StudioText>
+        </View>
+        <Pressable accessibilityLabel="Close" onPress={() => router.back()} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
+          <Ionicons name="close" size={22} color={colors.textSecondary} />
+        </Pressable>
       </View>
 
       <View style={styles.searchField}>
-        <Ionicons name="search-outline" size={17} color={colors.textSecondary} />
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={setQuery}
-          placeholder="Search experiences"
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
-          value={query}
-        />
-        {query ? (
-          <Pressable accessibilityLabel="Clear search" hitSlop={9} onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+        <Ionicons name="search-outline" size={21} color={colors.textMuted} />
+        <TextInput autoCapitalize="none" autoCorrect={false} onChangeText={setQuery} placeholder="Search experiences" placeholderTextColor={colors.textMuted} style={styles.searchInput} value={query} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {(!normalized || choices.some((item) => item.id === 'most-words-win')) ? (
+          <>
+            <SectionLabel>SELECTED EXPERIENCE</SectionLabel>
+            <Pressable onPress={() => choose('most-words-win')} style={({ pressed }) => [styles.selectedCard, pressed && styles.pressed]}>
+              <Image source={experienceArtwork.mostWordsWinWide} contentFit="cover" style={styles.heroArtwork} />
+              <View style={styles.selectedInfo}>
+                <Image source={experiences[0].image} contentFit="cover" style={styles.selectedIcon} />
+                <View style={styles.flex}>
+                  <StudioText weight="semibold" size={16}>Most Words Win!</StudioText>
+                  <StudioText tone="muted" size={11} numberOfLines={1}>
+                    {isConnectedMode ? 'Universe 10009166512 · Authorized' : 'BrainNourish · Public · 1,041 CCU'}
+                  </StudioText>
+                </View>
+                <View style={styles.checkCircle}><Ionicons name="checkmark" size={19} color={colors.white} /></View>
+              </View>
+            </Pressable>
+            {!isConnectedMode ? <SectionLabel style={styles.yourLabel}>YOUR EXPERIENCES</SectionLabel> : null}
+          </>
+        ) : null}
+
+        {!isConnectedMode ? choices.filter((item) => item.id !== 'most-words-win').map((item) => (
+          <Pressable key={item.id} onPress={() => choose(item.id)} style={({ pressed }) => [styles.choiceCard, pressed && styles.pressed]}>
+            <View style={styles.initialTile}><StudioText weight="semibold" size={12}>FS</StudioText></View>
+            <View style={styles.flex}>
+              <StudioText weight="semibold" size={15}>Fling Squishies</StudioText>
+              <StudioText tone="muted" size={11}>BrainNourish group · 243 CCU</StudioText>
+            </View>
+            <StudioText tone="green" weight="medium" size={11}>Healthy</StudioText>
+          </Pressable>
+        )) : null}
+
+        {!isConnectedMode && !normalized ? (
+          <Pressable onPress={() => choose(null)} style={({ pressed }) => [styles.choiceCard, pressed && styles.pressed]}>
+            <View style={styles.gridTile}><Ionicons name="grid" size={22} color={colors.textSecondary} /></View>
+            <View style={styles.flex}>
+              <StudioText weight="semibold" size={15}>All experiences</StudioText>
+              <StudioText tone="muted" size={11}>Portfolio view · 2 experiences</StudioText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         ) : null}
-      </View>
-
-      {!normalizedQuery ? (
-        <Card onPress={() => choose(null)} accessibilityLabel="Show all experiences" style={styles.pickerCard}>
-          <View style={styles.allIcon}>
-            <Ionicons name="grid" size={20} color={colors.blue} />
-          </View>
-          <View style={styles.itemText}>
-            <StudioText weight="semibold" size={15}>All experiences</StudioText>
-            <StudioText tone="muted" size={12}>5 connected games · portfolio view</StudioText>
-          </View>
-          {!selectedExperienceId ? <Ionicons name="checkmark-circle" size={22} color={colors.blue} /> : null}
-        </Card>
-      ) : null}
-
-      <View style={styles.list}>
-        {filtered.map((experience) => {
-          const selected = experience.id === selectedExperienceId;
-          return (
-            <Card
-              key={experience.id}
-              onPress={() => choose(experience.id)}
-              accessibilityLabel={`Choose ${displayNames[experience.id] ?? experience.name}`}
-              style={[styles.pickerCard, selected && styles.selectedCard]}>
-              <Image source={experience.image} style={styles.gameImage} contentFit="cover" />
-              <View style={styles.itemText}>
-                <StudioText weight="semibold" size={15} numberOfLines={1}>{displayNames[experience.id] ?? experience.name}</StudioText>
-                <StudioText tone="muted" size={12} numberOfLines={1}>{experience.creator}</StudioText>
-              </View>
-              {selected ? <Ionicons name="checkmark-circle" size={22} color={colors.blue} /> : <Ionicons name="chevron-forward" size={17} color={colors.textFaint} />}
-            </Card>
-          );
-        })}
-      </View>
-
-      {!filtered.length ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="search" size={24} color={colors.textMuted} />
-          <StudioText weight="semibold">No matching experiences</StudioText>
-        </View>
-      ) : null}
-    </Screen>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+function SectionLabel({ children, style }: React.PropsWithChildren<{ style?: object }>) {
+  return <StudioText tone="muted" weight="semibold" size={10} style={[styles.sectionLabel, style]}>{children}</StudioText>;
+}
+
 const styles = StyleSheet.create({
-  screenContent: { gap: spacing.lg, paddingTop: 3 },
-  contextRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  searchField: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 13,
-  },
-  searchInput: { flex: 1, paddingVertical: 0, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
-  list: { gap: 9 },
-  pickerCard: { minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
-  selectedCard: { borderColor: colors.blue, backgroundColor: colors.blueSoft },
-  allIcon: { width: 46, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
-  gameImage: { width: 46, height: 46, borderRadius: 10 },
-  itemText: { flex: 1, gap: 2 },
-  emptyState: { alignItems: 'center', gap: 9, paddingVertical: spacing.xxl },
+  safeArea: { flex: 1, backgroundColor: '#0B0D11', borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#6E7480', alignSelf: 'center', marginTop: 8 },
+  header: { minHeight: 68, marginTop: 8, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  closeButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1B1E24', alignItems: 'center', justifyContent: 'center' },
+  searchField: { height: 44, marginHorizontal: 18, marginTop: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 11, backgroundColor: '#15181F', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  searchInput: { flex: 1, color: colors.text, fontFamily: fonts.regular, fontSize: 14, paddingVertical: 0 },
+  content: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 32, gap: 12 },
+  sectionLabel: { letterSpacing: 0.1 },
+  yourLabel: { marginTop: 15 },
+  selectedCard: { borderWidth: 2, borderColor: '#3E70FF', borderRadius: 14, backgroundColor: '#171A20', overflow: 'hidden' },
+  heroArtwork: { width: '100%', aspectRatio: 1.78 },
+  selectedInfo: { minHeight: 76, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  selectedIcon: { width: 50, height: 50, borderRadius: 8 },
+  checkCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#4675FF', alignItems: 'center', justifyContent: 'center' },
+  choiceCard: { minHeight: 72, padding: 11, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: '#14171D', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  initialTile: { width: 48, height: 48, borderRadius: 9, backgroundColor: '#713979', alignItems: 'center', justifyContent: 'center' },
+  gridTile: { width: 48, height: 48, borderRadius: 9, backgroundColor: '#20232A', alignItems: 'center', justifyContent: 'center' },
 });

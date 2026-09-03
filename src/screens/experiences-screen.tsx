@@ -4,8 +4,11 @@ import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import type { AnalyticsSnapshot } from '@/domain/analytics';
+import { appEnvironment } from '@/services/backend-api';
 import { Badge, Screen, StudioText } from '@/src/components/ui';
 import { experiences, groups, type Experience } from '@/src/data/sample-data';
+import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
 import { colors, fonts, radii, spacing } from '@/src/theme/tokens';
 
@@ -112,16 +115,26 @@ export default function ExperiencesScreen() {
   const { selectedExperience } = useApp();
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
+  const sampleSnapshot = useMemo(createExperienceSampleSnapshot, []);
+  const { snapshot } = useAnalyticsSnapshot({
+    universeId: '10009166512',
+    section: 'overview',
+    range: '28D',
+    sampleSnapshot,
+  });
+  const connectedPresentation = useMemo(() => presentationFromSnapshot(snapshot), [snapshot]);
+  const availableExperiences = isConnectedMode ? experiences.slice(0, 1) : experiences;
 
-  const filteredExperiences = useMemo(() => experiences.filter((experience) => {
+  const filteredExperiences = useMemo(() => availableExperiences.filter((experience) => {
     if (!normalizedQuery) return true;
     const detail = detailFor(experience);
     return `${detail.name} ${experience.creator}`.toLocaleLowerCase().includes(normalizedQuery);
-  }), [normalizedQuery]);
+  }), [availableExperiences, normalizedQuery]);
 
   const filteredIds = new Set(filteredExperiences.map((experience) => experience.id));
   const yourGames = filteredExperiences.filter((experience) => yourGameIds.has(experience.id));
-  const groupsWithGames = groups.map((group) => ({
+  const groupsWithGames = isConnectedMode ? [] : groups.map((group) => ({
     ...group,
     games: experiences.filter((experience) =>
       groupGameIds[group.id]?.includes(experience.id) && filteredIds.has(experience.id)),
@@ -130,13 +143,14 @@ export default function ExperiencesScreen() {
   return (
     <Screen contentContainerStyle={styles.screenContent}>
       <PortfolioSwitcher
-        title={selectedExperience ? detailFor(selectedExperience).name : 'All experiences'}
+        title={isConnectedMode ? 'Most Words Win!' : selectedExperience ? detailFor(selectedExperience).name : 'All experiences'}
+        image={isConnectedMode ? experiences[0].image : undefined}
         onPress={() => router.push('/experience-picker')}
       />
 
       <View style={styles.titleBlock}>
         <StudioText size={28} lineHeight={34} weight="bold">Experiences</StudioText>
-        <StudioText tone="muted" size={13}>5 connected games · 2 groups</StudioText>
+        <StudioText tone="muted" size={13}>{isConnectedMode ? '1 connected game · Roblox Open Cloud' : '5 connected games · 2 groups'}</StudioText>
       </View>
 
       <View style={styles.searchField}>
@@ -161,9 +175,9 @@ export default function ExperiencesScreen() {
 
       {yourGames.length ? (
         <View style={styles.section}>
-          <SectionHeading title="Your games" detail="Recently active" />
+          <SectionHeading title={isConnectedMode ? 'Authorized experience' : 'Your games'} detail={isConnectedMode ? 'Official analytics' : 'Recently active'} />
           {yourGames.map((experience) => (
-            <ExperienceCard key={experience.id} experience={experience} expanded />
+            <ExperienceCard key={experience.id} experience={experience} expanded presentation={isConnectedMode ? connectedPresentation : undefined} />
           ))}
         </View>
       ) : null}
@@ -207,13 +221,17 @@ export default function ExperiencesScreen() {
   );
 }
 
-function PortfolioSwitcher({ title, onPress }: { title: string; onPress: () => void }) {
+function PortfolioSwitcher({ title, image, onPress }: { title: string; image?: Experience['image']; onPress: () => void }) {
   return (
     <View style={styles.portfolioRow}>
       <Pressable onPress={onPress} style={({ pressed }) => [styles.portfolioButton, pressed && styles.pressed]}>
-        <View style={styles.brandTile}>
-          <StudioText weight="bold" size={13}>RA</StudioText>
-        </View>
+        {image ? (
+          <Image source={image} contentFit="cover" style={styles.portfolioImage} />
+        ) : (
+          <View style={styles.brandTile}>
+            <StudioText weight="bold" size={13}>RA</StudioText>
+          </View>
+        )}
         <View style={styles.portfolioText}>
           <StudioText tone="muted" weight="medium" size={10}>CREATOR PORTFOLIO</StudioText>
           <View style={styles.switcherTitleRow}>
@@ -257,8 +275,8 @@ function GroupHeader({ image, name, role }: { image: Experience['image']; name: 
   );
 }
 
-function ExperienceCard({ experience, expanded = false }: { experience: Experience; expanded?: boolean }) {
-  const detail = detailFor(experience);
+function ExperienceCard({ experience, expanded = false, presentation }: { experience: Experience; expanded?: boolean; presentation?: ExperiencePresentation }) {
+  const detail = presentation ?? detailFor(experience);
   const openDetail = () => router.push({ pathname: '/experience/[id]', params: { id: experience.id } });
 
   return (
@@ -303,16 +321,55 @@ function ExperienceCard({ experience, expanded = false }: { experience: Experien
 }
 
 function Stat({ label, value, delta }: { label: string; value: string; delta: string }) {
-  const deltaTone = delta.startsWith('-') ? colors.red : delta === '—' ? colors.textMuted : colors.green;
+  const deltaTone = delta.startsWith('-') || delta.startsWith('↓') ? colors.red : delta === '—' ? colors.textMuted : colors.green;
+  const formattedDelta = delta === '—'
+    ? '—'
+    : delta.startsWith('↑') || delta.startsWith('↓')
+      ? delta
+      : `${delta.startsWith('-') ? '↓' : '↑'} ${delta.replace(/^[+-]/, '')}`;
   return (
     <View style={styles.stat}>
       <StudioText tone="muted" size={10}>{label}</StudioText>
       <View style={styles.statValueRow}>
         <StudioText weight="semibold" size={13}>{value}</StudioText>
-        <StudioText weight="semibold" size={10} style={{ color: deltaTone }}>{delta === '—' ? '—' : `↑ ${delta.replace(/^[+-]/, '')}`}</StudioText>
+        <StudioText weight="semibold" size={10} style={{ color: deltaTone }}>{formattedDelta}</StudioText>
       </View>
     </View>
   );
+}
+
+function createExperienceSampleSnapshot(): AnalyticsSnapshot {
+  return {
+    mode: 'sample',
+    source: 'sample_data',
+    freshness: 'fixture',
+    universeId: '10009166512',
+    section: 'overview',
+    range: '28D',
+    metrics: [],
+    charts: [],
+    breakdowns: [],
+    message: 'Sample experience summary',
+  };
+}
+
+function presentationFromSnapshot(snapshot: AnalyticsSnapshot | undefined): ExperiencePresentation {
+  const metric = (id: string) => snapshot?.metrics.find((item) => item.id === id);
+  const dau = metric('daily-active-users');
+  const retention = metric('forward-d1-retention');
+  const revenue = metric('daily-revenue');
+  return {
+    name: 'Most Words Win!',
+    access: 'Public',
+    ccu: '—',
+    ccuDelta: '—',
+    dau: dau?.displayValue ?? '—',
+    dauDelta: dau?.change ?? '—',
+    retention: retention?.displayValue ?? '—',
+    retentionDelta: retention?.change ?? '—',
+    revenue: revenue?.displayValue ?? '—',
+    revenueDelta: revenue?.change ?? '—',
+  };
 }
 
 function CompactStat({ label, value }: { label: string; value: string }) {
@@ -338,6 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#282C34',
   },
+  portfolioImage: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surfaceSoft },
   portfolioText: { flex: 1, gap: 2 },
   switcherTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 6 },
   bellButton: {

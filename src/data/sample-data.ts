@@ -18,7 +18,7 @@ export const experiences: Experience[] = [
     id: 'most-words-win',
     name: 'Most Words Win',
     creator: 'BrainNourish Studios',
-    image: require('../../assets/experiences/most_words_win.png'),
+    image: require('../../assets/experiences/most_words_win_official.png'),
     ccu: 884,
     revenue: 2840,
     plays: 12840,
@@ -91,6 +91,10 @@ export const groups = [
   },
 ];
 
+export const experienceArtwork = {
+  mostWordsWinWide: require('../../assets/experiences/most_words_win_wide.png'),
+} as const;
+
 export const portfolioTrend = [820, 790, 910, 870, 940, 985, 970, 1090, 1040, 1160, 1210, 1284];
 export const revenueTrend = [34, 41, 39, 48, 44, 55, 61, 58, 72, 69, 78, 84];
 export const playersTrend = [7800, 8200, 7900, 9100, 9400, 10100, 9900, 11000, 11300, 11900, 12100, 12840];
@@ -114,6 +118,7 @@ export type Product = {
 };
 
 export const products: Product[] = [
+  { id: 'premium-bundle', name: 'Premium Bundle', type: 'Developer product', price: 1499, sales: 412, revenue: 31800 },
   { id: 'vip-pass', name: 'VIP Pass', type: 'Game pass', price: 499, sales: 48, revenue: 23952 },
   { id: 'double-coins', name: 'Double Coins', type: 'Game pass', price: 299, sales: 65, revenue: 19435 },
   { id: 'coin-pack-xl', name: 'Coin Pack XL', type: 'Developer product', price: 799, sales: 21, revenue: 16779 },
@@ -126,15 +131,15 @@ export type Sale = {
   experience: string;
   price: number;
   time: string;
-  status: 'Official' | 'Preliminary';
+  status: 'Live' | 'Processed' | 'Reconciled' | 'Delayed' | 'Official' | 'Preliminary';
 };
 
 export const liveSales: Sale[] = [
-  { id: 'sale-1048', product: 'VIP Pass', experience: 'Most Words Win', price: 499, time: 'Now', status: 'Preliminary' },
-  { id: 'sale-1047', product: 'Double Coins', experience: 'Most Words Win', price: 299, time: '1m ago', status: 'Preliminary' },
-  { id: 'sale-1046', product: 'Instant Revive', experience: 'Fling Squishies', price: 49, time: '3m ago', status: 'Official' },
-  { id: 'sale-1045', product: 'Coin Pack XL', experience: 'Most Words Win', price: 799, time: '6m ago', status: 'Official' },
-  { id: 'sale-1044', product: 'VIP Pass', experience: 'Fling Squishies', price: 499, time: '9m ago', status: 'Official' },
+  { id: 'sale-1048', product: 'Premium Bundle', experience: 'Most Words Win!', price: 1499, time: 'just now', status: 'Live' },
+  { id: 'sale-1047', product: '1000 Coins', experience: 'Most Words Win!', price: 799, time: '1 min ago', status: 'Processed' },
+  { id: 'sale-1046', product: 'VIP Access', experience: 'Most Words Win!', price: 499, time: '3 min ago', status: 'Reconciled' },
+  { id: 'sale-1045', product: 'Starter Pack', experience: 'Fling Squishies', price: 299, time: '5 min ago', status: 'Delayed' },
+  { id: 'sale-1044', product: 'Premium Bundle', experience: 'Most Words Win!', price: 1499, time: '6 min ago', status: 'Reconciled' },
 ];
 
 export const notificationMilestones = [100, 500, 1000, 5000];

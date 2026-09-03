@@ -14,14 +14,17 @@ const openApi = JSON.parse(readFileSync(openApiPath, 'utf8')) as {
 test('publishes an OpenAPI 3.1 contract for every implemented route', () => {
   assert.equal(openApi.openapi, '3.1.0');
   assert.deepEqual(Object.keys(openApi.paths ?? {}).sort(), [
+    '/v1/analytics/{section}',
     '/v1/auth/logout',
     '/v1/auth/roblox/callback',
     '/v1/auth/roblox/start',
     '/v1/auth/session',
     '/v1/auth/session/exchange',
+    '/v1/connections',
     '/v1/connections/analytics/validate',
     '/v1/health',
     '/v1/sample/home',
+    '/v1/sync-jobs',
   ]);
 });
 
@@ -29,6 +32,11 @@ test('defines the shared Home response and credential-safe connection request', 
   const schemas = openApi.components?.schemas ?? {};
   assert.ok(schemas.HomeSnapshot);
   assert.ok(schemas.HomePortfolio);
+  assert.ok(schemas.AnalyticsSnapshot);
+  assert.ok(schemas.AnalyticsChart);
+  assert.ok(schemas.AnalyticsSyncRequest);
+  assert.ok(schemas.AnalyticsSyncResponse);
+  assert.ok(schemas.ConnectionStatusResponse);
 
   const connection = schemas.AnalyticsConnectionRequest as {
     properties?: { apiKey?: { writeOnly?: boolean } };

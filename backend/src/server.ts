@@ -2,10 +2,12 @@ import { createServer } from "node:http";
 import { loadConfig } from "./config.js";
 import { readJson } from "./http.js";
 import { createLocalAuthService } from "./modules/auth/auth-runtime.js";
+import { createLocalAnalyticsSnapshotStore } from "./modules/analytics/snapshot-runtime.js";
 import { routeRequest } from "./router.js";
 
 const config = loadConfig();
 const authService = createLocalAuthService(config);
+const analyticsSnapshotStore = createLocalAnalyticsSnapshotStore();
 
 const server = createServer(async (req, res) => {
   try {
@@ -26,7 +28,7 @@ const server = createServer(async (req, res) => {
       },
       config,
       "local",
-      { authService },
+      { authService, analyticsSnapshotStore },
     );
     const payload = result.statusCode === 204 ? "" : JSON.stringify(result.body);
     res.writeHead(result.statusCode, {
