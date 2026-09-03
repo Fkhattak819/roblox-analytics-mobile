@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "roblox-analytics-mobile API",
-    "version": "0.2.0",
-    "description": "Development API contract for sample data and Roblox identity sessions. Analytics credential submission remains disabled until its separate security gates are complete."
+    "version": "0.4.0",
+    "description": "Development API contract for sample data, Roblox identity sessions, authenticated cached analytics snapshots, and tenant-scoped analytics synchronization. Roblox credentials remain server-side."
   },
   "servers": [
     {
@@ -15,6 +15,7 @@
     { "name": "System" },
     { "name": "Sample" },
     { "name": "Authentication" },
+    { "name": "Analytics" },
     { "name": "Connections" }
   ],
   "paths": {
@@ -205,6 +206,146 @@
         }
       }
     },
+    "/v1/analytics/{section}": {
+      "get": {
+        "operationId": "getAnalyticsSnapshot",
+        "tags": ["Analytics"],
+        "summary": "Read a tenant-scoped cached analytics snapshot",
+        "description": "Returns a previously synchronized Roblox Open Cloud read model. This request never calls Roblox directly.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "section",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/AnalyticsSection" }
+          },
+          {
+            "name": "universeId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[0-9]+$" }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/AnalyticsDateRange" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A cached official analytics snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalyticsSnapshot" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid section, universe, or range",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "A valid app session is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "The tenant has no synchronized snapshot for this key",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sync-jobs": {
+      "post": {
+        "operationId": "requestAnalyticsSync",
+        "tags": ["Analytics"],
+        "summary": "Queue an official analytics synchronization",
+        "description": "Derives the tenant from the authenticated app session, enforces a universe allow-list and cooldown, and queues server-side Roblox Open Cloud work. It never accepts a Roblox credential or tenant identifier.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnalyticsSyncRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The job was queued or an equivalent job is already inside its cooldown window",
+            "headers": {
+              "Retry-After": { "schema": { "type": "integer", "minimum": 1 } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalyticsSyncResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed section, universe, or range",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "401": {
+            "description": "A valid app session is required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "403": {
+            "description": "The universe is not allow-listed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "422": {
+            "description": "The section does not have a reviewed official-data mapping",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        }
+      }
+    },
+    "/v1/connections": {
+      "get": {
+        "operationId": "getConnections",
+        "tags": ["Connections"],
+        "summary": "Read safe identity and analytics connection status",
+        "description": "Returns backend metadata only. It never returns a Roblox credential, key fingerprint, or authorization token.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "universeId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current safe connection metadata",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConnectionStatusResponse" } } }
+          },
+          "401": {
+            "description": "A valid app session is required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "403": {
+            "description": "The universe is not allow-listed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        }
+      }
+    },
     "/v1/connections/analytics/validate": {
       "post": {
         "operationId": "validateAnalyticsConnection",
@@ -343,6 +484,175 @@
             }
           }
         ]
+      },
+      "AnalyticsSection": {
+        "type": "string",
+        "enum": [
+          "overview", "engagement", "retention", "acquisition", "monetization",
+          "audience", "performance", "economy", "funnels", "explore",
+          "custom-events", "thumbnails", "advertising", "matchmaking", "data-stores",
+          "memory-stores", "speech-to-text", "text-to-speech", "safety"
+        ]
+      },
+      "AnalyticsDateRange": {
+        "type": "string",
+        "enum": ["24H", "7D", "28D", "56D", "90D"]
+      },
+      "AnalyticsMetric": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "displayValue"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "displayValue": { "type": "string" },
+          "rawValue": { "type": ["number", "null"] },
+          "change": { "type": "string" },
+          "direction": { "type": "string", "enum": ["positive", "negative", "neutral"] }
+        }
+      },
+      "AnalyticsPoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["time", "value"],
+        "properties": {
+          "time": { "type": "string", "format": "date-time" },
+          "value": { "type": "number" }
+        }
+      },
+      "AnalyticsSeries": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "points"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "points": {
+            "type": "array",
+            "maxItems": 400,
+            "items": { "$ref": "#/components/schemas/AnalyticsPoint" }
+          }
+        }
+      },
+      "AnalyticsChart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "series"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "displayValue": { "type": "string" },
+          "summary": { "type": "string" },
+          "yAxisLabels": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+          "series": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "$ref": "#/components/schemas/AnalyticsSeries" }
+          }
+        }
+      },
+      "AnalyticsBreakdownItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "displayValue", "rawValue"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "displayValue": { "type": "string" },
+          "rawValue": { "type": "number" }
+        }
+      },
+      "AnalyticsBreakdown": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "items"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/AnalyticsBreakdownItem" }
+          }
+        }
+      },
+      "AnalyticsEmptyState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "description"],
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      },
+      "AnalyticsSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "source", "freshness", "universeId", "section", "range", "asOf", "metrics", "charts", "breakdowns", "message"],
+        "properties": {
+          "mode": { "const": "connected" },
+          "source": { "const": "roblox_open_cloud" },
+          "freshness": { "type": "string", "enum": ["fresh", "stale", "syncing"] },
+          "universeId": { "type": "string", "pattern": "^[0-9]+$" },
+          "section": { "$ref": "#/components/schemas/AnalyticsSection" },
+          "range": { "$ref": "#/components/schemas/AnalyticsDateRange" },
+          "asOf": { "type": "string", "format": "date-time" },
+          "metrics": { "type": "array", "maxItems": 64, "items": { "$ref": "#/components/schemas/AnalyticsMetric" } },
+          "charts": { "type": "array", "maxItems": 24, "items": { "$ref": "#/components/schemas/AnalyticsChart" } },
+          "breakdowns": { "type": "array", "maxItems": 24, "items": { "$ref": "#/components/schemas/AnalyticsBreakdown" } },
+          "emptyState": { "$ref": "#/components/schemas/AnalyticsEmptyState" },
+          "message": { "type": "string" }
+        }
+      },
+      "AnalyticsSyncRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["universeId", "section", "range"],
+        "properties": {
+          "universeId": { "type": "string", "pattern": "^[0-9]+$" },
+          "section": { "$ref": "#/components/schemas/AnalyticsSection" },
+          "range": { "$ref": "#/components/schemas/AnalyticsDateRange" }
+        }
+      },
+      "AnalyticsSyncResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "retryAfterSeconds"],
+        "properties": {
+          "status": { "type": "string", "enum": ["queued", "already_queued"] },
+          "jobId": { "type": "string", "format": "uuid", "readOnly": true },
+          "retryAfterSeconds": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ConnectionStatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "analytics"],
+        "properties": {
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "username"],
+            "properties": {
+              "status": { "const": "connected" },
+              "username": { "type": "string" }
+            }
+          },
+          "analytics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "scope", "universeId"],
+            "properties": {
+              "status": { "type": "string", "enum": ["pending", "active", "error"] },
+              "scope": { "const": "universe.analytics:read" },
+              "universeId": { "type": "string", "pattern": "^[0-9]+$" },
+              "lastAttemptAt": { "type": "string", "format": "date-time" },
+              "lastSyncedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
       },
       "AnalyticsConnectionRequest": {
         "type": "object",

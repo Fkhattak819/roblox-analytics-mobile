@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import type { AnalyticsSnapshot } from '@/domain/analytics';
+import { appEnvironment } from '@/services/backend-api';
 import { LineChart } from '@/src/components/charts';
 import { Badge, Card, MetricCard, PageHeader, ProgressBar, Screen, SectionTitle, StudioText } from '@/src/components/ui';
 import { experiences } from '@/src/data/sample-data';
+import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 
@@ -59,6 +62,15 @@ export default function ExperienceDetailScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const experience = experiences.find((item) => item.id === id);
   const { setSelectedExperienceId } = useApp();
+  const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
+  const sampleSnapshot = useMemo(createDetailFallbackSnapshot, []);
+  const { snapshot } = useAnalyticsSnapshot({
+    universeId: '10009166512',
+    section: 'overview',
+    range: '28D',
+    sampleSnapshot,
+    enabled: isConnectedMode && experience?.id === 'most-words-win',
+  });
 
   if (!experience) {
     return (
@@ -73,13 +85,15 @@ export default function ExperienceDetailScreen() {
     );
   }
 
-  const metrics = metricsById[experience.id] ?? {
+  const sampleMetrics = metricsById[experience.id] ?? {
     displayName: experience.name,
     access: experience.status === 'Live' ? 'Public' as const : 'Private' as const,
     ccu: experience.ccu.toLocaleString(), ccuDelta: '—', dau: experience.plays.toLocaleString(), dauDelta: '—',
     retention: '—', retentionDelta: '—', revenue: `R$ ${experience.revenue.toLocaleString()}`, revenueDelta: '—',
     crashFree: 99.5, serverHealth: 90, trend: [72, 80, 79, 85, 89, 92, 91, 96],
   };
+  const metrics = isConnectedMode ? detailMetricsFromSnapshot(snapshot) : sampleMetrics;
+  const liveTrend = snapshot?.charts.find((chart) => chart.id === 'daily-active-users')?.series[0]?.points.map((point) => point.value) ?? [];
 
   const openAnalytics = (section?: 'engagement' | 'retention' | 'monetization' | 'performance') => {
     setSelectedExperienceId(experience.id);
@@ -94,33 +108,31 @@ export default function ExperienceDetailScreen() {
     <Screen contentContainerStyle={styles.screenContent}>
       <PageHeader
         title="Experience"
-        subtitle="Portfolio details"
+        subtitle={isConnectedMode ? 'Official analytics details' : 'Portfolio details'}
         back
-        right={<Pressable accessibilityLabel="More experience options" style={styles.moreButton}><Ionicons name="ellipsis-horizontal" size={19} color={colors.text} /></Pressable>}
       />
 
       <View style={styles.hero}>
         <Image source={experience.image} style={styles.heroImage} contentFit="cover" />
         <View style={styles.heroText}>
           <StudioText weight="bold" size={23} lineHeight={28}>{metrics.displayName}</StudioText>
-          <StudioText tone="muted" size={13}>{experience.creator}</StudioText>
+          <StudioText tone="muted" size={13}>{isConnectedMode ? 'Universe 10009166512' : experience.creator}</StudioText>
           <View style={styles.badgeRow}>
-            <Badge label={metrics.access} tone={metrics.access === 'Public' ? 'green' : 'neutral'} />
-            <Badge label={experience.health} tone={experience.health === 'Healthy' ? 'green' : 'yellow'} />
+            {isConnectedMode ? <Badge label="AUTHORIZED" tone="green" /> : <><Badge label={metrics.access} tone={metrics.access === 'Public' ? 'green' : 'neutral'} /><Badge label={experience.health} tone={experience.health === 'Healthy' ? 'green' : 'yellow'} /></>}
           </View>
         </View>
       </View>
 
       <Card style={styles.sourceCard}>
         <View style={styles.sourceBadges}>
-          <Badge label="SAMPLE DATA" tone="blue" />
+          <Badge label={isConnectedMode ? 'OFFICIAL' : 'SAMPLE DATA'} tone={isConnectedMode ? 'green' : 'blue'} />
           <Badge label="READ ONLY" />
         </View>
-        <StudioText tone="muted" size={12}>Preview metrics from the product spec. No Roblox account data is changed from this app.</StudioText>
+        <StudioText tone="muted" size={12}>{isConnectedMode ? 'Cached Roblox Open Cloud analytics. No Roblox account data can be changed from this app.' : 'Preview metrics from the product spec. No Roblox account data is changed from this app.'}</StudioText>
       </Card>
 
       <View style={styles.sectionBlock}>
-        <SectionTitle title="Snapshot" subtitle="Last 24 hours" />
+        <SectionTitle title="Snapshot" subtitle={isConnectedMode ? 'Last 28 days' : 'Last 24 hours'} />
         <View style={styles.metricRow}>
           <MetricCard label="CCU" value={metrics.ccu} change={metrics.ccuDelta} icon="people-outline" onPress={() => openAnalytics('engagement')} />
           <MetricCard label="DAU" value={metrics.dau} change={metrics.dauDelta} icon="pulse-outline" onPress={() => openAnalytics('engagement')} />
@@ -134,28 +146,25 @@ export default function ExperienceDetailScreen() {
       <Card style={styles.trendCard} onPress={() => openAnalytics('engagement')} accessibilityLabel="Open engagement analytics">
         <View style={styles.cardHeading}>
           <View>
-            <StudioText weight="semibold" size={16}>Concurrent users</StudioText>
-            <StudioText tone="muted" size={11}>Today · hourly</StudioText>
+            <StudioText weight="semibold" size={16}>{isConnectedMode ? 'Daily active users' : 'Concurrent users'}</StudioText>
+            <StudioText tone="muted" size={11}>{isConnectedMode ? 'Official daily series' : 'Today · hourly'}</StudioText>
           </View>
           <View style={styles.openDetailIcon}>
             <Ionicons name="arrow-forward" size={15} color={colors.blue} />
           </View>
         </View>
-        <LineChart values={metrics.trend} height={132} labels={['12a', '6a', '12p', 'Now']} />
+        <LineChart values={isConnectedMode ? liveTrend : metrics.trend} height={132} labels={isConnectedMode ? ['Start', 'Middle', 'Now'] : ['12a', '6a', '12p', 'Now']} />
       </Card>
 
       <View style={styles.sectionBlock}>
         <SectionTitle title="Game health" subtitle="Latest processed signals" />
         <Card style={styles.healthCard} onPress={() => openAnalytics('performance')} accessibilityLabel="Open performance analytics">
-          <HealthRow label="Crash-free sessions" value={`${metrics.crashFree}%`} progress={metrics.crashFree} color={colors.green} />
-          <View style={styles.divider} />
-          <HealthRow label="Server health" value={experience.health} progress={metrics.serverHealth} color={experience.health === 'Healthy' ? colors.green : colors.yellow} />
-          <View style={styles.divider} />
+          {!isConnectedMode ? <><HealthRow label="Crash-free sessions" value={`${metrics.crashFree}%`} progress={metrics.crashFree} color={colors.green} /><View style={styles.divider} /><HealthRow label="Server health" value={experience.health} progress={metrics.serverHealth} color={experience.health === 'Healthy' ? colors.green : colors.yellow} /><View style={styles.divider} /></> : null}
           <View style={styles.healthMetaRow}>
             <View style={styles.healthMetaIcon}><Ionicons name="cloud-done-outline" size={18} color={colors.blue} /></View>
             <View style={styles.healthMetaText}>
               <StudioText weight="medium" size={14}>Analytics freshness</StudioText>
-              <StudioText tone="muted" size={11}>Reconciled through today at 9:38 AM</StudioText>
+              <StudioText tone="muted" size={11}>{isConnectedMode ? 'Open official performance metrics' : 'Reconciled through today at 9:38 AM'}</StudioText>
             </View>
             <Badge label="Official" tone="green" />
           </View>
@@ -172,6 +181,27 @@ export default function ExperienceDetailScreen() {
       </Pressable>
     </Screen>
   );
+}
+
+function createDetailFallbackSnapshot(): AnalyticsSnapshot {
+  return {
+    mode: 'sample', source: 'sample_data', freshness: 'fixture', universeId: '10009166512', section: 'overview', range: '28D',
+    metrics: [], charts: [], breakdowns: [], message: 'Sample experience detail',
+  };
+}
+
+function detailMetricsFromSnapshot(snapshot: AnalyticsSnapshot | undefined): DetailMetrics {
+  const metric = (id: string) => snapshot?.metrics.find((item) => item.id === id);
+  const dau = metric('daily-active-users');
+  const retention = metric('forward-d1-retention');
+  const revenue = metric('daily-revenue');
+  return {
+    displayName: 'Most Words Win!', access: 'Public', ccu: '—', ccuDelta: '—',
+    dau: dau?.displayValue ?? '—', dauDelta: dau?.change ?? '—',
+    retention: retention?.displayValue ?? '—', retentionDelta: retention?.change ?? '—',
+    revenue: revenue?.displayValue ?? '—', revenueDelta: revenue?.change ?? '—',
+    crashFree: 0, serverHealth: 0, trend: [0, 0, 0],
+  };
 }
 
 function HealthRow({ label, value, progress, color }: { label: string; value: string; progress: number; color: string }) {

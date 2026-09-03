@@ -1,44 +1,59 @@
 # roblox-analytics-mobile handoff
 
-Updated: 2026-09-02 (America/Chicago)
+Updated: 2026-09-03 (America/Chicago)
 
 ## Completed
 
-- Pushed the shared API contract checkpoint (`ffcfae7`) to `origin/main`.
-- Confirmed the Roblox OAuth registration and endpoint requirements against current Creator Hub documentation.
-- Implemented Roblox authorization-code OAuth with PKCE and server-side state persistence.
-- Added atomic, one-time callback and app-session exchanges with expiry and replay protection.
-- Added opaque app sessions; only SHA-256 token hashes are stored in DynamoDB.
-- Added Secrets Manager-backed OAuth client credentials with a five-minute Lambda cache.
-- Roblox access and refresh tokens are never persisted; the refresh token is revoked after the profile lookup.
-- Connected the Expo onboarding action to the backend and stored only the app session token in Expo Secure Store.
-- Updated OpenAPI, tests, backend docs, and CDK infrastructure.
-- Refreshed the `roblox-analytics-mobile` IAM Identity Center CLI session.
-- Reviewed the deployed-stack diff. It adds one Secrets Manager secret, one least-privilege IAM policy, Lambda code/environment updates, and no resource replacement.
+- Audited the existing Expo Router app, shared UI/theme, `react-native-svg` chart stack, state, backend, OpenAPI contract, auth boundary, loading/error handling, and mobile layout before editing.
+- Audited the signed-in Creator Dashboard for **Most Words Win!** (`universeId=10009166512`): portfolio, Overview, Engagement, Retention, Acquisition, Demographics, Economy, Funnels, Explore, Monetization, and Performance.
+- Compared the live product with Figma file `WCcDt0bYdwuoypf03dYcCg` nodes `81:7` and `91:2`, then adapted the existing analytics screens instead of rebuilding the app.
+- Added reusable analytics primitives for filter rows, KPI cards, chart cards/legends, data provenance, loading, error, and empty states.
+- Reworked the analytics overview and detail pages around the observed Roblox hierarchy, values, date windows, comparison treatment, route catalog, and explicit sample/official provenance.
+- Preserved Expo Router, React context, StyleSheet tokens, shared cards/text, the five-tab navigation, and the existing SVG chart implementation.
+- Confirmed Builder Sans Regular/Medium/Semibold/Bold assets are locally present, loaded through `expo-font`, and applied through `StudioText` and the theme token map.
+- Added a strict shared `AnalyticsSnapshot` contract and the authenticated mobile read route `GET /v1/analytics/{section}?universeId=...&range=...`.
+- Added tenant-isolated in-memory and DynamoDB snapshot stores keyed by app-session owner, universe, section, and date range.
+- Added a worker-facing Analytics Query client/sync service for Roblox's documented metric, dimension-value, and long-running-operation endpoints. It includes bounded retry classification and previous-period projection.
+- Added default sync plans for overview, engagement, retention, monetization, acquisition, performance, economy, thumbnails, advertising, matchmaking, data stores, memory stores, speech-to-text, text-to-speech, and safety.
+- Kept the mobile client credential-free. It reads only normalized cached snapshots with its opaque app session and never calls Roblox directly or falls back to sample data after a connected-mode failure.
+- Updated OpenAPI and the detailed audit at `docs/ROBLOX_ANALYTICS_AUDIT.md`.
+- Deployed the on-demand live analytics path to the existing AWS development stack: authenticated `POST /v1/sync-jobs`, a 60-second tenant/universe/section/range cooldown, SQS worker delivery, Secrets Manager key loading, official Analytics Query calls, and DynamoDB snapshot/status writes.
+- Added `GET /v1/connections` and replaced fixed identity, fingerprint, universe-count, and live-event claims on the Connections screen with authenticated backend status. Unconfigured live events now say so explicitly.
+- Added safe hidden-input scripts for Roblox OAuth and Open Cloud analytics credentials. No credential was read, printed, stored in the client, or committed.
+- The worker is active at 256 MB/120 seconds, processes one record per batch, and is capped at two concurrent SQS invocations. It has only DynamoDB `PutItem` plus access to its one analytics secret and queue.
+- Re-read live Figma nodes `91:2` (Analytics hub) and `59:7` (Home full scroll), then replaced connected-mode route placeholders with a reusable six-card quick-look grid.
+- Home and Analytics now combine official Overview metrics with the latest cached Engagement, Retention, Acquisition, Monetization, and Performance snapshots. Audience is explicitly labeled Roblox-web-only instead of showing a fabricated demographic value.
+- Quick-look cache reads are sequential, tolerate a transient backend 5xx once, try the reviewed section date ranges, and never enqueue a burst of Roblox synchronization jobs. Tapping an unsynced card opens the existing section, whose normal sync flow owns loading and retry behavior.
+- Verified live simulator values and drill-down navigation for Most Words Win!, including Acquisition `151.7K` impressions, `3.2K` users with plays, and `1.6K` qualified users.
+- Replaced the placeholder notebook tile with the official 512 px Most Words Win! Roblox icon across connected Home, Experiences, Analytics, Sales, and detail surfaces.
+- Added a reusable, horizontally snapping mobile benchmark carousel to connected Home and Analytics. It reproduces all six values from the owner's Creator Dashboard capture: average playtime, D1 retention, D7 retention, payer conversion, ARPPU, and play-through rate, including percentiles and 50th/90th callouts.
+- Kept dashboard benchmarks separate from API-backed metrics and labeled their provenance `ROBLOX WEB`; no undocumented cookie-authenticated endpoint was introduced.
+- Re-ran the 393 x 852 simulator loop after correcting a clipped benchmark callout and the `3th` ordinal. Verified Home, Analytics, horizontal benchmark navigation, loading skeleton transition, and the connected Experiences artwork.
 
 ## Verification
 
-- Backend tests: 8 passed.
-- App tests: 8 passed.
+- Root app tests: 18 passed.
+- Backend tests: 15 passed.
+- Infrastructure test: 1 passed.
 - TypeScript: passed.
 - Expo lint: passed.
-- Infrastructure test: 1 passed.
-- CDK synth: passed.
-- iOS production export: passed (1,547 modules).
+- Backend TypeScript build: passed.
+- CDK synth and reviewed AWS diff: passed.
+- AWS deployment: passed; `/v1/health` returns `200`, and analytics, sync, and connection routes return `401` without an app session.
+- iOS production export: passed (1,558 modules; Builder Sans and official experience artwork included).
 - `git diff --check`: passed.
+- iPhone Simulator QA: populated sample Home/analytics overview/detail layouts were inspected; connected-mode error state was inspected with no sample metrics leaking underneath.
 
-## Pending gated actions
+## Remaining gated work and limitations
 
-- Deploying creates one paid Secrets Manager secret (currently listed by AWS at $0.40 per secret-month, plus very small request charges).
-- Creating the Roblox OAuth app creates persistent credentials and must be confirmed at action time.
-- The prepared Roblox form currently targets owner `BrainNourishmentGames` and app name `roblox-analytics-mobile`.
-- After creation, the user must personally copy the one-time client secret into AWS Secrets Manager; it must not be pasted into chat, source control, or command history.
+- OAuth and the least-privilege Analytics Query credential are configured in the development stack; official snapshots are populated for Most Words Win!. Production rotation and operational hardening remain.
+- OAuth remains identity-only (`openid profile`). The analytics worker separately uses a least-privilege server-held Open Cloud key with `universe.analytics:read` for universe `10009166512`.
+- The low-cost development stack has dynamic Lambda egress rather than a NAT gateway/static outbound IP. The Roblox key must therefore be universe/scope restricted, but cannot be reliably source-IP restricted in this configuration.
+- Audience/demographics, funnels, custom events, and arbitrary Explore queries need section-specific dimension discovery and saved filter configuration. They are represented honestly in sample mode but are not included in the default worker plan.
+- Creator Dashboard benchmark comparisons are implemented as a clearly labeled snapshot of the owner's supplied values, not as live API data, because no stable public Analytics Query endpoint was observed. Do not substitute undocumented cookie-authenticated dashboard calls.
+- Figma remained read-only. Its stale placeholders and mixed typography were interpreted in code against the live Roblox reference rather than mutated.
+- Roblox Analytics Query provides aggregated snapshots, not the Figma's truly near-live CCU/server counter. Connected Home therefore uses official DAU and cached peak CCU rather than implying a live feed.
 
-## Exact next action
+## Next safe implementation step
 
-After explicit approval, deploy the reviewed AWS change, create the prepared private Roblox OAuth app, configure only `openid profile`, add the exact callback below, and hand the secret-copy step to the user:
-
-```text
-https://bqrr070bkf.execute-api.us-east-2.amazonaws.com/v1/auth/roblox/callback
-```
-
+Open any card still marked “Not synced” to queue its section-specific official snapshot. Production rollout still needs credential rotation policy, reviewed network egress, and App Store signing/distribution.

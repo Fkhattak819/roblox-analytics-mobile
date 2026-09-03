@@ -9,6 +9,13 @@ import { AuthService } from "../dist/backend/src/modules/auth/auth-service.js";
 import { InMemoryAuthStore } from "../dist/backend/src/modules/auth/in-memory-auth-store.js";
 import { StaticOAuthCredentialsProvider } from "../dist/backend/src/modules/auth/oauth-credentials.js";
 import { routeRequest } from "../dist/backend/src/router.js";
+import { InMemoryAnalyticsSnapshotStore } from "../dist/backend/src/modules/analytics/snapshot-store.js";
+import { AnalyticsSnapshotSyncService } from "../dist/backend/src/modules/analytics/snapshot-sync.js";
+import { AnalyticsSyncJobService } from "../dist/backend/src/modules/analytics/sync-jobs.js";
+import {
+  AnalyticsConfigurationError,
+  StaticAnalyticsApiKeyProvider,
+} from "../dist/backend/src/modules/analytics/analytics-credentials.js";
 
 test("validates an analytics connection and supports safe fingerprinting", () => {
   const result = validateConnectionInput({ apiKey: "secret-key-value", universeIds: ["123"] });
@@ -187,6 +194,289 @@ test("OAuth state is consumed before the authorization code can be replayed", as
   assert.equal((await routeRequest(request, config, "local", dependencies)).statusCode, 302);
   assert.equal((await routeRequest(request, config, "local", dependencies)).statusCode, 400);
   assert.equal(calls.length, 1);
+});
+
+test("analytics snapshot route requires a session and reads only the session tenant", async () => {
+  const config = loadConfig({});
+  const authStore = new InMemoryAuthStore();
+  const sessionToken = "s".repeat(32);
+  await authStore.putSession(sessionToken, {
+    user: { sub: "123456", preferredUsername: "creator_name" },
+    expiresAt: Date.now() + 60_000,
+  });
+  const authService = new AuthService(
+    config,
+    authStore,
+    new StaticOAuthCredentialsProvider({
+      clientId: "configured-client",
+      clientSecret: "configured-secret",
+    }),
+  );
+  const analyticsSnapshotStore = new InMemoryAnalyticsSnapshotStore();
+  const snapshot = {
+    mode: "connected",
+    source: "roblox_open_cloud",
+    freshness: "fresh",
+    asOf: "2026-09-02T20:00:00Z",
+    universeId: "10009166512",
+    section: "overview",
+    range: "28D",
+    metrics: [{ id: "dau", label: "Daily active users", displayValue: "287", rawValue: 287 }],
+    charts: [],
+    breakdowns: [],
+    message: "Official Roblox analytics",
+  };
+  await analyticsSnapshotStore.putSnapshot({
+    ownerSub: "123456",
+    universeId: snapshot.universeId,
+    section: snapshot.section,
+    range: snapshot.range,
+  }, snapshot);
+
+  const path = "/v1/analytics/overview";
+  const query = { universeId: snapshot.universeId, range: snapshot.range };
+  const unauthorized = await routeRequest(
+    { method: "GET", path, query },
+    config,
+    "local",
+    { authService, analyticsSnapshotStore },
+  );
+  assert.equal(unauthorized.statusCode, 401);
+
+  const authorized = await routeRequest(
+    { method: "GET", path, query, headers: { authorization: `Bearer ${sessionToken}` } },
+    config,
+    "local",
+    { authService, analyticsSnapshotStore },
+  );
+  assert.equal(authorized.statusCode, 200);
+  assert.equal(authorized.body.source, "roblox_open_cloud");
+
+  const otherTenantToken = "t".repeat(32);
+  await authStore.putSession(otherTenantToken, {
+    user: { sub: "999999" },
+    expiresAt: Date.now() + 60_000,
+  });
+  const isolated = await routeRequest(
+    { method: "GET", path, query, headers: { authorization: `Bearer ${otherTenantToken}` } },
+    config,
+    "local",
+    { authService, analyticsSnapshotStore },
+  );
+  assert.equal(isolated.statusCode, 404);
+});
+
+test("analytics sync jobs derive the tenant from the authenticated session", async () => {
+  const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: "10009166512" });
+  const authStore = new InMemoryAuthStore();
+  const sessionToken = "q".repeat(32);
+  await authStore.putSession(sessionToken, {
+    user: { sub: "123456", preferredUsername: "creator_name" },
+    expiresAt: Date.now() + 60_000,
+  });
+  const authService = new AuthService(
+    config,
+    authStore,
+    new StaticOAuthCredentialsProvider({
+      clientId: "configured-client",
+      clientSecret: "configured-secret",
+    }),
+  );
+  const requested = [];
+  const analyticsSyncJobService = {
+    async request(input) {
+      requested.push(input);
+      return { status: "queued", jobId: "job-1", retryAfterSeconds: 60 };
+    },
+  };
+  const response = await routeRequest(
+    {
+      method: "POST",
+      path: "/v1/sync-jobs",
+      headers: { authorization: `Bearer ${sessionToken}` },
+      body: {
+        ownerSub: "attacker-controlled",
+        universeId: "10009166512",
+        section: "overview",
+        range: "28D",
+      },
+    },
+    config,
+    "local",
+    { authService, analyticsSyncJobService },
+  );
+  assert.equal(response.statusCode, 202);
+  assert.equal(response.headers["retry-after"], "60");
+  assert.equal(requested[0].ownerSub, "123456");
+  assert.equal(requested[0].universeId, "10009166512");
+
+  const denied = await routeRequest(
+    {
+      method: "POST",
+      path: "/v1/sync-jobs",
+      headers: { authorization: `Bearer ${sessionToken}` },
+      body: { universeId: "999999", section: "overview", range: "28D" },
+    },
+    config,
+    "local",
+    { authService, analyticsSyncJobService },
+  );
+  assert.equal(denied.statusCode, 403);
+});
+
+test("connection status exposes backend metadata without secret material", async () => {
+  const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: "10009166512" });
+  const authStore = new InMemoryAuthStore();
+  const sessionToken = "c".repeat(32);
+  await authStore.putSession(sessionToken, {
+    user: { sub: "123456", preferredUsername: "creator_name" },
+    expiresAt: Date.now() + 60_000,
+  });
+  const authService = new AuthService(
+    config,
+    authStore,
+    new StaticOAuthCredentialsProvider({ clientId: "configured-client", clientSecret: "configured-secret" }),
+  );
+  const analyticsConnectionStatusStore = {
+    async get(ownerSub, universeId) {
+      assert.equal(ownerSub, "123456");
+      return {
+        status: "active",
+        universeId,
+        lastAttemptAt: "2026-09-02T20:00:00Z",
+        lastSyncedAt: "2026-09-02T20:00:00Z",
+      };
+    },
+  };
+  const result = await routeRequest(
+    {
+      method: "GET",
+      path: "/v1/connections",
+      query: { universeId: "10009166512" },
+      headers: { authorization: `Bearer ${sessionToken}` },
+    },
+    config,
+    "local",
+    { authService, analyticsConnectionStatusStore },
+  );
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.identity.username, "creator_name");
+  assert.equal(result.body.analytics.status, "active");
+  assert.doesNotMatch(JSON.stringify(result.body), /apiKey|fingerprint|secret/i);
+});
+
+test("analytics sync jobs are cooldown-gated before queueing", async () => {
+  let acquired = true;
+  const queued = [];
+  const service = new AnalyticsSyncJobService(
+    { async tryAcquire() { return acquired; } },
+    { async enqueue(message) { queued.push(message); } },
+    () => new Date("2026-09-02T20:00:00Z"),
+  );
+  const request = {
+    ownerSub: "123456",
+    universeId: "10009166512",
+    section: "overview",
+    range: "28D",
+  };
+  const first = await service.request(request);
+  acquired = false;
+  const duplicate = await service.request(request);
+  assert.equal(first.status, "queued");
+  assert.equal(duplicate.status, "already_queued");
+  assert.equal(queued.length, 1);
+  assert.doesNotMatch(JSON.stringify(queued[0]), /apiKey|secret/i);
+});
+
+test("analytics key provider fails closed on the deployment placeholder", async () => {
+  await assert.rejects(
+    () => new StaticAnalyticsApiKeyProvider("replace-after-creation").getApiKey(),
+    (error) => error instanceof AnalyticsConfigurationError,
+  );
+  assert.equal(
+    await new StaticAnalyticsApiKeyProvider("server-only-analytics-key").getApiKey(),
+    "server-only-analytics-key",
+  );
+});
+
+test("analytics sync projects official metric queries into a cached snapshot", async () => {
+  const calls = [];
+  const queryClient = {
+    async queryMetric(apiKey, universeId, query) {
+      calls.push({ apiKey, universeId, query });
+      const current = Date.parse(query.startTime) >= Date.parse("2026-08-05T00:00:00Z");
+      return {
+        values: [{
+          breakdowns: [],
+          dataPoints: [
+            { time: query.startTime, value: current ? 100 : 80 },
+            { time: query.endTime, value: current ? 120 : 100 },
+          ],
+        }],
+      };
+    },
+  };
+  const store = new InMemoryAnalyticsSnapshotStore();
+  const service = new AnalyticsSnapshotSyncService(queryClient, store, async () => undefined);
+  const snapshot = await service.sync({
+    apiKey: "server-only-analytics-key",
+    ownerSub: "123456",
+    universeId: "10009166512",
+    section: "overview",
+    range: "28D",
+    now: new Date("2026-09-02T00:00:00Z"),
+  });
+
+  assert.equal(calls.length, 8);
+  assert.equal(snapshot.metrics.length, 4);
+  assert.equal(snapshot.metrics[0].displayValue, "120");
+  assert.equal(snapshot.metrics[0].change, "↑ 20.0%");
+  assert.equal(snapshot.charts[0].series.length, 2);
+  assert.doesNotMatch(JSON.stringify(snapshot), /server-only-analytics-key/);
+  const cached = await store.getSnapshot({
+    ownerSub: "123456",
+    universeId: "10009166512",
+    section: "overview",
+    range: "28D",
+  });
+  assert.deepEqual(cached, snapshot);
+});
+
+test("acquisition sync uses period-unique summaries instead of summing daily unique users", async () => {
+  const calls = [];
+  const queryClient = {
+    async queryMetric(_apiKey, _universeId, query) {
+      calls.push(query);
+      const current = Date.parse(query.startTime) >= Date.parse("2026-08-05T00:00:00Z");
+      return {
+        values: [{
+          breakdowns: [],
+          dataPoints: query.granularity === "None"
+            ? [{ value: current ? 66 : 50 }]
+            : [
+                { time: query.startTime, value: current ? 10 : 8 },
+                { time: query.endTime, value: current ? 12 : 9 },
+              ],
+        }],
+      };
+    },
+  };
+  const store = new InMemoryAnalyticsSnapshotStore();
+  const service = new AnalyticsSnapshotSyncService(queryClient, store, async () => undefined);
+  const snapshot = await service.sync({
+    apiKey: "server-only-analytics-key",
+    ownerSub: "123456",
+    universeId: "10009166512",
+    section: "acquisition",
+    range: "28D",
+    now: new Date("2026-09-02T00:00:00Z"),
+  });
+
+  assert.equal(calls.length, 16);
+  assert.equal(calls.filter((call) => call.granularity === "None").length, 8);
+  assert.equal(snapshot.metrics[0].displayValue, "66");
+  assert.equal(snapshot.metrics[0].change, "↑ 32.0%");
+  assert.equal(snapshot.charts[0].series[0].points.length, 2);
 });
 
 function testAuthService() {

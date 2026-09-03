@@ -5,7 +5,9 @@ import { OAuthConfigurationError, type RobloxOAuthCredentialsProvider } from "./
 import { createOAuthStart } from "./roblox-oauth.js";
 import { RobloxOAuthApi, RobloxOAuthUpstreamError } from "./roblox-oauth-api.js";
 
-const STATE_TTL_MS = 10 * 60_000;
+// Roblox login can include password recovery, email verification, or account
+// switching. Keep the PKCE state single-use, but allow enough time to finish it.
+const STATE_TTL_MS = 30 * 60_000;
 const EXCHANGE_TTL_MS = 2 * 60_000;
 const OPAQUE_VALUE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 

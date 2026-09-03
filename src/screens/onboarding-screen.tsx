@@ -13,9 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
+import { loadConnectionStatus } from '@/services/connections-api';
+import { appEnvironment } from '@/services/backend-api';
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
-import { signInWithRoblox } from '@/services/roblox-auth';
+import { getStoredSessionToken, signInWithRoblox } from '@/services/roblox-auth';
 
 const palette = {
   canvas: '#0B0D12',
@@ -44,12 +46,32 @@ type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 export default function OnboardingScreen() {
   const [step, setStep] = useState<OnboardingStep>(0);
   const [selectedIds, setSelectedIds] = useState(() => new Set(['most-words-win']));
+  const [creatorUsername, setCreatorUsername] = useState('Roblox creator');
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const token = await getStoredSessionToken();
+        if (!token) return;
+        const connection = await loadConnectionStatus({ universeId: '10009166512', sessionToken: token });
+        if (!active) return;
+        setCreatorUsername(connection.identity.username);
+        setStep(2);
+      } catch {
+        // An invalid or expired session falls back to the normal sign-in steps.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const finish = async () => {
     try {
       await markOnboardingComplete();
     } finally {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/analytics');
     }
   };
 
@@ -81,7 +103,13 @@ export default function OnboardingScreen() {
           <WelcomeStep onPrimary={goForward} onSample={() => void finish()} />
         ) : null}
         {step === 1 ? (
-          <IdentityStep onPrimary={goForward} onSample={() => void finish()} />
+          <IdentityStep
+            onPrimary={(username) => {
+              setCreatorUsername(username);
+              goForward();
+            }}
+            onSample={() => void finish()}
+          />
         ) : null}
         {step === 2 ? (
           <AnalyticsAccessStep onPrimary={goForward} onSample={() => void finish()} />
@@ -90,13 +118,14 @@ export default function OnboardingScreen() {
           <ChooseExperiencesStep
             selectedIds={selectedIds}
             onContinue={goForward}
-            onSelectAll={() => setSelectedIds(new Set(['most-words-win', 'fling-squishies']))}
+            onSelectAll={() => setSelectedIds(new Set(['most-words-win']))}
             onToggle={toggleExperience}
           />
         ) : null}
         {step === 4 ? (
           <ReadyStep
             selectedCount={selectedIds.size}
+            username={creatorUsername}
             onOpen={() => void finish()}
             onReview={() => setStep(1)}
           />
@@ -197,9 +226,9 @@ function Actions({
   disabled = false,
 }: {
   primaryLabel: string;
-  secondaryLabel: string;
+  secondaryLabel?: string;
   onPrimary: () => void;
-  onSecondary: () => void;
+  onSecondary?: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -207,9 +236,9 @@ function Actions({
       <View style={styles.primaryActionPosition}>
         <ActionButton disabled={disabled} label={primaryLabel} onPress={onPrimary} primary />
       </View>
-      <View style={styles.secondaryActionPosition}>
+      {secondaryLabel && onSecondary ? <View style={styles.secondaryActionPosition}>
         <ActionButton label={secondaryLabel} onPress={onSecondary} primary={false} />
-      </View>
+      </View> : null}
     </>
   );
 }
@@ -226,7 +255,7 @@ function WelcomeStep({ onPrimary, onSample }: { onPrimary: () => void; onSample:
         onPrimary={onPrimary}
         onSecondary={onSample}
         primaryLabel="Get started"
-        secondaryLabel="Explore sample data"
+        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
       />
     </>
   );
@@ -321,15 +350,15 @@ function AnimatedTrendChart() {
   );
 }
 
-function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+function IdentityStep({ onPrimary, onSample }: { onPrimary: (username: string) => void; onSample: () => void }) {
   const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
     if (connecting) return;
     setConnecting(true);
     try {
-      await signInWithRoblox();
-      onPrimary();
+      const session = await signInWithRoblox();
+      onPrimary(session.user.preferredUsername ?? session.user.nickname ?? session.user.name ?? session.user.sub);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
       Alert.alert('Couldn’t connect Roblox', message);
@@ -353,8 +382,8 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample
       </View>
 
       <StatusRow
-        badge="CONNECTED"
-        badgeTone="success"
+        badge="READY"
+        badgeTone="accent"
         detail="OAuth + PKCE · profile only"
         dotColor={palette.success}
         title="Roblox identity"
@@ -365,7 +394,7 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample
         onPrimary={() => void connect()}
         onSecondary={onSample}
         primaryLabel={connecting ? "Connecting…" : "Continue with Roblox"}
-        secondaryLabel="Explore sample data"
+        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
       />
     </>
   );
@@ -394,15 +423,32 @@ function PermissionLine({
 }
 
 function AnalyticsAccessStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+  const [checking, setChecking] = useState(false);
+
+  const verify = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const token = await getStoredSessionToken();
+      if (!token) throw new Error('Sign in with Roblox before verifying analytics.');
+      await loadConnectionStatus({ universeId: '10009166512', sessionToken: token });
+      onPrimary();
+    } catch (error) {
+      Alert.alert('Couldn’t verify analytics', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
     <>
       <SecureAnalyticsVisual />
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 256 }]}>ROBLOX OPEN CLOUD</StudioText>
-      <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 280 }]}>Add read-only analytics</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 328 }]}>Create a key in Roblox Creator Hub, choose its{`\n`}universes, then add it here. It stays encrypted on{`\n`}the backend.</StudioText>
+      <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 280 }]}>Analytics is ready</StudioText>
+      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 328 }]}>Your Most Words Win! key is encrypted in AWS.{`\n`}The app receives aggregate analytics only—never{`\n`}the credential itself.</StudioText>
 
       <StatusRow
-        badge="READ ONLY"
+        badge="SERVER READY"
         badgeTone="accent"
         detail="universe.analytics:read"
         dotColor={palette.accentText}
@@ -417,10 +463,11 @@ function AnalyticsAccessStep({ onPrimary, onSample }: { onPrimary: () => void; o
       </View>
 
       <Actions
-        onPrimary={onPrimary}
+        disabled={checking}
+        onPrimary={() => void verify()}
         onSecondary={onSample}
-        primaryLabel="Set up analytics key"
-        secondaryLabel="Explore sample data"
+        primaryLabel={checking ? 'Verifying…' : 'Verify and continue'}
+        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
       />
     </>
   );
@@ -468,26 +515,17 @@ function ChooseExperiencesStep({
       <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 190 }]}>Select from the experiences authorized by your{`\n`}analytics key. You can change this later.</StudioText>
 
       <View style={styles.eligiblePill}>
-        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.eligibleText}>2 authorized experiences</StudioText>
+        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.eligibleText}>1 authorized experience</StudioText>
       </View>
 
       <ExperienceCard
         id="most-words-win"
-        meta="12.8K DAU · Authorized"
+        meta="Universe 10009166512 · Authorized"
         name="Most Words Win!"
         onToggle={onToggle}
         selected={selectedIds.has('most-words-win')}
         top={296}
       />
-      <ExperienceCard
-        id="fling-squishies"
-        meta="28.6% D1 · Authorized"
-        name="Fling Squishies"
-        onToggle={onToggle}
-        selected={selectedIds.has('fling-squishies')}
-        top={408}
-      />
-
       <View style={styles.portfolioNote}>
         <StudioText weight="semibold" size={14} lineHeight={19} style={styles.portfolioTitle}>Portfolio view</StudioText>
         <StudioText size={12} lineHeight={18} style={styles.portfolioCopy}>Switch between authorized experiences without{`\n`}reconnecting.</StudioText>
@@ -558,24 +596,24 @@ function ExperienceArt() {
   );
 }
 
-function ReadyStep({ selectedCount, onOpen, onReview }: { selectedCount: number; onOpen: () => void; onReview: () => void }) {
+function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCount: number; username: string; onOpen: () => void; onReview: () => void }) {
   return (
     <>
       <RobloxMark top={104} />
       <View style={styles.readyCheck}><StudioText weight="semibold" size={14} lineHeight={19} style={styles.readyCheckText}>✓</StudioText></View>
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, styles.readyEyebrow]}>SETUP COMPLETE</StudioText>
-      <StudioText weight="bold" size={24} lineHeight={30} style={[styles.heading, { top: 214 }]}>Your creator pulse is ready</StudioText>
+      <StudioText weight="bold" size={24} lineHeight={30} style={[styles.heading, { top: 214 }]}>Your creator analytics are ready</StudioText>
       <StudioText size={14} lineHeight={20} style={[styles.bodyCopy, { top: 258 }]}>Review your connections, then open the roblox-analytics-mobile{`\n`}workspace.</StudioText>
 
-      <StatusRow badge="CONNECTED" badgeTone="success" detail="fkhattak819 · connected" dotColor={palette.success} title="Roblox identity" top={316} />
+      <StatusRow badge="CONNECTED" badgeTone="success" detail={`${username} · connected`} dotColor={palette.success} title="Roblox identity" top={316} />
       <StatusRow badge="READ ONLY" badgeTone="accent" detail={`${selectedCount} ${selectedCount === 1 ? 'universe' : 'universes'} · read only`} dotColor={palette.accentText} title="Analytics access" top={400} />
       <StatusRow badge="OPTIONAL" badgeTone="warning" detail="Available in Sales · optional" dotColor={palette.warning} title="Live sale alerts" top={484} />
 
       <View style={styles.workspacePreview}>
-        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.workspacePreviewTitle}>Sample workspace preview</StudioText>
-        <PreviewMetric label="DAU" left={13} value="12.8K" />
-        <PreviewMetric label="D1" left={118} value="28.6%" />
-        <PreviewMetric label="Revenue" left={223} value="R$ 4.8K" />
+        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.workspacePreviewTitle}>OFFICIAL ANALYTICS WORKSPACE</StudioText>
+        <PreviewMetric label="EXPERIENCE" left={13} value="1" />
+        <PreviewMetric label="SOURCE" left={118} value="Roblox" />
+        <PreviewMetric label="ACCESS" left={223} value="Read" />
       </View>
 
       <Actions onPrimary={onOpen} onSecondary={onReview} primaryLabel="Open roblox-analytics-mobile" secondaryLabel="Review setup" />
@@ -818,7 +856,7 @@ const styles = StyleSheet.create({
   selectionCheck: { position: 'absolute', top: 2, left: 4, color: palette.primary },
   portfolioNote: {
     position: 'absolute',
-    top: 526,
+    top: 420,
     left: CONTENT_LEFT,
     width: CONTENT_WIDTH,
     height: 132,

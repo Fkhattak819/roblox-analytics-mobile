@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { loadConnectionStatus, type ConnectionStatus } from '@/services/connections-api';
+import { getStoredSessionToken } from '@/services/roblox-auth';
 import { Card, Screen, StudioText } from '@/src/components/ui';
 import { colors, radii } from '@/src/theme/tokens';
 
@@ -37,6 +39,48 @@ function SettingsGroup({ title, children }: React.PropsWithChildren<{ title: str
 }
 
 export default function MoreScreen() {
+  const [connection, setConnection] = useState<ConnectionStatus>();
+  const [connectionChecked, setConnectionChecked] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const token = await getStoredSessionToken();
+        if (!token) return;
+        setConnection(await loadConnectionStatus({
+          universeId: '10009166512',
+          sessionToken: token,
+          signal: controller.signal,
+        }));
+      } catch {
+        // The signed-out state below is safer than presenting stale connection claims.
+      } finally {
+        if (!controller.signal.aborted) setConnectionChecked(true);
+      }
+    })();
+    return () => controller.abort();
+  }, []);
+
+  const identityConnected = Boolean(connection);
+  const analyticsActive = connection?.analytics.status === 'active';
+  const creatorName = connection?.identity.username ?? 'Roblox creator';
+  const connectionLabel = !connectionChecked
+    ? 'Checking'
+    : identityConnected
+      ? 'Connected'
+      : 'Not connected';
+  const healthTitle = analyticsActive
+    ? 'Roblox data connected'
+    : identityConnected
+      ? 'Roblox analytics awaiting sync'
+      : 'Connect Roblox to load analytics';
+  const healthDetail = connection?.analytics.lastSyncedAt
+    ? `Analytics refreshed ${new Date(connection.analytics.lastSyncedAt).toLocaleString()}`
+    : identityConnected
+      ? 'Official analytics will sync on demand'
+      : 'OAuth identifies your creator account';
+
   return (
     <Screen contentContainerStyle={styles.screenContent}>
       <View style={styles.titleBlock}>
@@ -50,32 +94,31 @@ export default function MoreScreen() {
             <Ionicons name="person-outline" size={19} color={colors.blue} />
           </View>
           <View style={styles.accountCopy}>
-            <StudioText weight="semibold" size={15}>Fahd Khattak</StudioText>
-            <StudioText tone="muted" size={10}>@fkhattak819</StudioText>
+            <StudioText weight="semibold" size={15}>{creatorName}</StudioText>
+            <StudioText tone="muted" size={10}>{identityConnected ? 'Roblox identity' : 'Sign in to connect'}</StudioText>
           </View>
           <View style={styles.verifiedBadge}>
-            <StudioText tone="blue" weight="semibold" size={8}>VERIFIED</StudioText>
+            <StudioText tone={identityConnected ? 'blue' : 'muted'} weight="semibold" size={8}>{identityConnected ? 'VERIFIED' : 'OFFLINE'}</StudioText>
           </View>
         </View>
         <View style={styles.accountConnection}>
           <View style={styles.connectionLabel}>
             <View style={styles.connectionDot} />
-            <StudioText tone="muted" size={10}>Roblox identity connected</StudioText>
+            <StudioText tone="muted" size={10}>Roblox identity {connectionLabel.toLowerCase()}</StudioText>
           </View>
-          <StudioText tone="green" weight="semibold" size={8}>CONNECTED</StudioText>
+          <StudioText tone={identityConnected ? 'green' : 'muted'} weight="semibold" size={8}>{connectionLabel.toUpperCase()}</StudioText>
         </View>
       </Card>
 
-      <Card style={styles.workspaceCard} onPress={() => router.push('/settings/account')} accessibilityLabel="Open BrainNourishment Studios workspace">
+      <Card style={styles.workspaceCard} onPress={() => router.push('/settings/account')} accessibilityLabel="Open Most Words Win workspace">
         <View style={styles.workspaceCopy}>
           <StudioText tone="muted" weight="medium" size={8}>WORKSPACE</StudioText>
-          <StudioText weight="semibold" size={13}>BrainNourishment Studios</StudioText>
-          <StudioText tone="muted" size={10}>2 experiences · analytics connected</StudioText>
+          <StudioText weight="semibold" size={13}>Most Words Win!</StudioText>
+          <StudioText tone="muted" size={10}>1 experience · {analyticsActive ? 'analytics active' : 'analytics awaiting sync'}</StudioText>
         </View>
         <View style={styles.workspaceAction}>
-          <StudioText tone="blue" weight="semibold" size={8}>OWNER</StudioText>
           <View style={styles.switchRow}>
-            <StudioText tone="blue" weight="semibold" size={8}>SWITCH</StudioText>
+            <StudioText tone="blue" weight="semibold" size={8}>OPEN</StudioText>
             <Ionicons name="chevron-forward" size={11} color={colors.blue} />
           </View>
         </View>
@@ -83,22 +126,22 @@ export default function MoreScreen() {
 
       <Card style={styles.healthCard} onPress={() => router.push('/settings/connections')} accessibilityLabel="Open Roblox data connection">
         <View style={styles.healthCopy}>
-          <StudioText weight="medium" size={14}>Roblox data connected</StudioText>
-          <StudioText tone="muted" size={10}>Analytics refreshed 2 min ago</StudioText>
+          <StudioText weight="medium" size={14}>{healthTitle}</StudioText>
+          <StudioText tone="muted" size={10}>{healthDetail}</StudioText>
         </View>
         <View style={styles.healthyBadge}>
-          <StudioText tone="green" weight="semibold" size={8}>HEALTHY</StudioText>
+          <StudioText tone={analyticsActive ? 'green' : 'muted'} weight="semibold" size={8}>{analyticsActive ? 'ACTIVE' : 'SETUP'}</StudioText>
         </View>
       </Card>
 
       <SettingsGroup title="ACCOUNT">
-        <SettingsRow title="Profile and account" value="fkhattak819" onPress={() => router.push('/settings/account')} />
+        <SettingsRow title="Profile and account" value={identityConnected ? creatorName : 'Sign in required'} onPress={() => router.push('/settings/account')} />
         <SettingsRow title="Notifications" value="Smart alerts" onPress={() => router.push('/notifications')} />
-        <SettingsRow title="Team & permissions" value="Owner" onPress={() => router.push('/settings/account')} last />
+        <SettingsRow title="Workspace access" value="1 experience" onPress={() => router.push('/settings/account')} last />
       </SettingsGroup>
 
       <SettingsGroup title="DATA & SECURITY">
-        <SettingsRow title="Roblox connections" value="Connected" valueTone="green" onPress={() => router.push('/settings/connections')} />
+        <SettingsRow title="Roblox connections" value={connectionLabel} valueTone={identityConnected ? 'green' : 'muted'} onPress={() => router.push('/settings/connections')} />
         <SettingsRow title="Data sources" value="2 sources" onPress={() => router.push('/settings/data-freshness')} />
         <SettingsRow title="Privacy & security" value="Protected" valueTone="blue" onPress={() => router.push('/settings/privacy')} last />
       </SettingsGroup>

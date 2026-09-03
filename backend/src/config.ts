@@ -1,6 +1,9 @@
 export type Config = {
   port: number;
   tableName?: string;
+  syncQueueUrl?: string;
+  robloxAnalyticsSecretArn?: string;
+  analyticsUniverseIds: string[];
   robloxOAuthSecretArn?: string;
   robloxOAuthClientId?: string;
   robloxOAuthClientSecret?: string;
@@ -22,9 +25,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error("SESSION_TTL_SECONDS must be an integer of at least 300");
   }
 
+  const analyticsUniverseIds = (env.ANALYTICS_UNIVERSE_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (analyticsUniverseIds.some((value) => !/^\d+$/.test(value))) {
+    throw new Error("ANALYTICS_UNIVERSE_IDS must be a comma-separated list of numeric universe IDs");
+  }
+
   return {
     port,
     tableName: env.TABLE_NAME || undefined,
+    syncQueueUrl: env.SYNC_QUEUE_URL || undefined,
+    robloxAnalyticsSecretArn: env.ROBLOX_ANALYTICS_SECRET_ARN || undefined,
+    analyticsUniverseIds,
     robloxOAuthSecretArn: env.ROBLOX_OAUTH_SECRET_ARN || undefined,
     robloxOAuthClientId: env.ROBLOX_OAUTH_CLIENT_ID || undefined,
     robloxOAuthClientSecret: env.ROBLOX_OAUTH_CLIENT_SECRET || undefined,

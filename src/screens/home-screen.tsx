@@ -1,12 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useHomeDashboard } from '@/hooks/use-home-dashboard';
+import type { AnalyticsDateRange, AnalyticsSnapshot } from '@/domain/analytics';
+import { appEnvironment } from '@/services/backend-api';
+import {
+  AnalyticsChartCard,
+  AnalyticsDataStatus,
+  AnalyticsErrorState,
+  AnalyticsLoadingSkeleton,
+  AnalyticsMetricCard,
+  AnalyticsSectionHeader,
+} from '@/src/components/analytics';
+import { AnalyticsBenchmarkCarousel } from '@/src/components/analytics-benchmarks';
+import { AnalyticsQuickLookGrid, buildAnalyticsQuickLookItems } from '@/src/components/analytics-quick-look';
 import { LineChart, Sparkline } from '@/src/components/charts';
 import { Card, ProgressBar, Screen, StudioText } from '@/src/components/ui';
-import { playersTrend, portfolioTrend, revenueTrend } from '@/src/data/sample-data';
+import { mostWordsWinBenchmarks } from '@/src/data/roblox-benchmarks';
+import { experiences, playersTrend, portfolioTrend, revenueTrend } from '@/src/data/sample-data';
+import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
+import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
 import { colors, spacing } from '@/src/theme/tokens';
 
 function UpperLabel({ children }: React.PropsWithChildren) {
@@ -183,6 +199,79 @@ function HealthMetric({
 }
 
 export default function HomeScreen() {
+  return appEnvironment.dataMode === 'aws_dev' ? <ConnectedHomeScreen /> : <SampleHomeScreen />;
+}
+
+function ConnectedHomeScreen() {
+  const [range, setRange] = useState<AnalyticsDateRange>('28D');
+  const sampleSnapshot = useMemo<AnalyticsSnapshot>(() => ({
+    mode: 'sample',
+    source: 'sample_data',
+    freshness: 'fixture',
+    universeId: '10009166512',
+    section: 'overview',
+    range,
+    metrics: [],
+    charts: [],
+    breakdowns: [],
+    message: 'No official analytics snapshot is available yet.',
+  }), [range]);
+  const { snapshot, loading, error, reload } = useAnalyticsSnapshot({
+    universeId: '10009166512',
+    section: 'overview',
+    range,
+    sampleSnapshot,
+  });
+  const quickLook = useAnalyticsQuickLook({ universeId: '10009166512' });
+  const quickLookItems = useMemo(() => buildAnalyticsQuickLookItems({
+    overview: snapshot,
+    snapshots: quickLook.snapshots,
+    connected: true,
+    loading: quickLook.loading,
+  }), [quickLook.loading, quickLook.snapshots, snapshot]);
+  const ranges: AnalyticsDateRange[] = ['7D', '28D', '56D'];
+  const nextRange = ranges[(ranges.indexOf(range) + 1) % ranges.length];
+  const primaryChart = snapshot?.charts[0];
+
+  return (
+    <Screen
+      contentContainerStyle={styles.connectedScreen}
+      refreshControl={<RefreshControl refreshing={loading || quickLook.loading} onRefresh={() => { reload(); quickLook.reload(); }} tintColor={colors.blue} />}>
+      <View style={styles.creatorHeader}>
+        <Pressable accessibilityLabel="Choose experience" onPress={() => router.push('/experience-picker')} style={({ pressed }) => [styles.creatorIdentity, pressed && styles.pressed]}>
+          <Image source={experiences[0].image} contentFit="cover" style={styles.experienceAvatar} />
+          <View><UpperLabel>EXPERIENCE ANALYTICS</UpperLabel><View style={styles.portfolioName}><StudioText weight="semibold" size={16}>Most Words Win!</StudioText><Ionicons name="caret-down" size={10} color={colors.textSecondary} /></View></View>
+        </Pressable>
+        <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.textSecondary} /></Pressable>
+      </View>
+      <View style={styles.homeHeading}>
+        <View><StudioText weight="bold" size={27} lineHeight={30}>Home</StudioText><StudioText tone="muted" size={12}>Official analytics summary</StudioText><StudioText tone="green" weight="semibold" size={9} style={styles.connectionLabel}>ROBLOX OPEN CLOUD</StudioText></View>
+        <Pressable accessibilityLabel={`Date range: Last ${range === '7D' ? '7 days' : range === '28D' ? '28 days' : '56 days'}`} onPress={() => setRange(nextRange)} style={({ pressed }) => [styles.todayControl, pressed && styles.pressed]}><StudioText weight="medium" size={12}>{range}</StudioText><Ionicons name="caret-down" size={9} color={colors.textSecondary} /></Pressable>
+      </View>
+      {loading ? <AnalyticsLoadingSkeleton /> : null}
+      {error ? <AnalyticsErrorState message={error} onRetry={reload} /> : null}
+      {!loading && !error && snapshot ? (
+        <>
+          <AnalyticsSectionHeader title="At a glance" detail={`Last ${range === '7D' ? '7' : range === '28D' ? '28' : '56'} days`} />
+          <View style={styles.connectedMetricGrid}>{snapshot.metrics.map((metric) => <View key={metric.id} style={styles.connectedMetricCell}><AnalyticsMetricCard label={metric.label} value={metric.displayValue} delta={metric.change} direction={metric.direction} /></View>)}</View>
+          <AnalyticsSectionHeader title="Your analytics" detail="Latest cached signals" />
+          <AnalyticsQuickLookGrid items={quickLookItems} />
+          <AnalyticsSectionHeader title="Benchmarks" detail="Party & casual · 7 day avg" />
+          <AnalyticsBenchmarkCarousel benchmarks={mostWordsWinBenchmarks} />
+          {primaryChart ? (
+            <>
+              <AnalyticsSectionHeader title="Activity trend" detail="Current vs previous" />
+              <AnalyticsChartCard title={primaryChart.title} value={primaryChart.displayValue} summary={primaryChart.summary} values={primaryChart.series[0]?.points.map((point) => point.value) ?? []} comparisonValues={primaryChart.series[1]?.points.map((point) => point.value)} yAxisLabels={primaryChart.yAxisLabels} labels={primaryChart.series[0]?.points.length ? [primaryChart.series[0].points[0], primaryChart.series[0].points[Math.floor((primaryChart.series[0].points.length - 1) / 2)], primaryChart.series[0].points[primaryChart.series[0].points.length - 1]].map((point) => new Date(point.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })) : []} showComparison />
+            </>
+          ) : null}
+          <AnalyticsDataStatus live={snapshot.source === 'roblox_open_cloud'} text={snapshot.message} />
+        </>
+      ) : null}
+    </Screen>
+  );
+}
+
+function SampleHomeScreen() {
   const dashboard = useHomeDashboard();
   const portfolio = dashboard.snapshot?.portfolio;
   const connectionLabel =
@@ -393,6 +482,9 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingTop: 10, paddingBottom: spacing.md, gap: 0 },
+  connectedScreen: { paddingTop: 10, paddingBottom: spacing.xl, gap: 12 },
+  connectedMetricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  connectedMetricCell: { width: '48.4%' },
   flex: { flex: 1 },
   pressed: { opacity: 0.7 },
   upperLabel: { letterSpacing: 0.15 },
@@ -400,6 +492,7 @@ const styles = StyleSheet.create({
   creatorHeader: { height: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   creatorIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   spTile: { width: 39, height: 39, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2A2D34' },
+  experienceAvatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surfaceSoft },
   portfolioName: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
   bellButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#171A20' },
   homeHeading: { minHeight: 76, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

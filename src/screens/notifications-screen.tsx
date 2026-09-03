@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Badge, Card, Divider, PageHeader, Screen, StudioText, uiStyles } from '@/src/components/ui';
+import { appEnvironment } from '@/services/backend-api';
 import { notificationMilestones } from '@/src/data/sample-data';
 import { useApp } from '@/src/state/app-context';
 import { colors, radii, spacing } from '@/src/theme/tokens';
@@ -13,6 +15,30 @@ export default function NotificationsScreen() {
   const { notificationMode, setNotificationMode } = useApp();
   const [enabled, setEnabled] = useState(true);
   const [quietHours, setQuietHours] = useState(true);
+
+  if (appEnvironment.dataMode === 'aws_dev') {
+    return (
+      <Screen>
+        <PageHeader back title="Notifications" subtitle="Delivery and alert configuration" />
+        <Card style={styles.unavailableCard}>
+          <View style={styles.unavailableIcon}><Ionicons name="notifications-off-outline" size={23} color={colors.yellow} /></View>
+          <View style={uiStyles.flex}>
+            <StudioText weight="bold" size={16}>Push notifications are not configured</StudioText>
+            <StudioText tone="muted" size={12} lineHeight={17}>This build does not register a device push token or send background alerts. Your official analytics remain available in the app.</StudioText>
+          </View>
+          <Badge label="NOT SET UP" tone="yellow" />
+        </Card>
+        <Card style={styles.notice} onPress={() => router.push('/live-sales-setup')}>
+          <Ionicons name="information-circle-outline" size={19} color={colors.blue} />
+          <View style={uiStyles.flex}>
+            <StudioText weight="semibold" size={13}>Live sales require a separate integration</StudioText>
+            <StudioText tone="muted" size={11} lineHeight={16}>Review why exact sale alerts cannot come from the aggregate Analytics Query connection.</StudioText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -84,6 +110,8 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  unavailableCard: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  unavailableIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.yellowSoft },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   modeCard: { width: '48%', minHeight: 128, padding: 14, gap: 7, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },

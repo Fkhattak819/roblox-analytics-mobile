@@ -67,9 +67,10 @@ type ScreenProps = React.PropsWithChildren<{
   scroll?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: ScrollViewProps['refreshControl'];
+  footer?: React.ReactNode;
 }>;
 
-export function Screen({ children, scroll = true, contentContainerStyle, refreshControl }: ScreenProps) {
+export function Screen({ children, scroll = true, contentContainerStyle, refreshControl, footer }: ScreenProps) {
   const content = (
     <View style={[styles.screenContent, contentContainerStyle]}>
       {children}
@@ -80,6 +81,7 @@ export function Screen({ children, scroll = true, contentContainerStyle, refresh
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       {scroll ? (
         <ScrollView
+          style={styles.scroll}
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -88,6 +90,34 @@ export function Screen({ children, scroll = true, contentContainerStyle, refresh
           {content}
         </ScrollView>
       ) : content}
+      {footer}
+    </SafeAreaView>
+  );
+}
+
+const persistentTabs = [
+  { key: 'home', label: 'Home', icon: 'home-outline' as IconName, route: '/(tabs)' as const },
+  { key: 'experiences', label: 'Experiences', icon: 'image-outline' as IconName, route: '/(tabs)/experiences' as const },
+  { key: 'analytics', label: 'Analytics', icon: 'stats-chart-outline' as IconName, route: '/(tabs)/analytics' as const },
+  { key: 'sales', label: 'Sales', icon: 'bag-handle-outline' as IconName, route: '/(tabs)/sales' as const },
+  { key: 'more', label: 'More', icon: 'ellipsis-horizontal' as IconName, route: '/(tabs)/more' as const },
+] as const;
+
+export function PersistentTabBar({ active }: { active: 'home' | 'experiences' | 'analytics' | 'sales' | 'more' }) {
+  return (
+    <SafeAreaView edges={['bottom']} style={styles.persistentTabSafeArea}>
+      <View style={styles.persistentTabRow}>
+        {persistentTabs.map((tab) => {
+          const selected = tab.key === active;
+          const color = selected ? colors.text : colors.textMuted;
+          return (
+            <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => router.replace(tab.route)} style={({ pressed }) => [styles.persistentTab, pressed && styles.pressed]}>
+              <Ionicons name={tab.icon} size={19} color={color} />
+              <StudioText weight={selected ? 'semibold' : 'regular'} size={9.5} style={{ color }}>{tab.label}</StudioText>
+            </Pressable>
+          );
+        })}
+      </View>
     </SafeAreaView>
   );
 }
@@ -358,6 +388,7 @@ export const uiStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
   scrollContent: { paddingBottom: 32 },
   screenContent: {
     width: '100%',
@@ -464,4 +495,7 @@ const styles = StyleSheet.create({
   },
   segment: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 9 },
   segmentSelected: { backgroundColor: colors.surfaceSoft, ...shadow },
+  persistentTabSafeArea: { backgroundColor: '#0B0D11', borderTopWidth: 1, borderTopColor: '#171A20' },
+  persistentTabRow: { height: 49, flexDirection: 'row', alignItems: 'center' },
+  persistentTab: { flex: 1, height: 49, alignItems: 'center', justifyContent: 'center', gap: 3 },
 });

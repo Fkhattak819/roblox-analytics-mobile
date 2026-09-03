@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { StudioText } from '@/src/components/ui';
+import { appEnvironment } from '@/services/backend-api';
 import { useApp } from '@/src/state/app-context';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -158,6 +159,7 @@ function StatusPill({ label, tone }: { label: string; tone: 'accent' | 'warning'
 
 export default function LiveSalesSetupScreen() {
   const { liveSalesAlertsEnabled, setLiveSalesAlertsEnabled } = useApp();
+  const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
 
   const leave = () => {
     if (router.canGoBack()) router.back();
@@ -183,7 +185,7 @@ export default function LiveSalesSetupScreen() {
           Aggregate revenue is already available. Exact buyer-level alerts require an optional signed server receipt event.
         </StudioText>
 
-        <View style={styles.previewCard}>
+        {!isConnectedMode ? <View style={styles.previewCard}>
           <StudioText weight="semibold" size={10} lineHeight={13} style={styles.previewEyebrow}>SAMPLE INSIGHT</StudioText>
           <StudioText weight="semibold" size={16} lineHeight={20} style={styles.previewTitle}>Monetization at a glance</StudioText>
           <View style={styles.metricRow}>
@@ -192,37 +194,41 @@ export default function LiveSalesSetupScreen() {
           </View>
           <StudioText size={12} lineHeight={15} style={styles.metricNote}>Payer CVR 1.8% · ARPPU R$ 273</StudioText>
           <AnimatedSalesChart />
-        </View>
+        </View> : null}
 
         <View style={styles.options}>
           <View style={[styles.optionCard, styles.optionCardActive]}>
             <View style={styles.activeRadio}><View style={styles.activeRadioDot} /></View>
             <StudioText weight="semibold" size={13} lineHeight={18} style={styles.optionTitle}>Aggregate sales analytics</StudioText>
-            <StudioText size={11} lineHeight={16} style={styles.optionSubtitle}>Revenue, CVR, ARPPU, and product mix</StudioText>
+            <StudioText size={11} lineHeight={16} style={styles.optionSubtitle}>Revenue, conversion, and payer metrics</StudioText>
             <StatusPill label="ACTIVE" tone="accent" />
           </View>
 
-          <View style={[styles.optionCard, liveSalesAlertsEnabled && styles.optionCardActive]}>
-            <View style={[styles.inactiveRadio, liveSalesAlertsEnabled && styles.activeRadio]}>
-              {liveSalesAlertsEnabled ? <View style={styles.activeRadioDot} /> : null}
+          <View style={[styles.optionCard, !isConnectedMode && liveSalesAlertsEnabled && styles.optionCardActive]}>
+            <View style={[styles.inactiveRadio, !isConnectedMode && liveSalesAlertsEnabled && styles.activeRadio]}>
+              {!isConnectedMode && liveSalesAlertsEnabled ? <View style={styles.activeRadioDot} /> : null}
             </View>
             <StudioText weight="semibold" size={13} lineHeight={18} style={styles.optionTitle}>Real-time sale alerts</StudioText>
             <StudioText size={11} lineHeight={16} style={styles.optionSubtitle}>Signed server receipt events</StudioText>
-            <StatusPill label={liveSalesAlertsEnabled ? 'CONNECTED' : 'OPTIONAL'} tone={liveSalesAlertsEnabled ? 'success' : 'warning'} />
+            <StatusPill
+              label={!isConnectedMode && liveSalesAlertsEnabled ? 'CONNECTED' : isConnectedMode ? 'NOT CONFIGURED' : 'OPTIONAL'}
+              tone={!isConnectedMode && liveSalesAlertsEnabled ? 'success' : 'warning'}
+            />
           </View>
         </View>
 
         <Pressable
           accessibilityRole="button"
+          disabled={isConnectedMode}
           onPress={() => setLiveSalesAlertsEnabled(true)}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}>
+          style={({ pressed }) => [styles.primaryButton, isConnectedMode && styles.primaryButtonDisabled, pressed && !isConnectedMode && styles.primaryButtonPressed]}>
           <StudioText weight="semibold" size={14} lineHeight={18}>
-            {liveSalesAlertsEnabled ? 'Live alerts connected' : 'Set up live alerts'}
+            {isConnectedMode ? 'Server integration required' : liveSalesAlertsEnabled ? 'Live alerts connected' : 'Set up live alerts'}
           </StudioText>
         </Pressable>
 
         <Pressable accessibilityRole="button" onPress={leave} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-          <StudioText weight="semibold" size={14} lineHeight={18}>Not now</StudioText>
+          <StudioText weight="semibold" size={14} lineHeight={18}>{isConnectedMode ? 'Done' : 'Not now'}</StudioText>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -317,6 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.accent,
   },
   primaryButtonPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+  primaryButtonDisabled: { backgroundColor: palette.subtle },
   secondaryButton: {
     width: 340,
     height: 52,

@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
+import type { AnalyticsDateRange } from '@/domain/analytics';
 import { experiences } from '@/src/data/sample-data';
 
-type DateRange = '24H' | '7D' | '30D' | '90D';
 type NotificationMode = 'Every sale' | 'Smart' | 'Milestones' | 'Digest';
 
 type AppContextValue = {
   selectedExperienceId: string | null;
   setSelectedExperienceId: (id: string | null) => void;
   selectedExperience: (typeof experiences)[number] | null;
-  dateRange: DateRange;
-  setDateRange: (range: DateRange) => void;
+  dateRange: AnalyticsDateRange;
+  setDateRange: (range: AnalyticsDateRange) => void;
   comparePrevious: boolean;
   setComparePrevious: (value: boolean) => void;
   notificationMode: NotificationMode;
@@ -23,7 +23,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: React.PropsWithChildren) {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>('30D');
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>('28D');
   const [comparePrevious, setComparePrevious] = useState(true);
   const [notificationMode, setNotificationMode] = useState<NotificationMode>('Smart');
   const [liveSalesAlertsEnabled, setLiveSalesAlertsEnabled] = useState(false);
