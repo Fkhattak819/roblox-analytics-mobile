@@ -31,7 +31,7 @@ The former onboarding page `201:104` and the vault's older `16:*`, `19:*`, `209:
 
 | Figma screen | Live node | Expo implementation | Result |
 | --- | --- | --- | --- |
-| Home / focused | `59:7` | `src/screens/home-screen.tsx` | Connected mode uses the Figma at-a-glance hierarchy with official Overview metrics, cached section summaries, the official experience icon, and the six Roblox benchmark cards captured from the owner's dashboard; DAU replaces the Figma near-live CCU hero because the current API exposes aggregated snapshots, not a live counter |
+| Home / focused | `59:7` | `src/screens/home-screen.tsx` | Connected mode uses the Figma's hierarchy and visual language as a guide, then deliberately extends past its 2,300-point frame with official/cached hero metrics, game quality, change insight, six-section preview, trends, benchmarks, retention depth, monetization, acquisition, performance, rule-based next actions, and data coverage; DAU replaces the Figma near-live CCU because the current API exposes snapshots, not a live counter |
 | Experiences | `72:7` | `src/screens/experiences-screen.tsx` | Existing implementation retained; the connected portfolio switcher and authorized-experience card use the official experience icon |
 | Analytics / portfolio | `81:7`, content `91:2`, trigger `100:2` | `src/screens/analytics-screen.tsx` | Figma drill-down cards display official cached metrics, secondary signals, real mini-visualizations, the official experience icon, and a touch-scrollable mobile rendering of the six captured Roblox benchmark cards |
 | Analytics / switcher | `102:7`, hub `102:519`, trigger `102:638`, scrim `102:643`, sheet `102:644` | `app/experience-picker.tsx` | Reimplemented from current Figma; exact wide artwork preserved locally |
@@ -66,6 +66,7 @@ Do not record login email addresses, authorization data, tokens, secret values, 
 - The visible product name is `roblox-analytics-mobile`, per the project owner's explicit naming decision, even where old Figma copy still says the historical name.
 - Sample Mode remains explicitly labeled and offline; connected mode labels metrics official only when the authenticated backend returns a Roblox Open Cloud snapshot.
 - Dashboard benchmark values are labeled `ROBLOX WEB` rather than `OFFICIAL` API data because the supported Open Cloud Analytics Query API does not expose genre benchmark comparisons.
+- The production Home is intentionally longer and more information-dense than node `59:7`. Figma supplies the visual grammar; real snapshot availability and mobile decision usefulness determine the final content hierarchy.
 - Onboarding remains implemented in Expo but cannot receive a current parity status because its previous Figma page was removed from the live file.
 
 ## Approval rule

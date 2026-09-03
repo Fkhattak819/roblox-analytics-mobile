@@ -243,11 +243,11 @@ export default function AnalyticsScreen() {
           ) : null}
 
           {isConnectedMode ? (
-            <>
+            <View style={styles.benchmarkSection}>
               <AnalyticsSectionHeader title="Benchmarks" detail="Party & casual · 7 day avg" />
               <AnalyticsBenchmarkCarousel benchmarks={mostWordsWinBenchmarks} />
-              <AnalyticsDataStatus live={false} label="ROBLOX WEB" text="Captured from Roblox Creator Dashboard · benchmark comparisons are not exposed by the supported Open Cloud API" />
-            </>
+              <AnalyticsDataStatus live={false} label="ROBLOX WEB" text="Captured from Roblox web · Open Cloud does not expose benchmark comparisons" />
+            </View>
           ) : null}
 
           {!isOfficial ? (
@@ -352,6 +352,7 @@ const styles = StyleSheet.create({
   trendSwitcher: { height: 32, flexDirection: 'row', padding: 2, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised },
   trendOption: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 6, paddingHorizontal: 3 },
   trendOptionActive: { backgroundColor: '#273044' },
+  benchmarkSection: { gap: 12, marginTop: 6, marginBottom: 8 },
   benchmarkCard: { padding: 12, gap: 9, borderRadius: radii.md },
   benchmarkTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   benchmarkTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceSoft },
