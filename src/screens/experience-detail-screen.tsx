@@ -63,7 +63,7 @@ export default function ExperienceDetailScreen() {
   const experience = experiences.find((item) => item.id === id);
   const { setSelectedExperienceId } = useApp();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
-  const sampleSnapshot = useMemo(createDetailFallbackSnapshot, []);
+  const sampleSnapshot = useMemo(() => createDetailFallbackSnapshot(), []);
   const { snapshot } = useAnalyticsSnapshot({
     universeId: '10009166512',
     section: 'overview',

@@ -142,7 +142,7 @@ export default function MoreScreen() {
 
       <SettingsGroup title="DATA & SECURITY">
         <SettingsRow title="Roblox connections" value={connectionLabel} valueTone={identityConnected ? 'green' : 'muted'} onPress={() => router.push('/settings/connections')} />
-        <SettingsRow title="Data sources" value="2 sources" onPress={() => router.push('/settings/data-freshness')} />
+        <SettingsRow title="Data coverage" value="6 sections" onPress={() => router.push('/settings/data-freshness')} />
         <SettingsRow title="Privacy & security" value="Protected" valueTone="blue" onPress={() => router.push('/settings/privacy')} last />
       </SettingsGroup>
 

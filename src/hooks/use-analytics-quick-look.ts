@@ -32,8 +32,9 @@ export function useAnalyticsQuickLook({
   universeId: string;
   enabled?: boolean;
 }) {
+  const canLoad = enabled && appEnvironment.dataMode === 'aws_dev' && /^\d+$/.test(universeId);
   const [snapshots, setSnapshots] = useState<AnalyticsQuickLookSnapshots>({});
-  const [loading, setLoading] = useState(appEnvironment.dataMode === 'aws_dev' && enabled);
+  const [loading, setLoading] = useState(canLoad);
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((current) => current + 1), []);
 
@@ -41,14 +42,12 @@ export function useAnalyticsQuickLook({
     const controller = new AbortController();
     let active = true;
 
-    if (!enabled || appEnvironment.dataMode !== 'aws_dev' || !/^\d+$/.test(universeId)) {
-      setSnapshots({});
-      setLoading(false);
+    if (!canLoad) {
       return () => controller.abort();
     }
 
-    setLoading(true);
     void (async () => {
+      if (active) setLoading(true);
       try {
         const sessionToken = await getStoredSessionToken();
         if (!sessionToken) return;
@@ -76,9 +75,13 @@ export function useAnalyticsQuickLook({
       active = false;
       controller.abort();
     };
-  }, [attempt, enabled, universeId]);
+  }, [attempt, canLoad, universeId]);
 
-  return { snapshots, loading, reload };
+  return {
+    snapshots: canLoad ? snapshots : {},
+    loading: canLoad ? loading : false,
+    reload,
+  };
 }
 
 async function loadFirstCachedSnapshot({

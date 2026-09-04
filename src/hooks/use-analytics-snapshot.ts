@@ -41,16 +41,14 @@ export function useAnalyticsSnapshot({
     const controller = new AbortController();
     let active = true;
     if (!enabled) {
-      setSnapshot(undefined);
-      setLoading(false);
-      setError(undefined);
       return () => controller.abort();
     }
-    setSnapshot(appEnvironment.dataMode === 'sample' ? sampleSnapshot : undefined);
-    setLoading(appEnvironment.dataMode === 'aws_dev');
-    setError(undefined);
-
     void (async () => {
+      if (active) {
+        setSnapshot(appEnvironment.dataMode === 'sample' ? sampleSnapshot : undefined);
+        setLoading(appEnvironment.dataMode === 'aws_dev');
+        setError(undefined);
+      }
       try {
         const sessionToken = appEnvironment.dataMode === 'aws_dev'
           ? await getStoredSessionToken()
@@ -100,7 +98,12 @@ export function useAnalyticsSnapshot({
     };
   }, [attempt, enabled, range, sampleSnapshot, section, universeId]);
 
-  return { snapshot, loading, error, reload };
+  return {
+    snapshot: enabled ? snapshot : undefined,
+    loading: enabled ? loading : false,
+    error: enabled ? error : undefined,
+    reload,
+  };
 }
 
 async function loadWithTransientRetry(

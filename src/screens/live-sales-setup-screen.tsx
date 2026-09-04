@@ -20,22 +20,24 @@ import { router } from 'expo-router';
 import { StudioText } from '@/src/components/ui';
 import { appEnvironment } from '@/services/backend-api';
 import { useApp } from '@/src/state/app-context';
+import { colors } from '@/src/theme/tokens';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const palette = {
-  canvas: '#0B0D12',
-  surface: '#11141A',
-  raised: '#181C24',
-  subtle: '#222735',
-  border: '#2A303B',
-  borderStrong: '#333946',
-  accent: '#5C80FF',
-  accentLine: '#89A0FF',
-  text: '#FFFFFF',
-  secondary: '#8C929E',
-  success: '#43D17D',
-  warning: '#F0B35D',
+  canvas: colors.background,
+  surface: colors.surface,
+  raised: colors.surfaceRaised,
+  subtle: colors.surfaceSoft,
+  border: colors.border,
+  borderStrong: colors.borderStrong,
+  accent: colors.blue,
+  accentLine: colors.blue,
+  text: colors.text,
+  secondary: colors.textMuted,
+  success: colors.green,
+  warning: colors.yellow,
+  onAccent: colors.white,
 } as const;
 
 const SALES_PATH = 'M1.5002 81.5004C21.5002 78.5004 29.5002 69.5004 47.5002 71.5004C69.5002 74.5004 77.5002 57.5004 98.5002 59.5004C121.5 61.5004 130.5 42.5004 152.5 45.5004C178.5 49.5004 182.5 30.5004 209.5 33.5004C234.5 36.5004 244.5 15.5004 266.5 20.5004C282.5 23.5004 293.5 6.50039 305.5 1.50039';
@@ -222,7 +224,7 @@ export default function LiveSalesSetupScreen() {
           disabled={isConnectedMode}
           onPress={() => setLiveSalesAlertsEnabled(true)}
           style={({ pressed }) => [styles.primaryButton, isConnectedMode && styles.primaryButtonDisabled, pressed && !isConnectedMode && styles.primaryButtonPressed]}>
-          <StudioText weight="semibold" size={14} lineHeight={18}>
+          <StudioText weight="semibold" size={14} lineHeight={18} style={styles.primaryButtonLabel}>
             {isConnectedMode ? 'Server integration required' : liveSalesAlertsEnabled ? 'Live alerts connected' : 'Set up live alerts'}
           </StudioText>
         </Pressable>
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.text },
+  activeRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.onAccent },
   inactiveRadio: {
     position: 'absolute',
     left: 13,
@@ -309,7 +311,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.subtle,
   },
-  statusPillConnected: { backgroundColor: '#173827' },
+  statusPillConnected: { backgroundColor: colors.greenSoft },
   accentPillText: { color: palette.accentLine },
   warningPillText: { color: palette.warning },
   connectedPillText: { color: palette.success },
@@ -322,6 +324,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.accent,
   },
+  primaryButtonLabel: { color: palette.onAccent },
   primaryButtonPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
   primaryButtonDisabled: { backgroundColor: palette.subtle },
   secondaryButton: {

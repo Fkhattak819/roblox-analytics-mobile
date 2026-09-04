@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
   rangeButton: { minWidth: 121, height: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   segments: { height: 38, padding: 3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised, flexDirection: 'row' },
   segment: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-  segmentSelected: { backgroundColor: '#253354' },
-  selectedText: { color: '#C6D1FF' },
+  segmentSelected: { backgroundColor: colors.blueSoft },
+  selectedText: { color: colors.blue },
   heroCard: { gap: 5, padding: 13 },
   productIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   productTile: { width: 48, height: 48, borderRadius: 11, backgroundColor: '#552765', alignItems: 'center', justifyContent: 'center' },
@@ -141,6 +141,6 @@ const styles = StyleSheet.create({
   activityRow: { minHeight: 62, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 10 },
   activityTile: { width: 36, height: 36, borderRadius: 9, backgroundColor: '#552765', alignItems: 'center', justifyContent: 'center' },
   activityAmount: { alignItems: 'flex-end', gap: 3 },
-  signalCard: { gap: 5, borderColor: '#35477B', backgroundColor: '#151B2A' },
+  signalCard: { gap: 5, borderColor: colors.blueBorder, backgroundColor: colors.blueSoft },
   unavailableCard: { alignItems: 'center', gap: 9, paddingVertical: 30 },
 });

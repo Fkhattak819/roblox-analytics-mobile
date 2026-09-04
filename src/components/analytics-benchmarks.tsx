@@ -99,7 +99,7 @@ function BenchmarkCallout({ left, label, value }: { left: `${number}%`; label: s
 
 const styles = StyleSheet.create({
   carousel: { gap: 12, paddingRight: 18 },
-  card: { width: 308, minHeight: 192, padding: 14, gap: 8, borderRadius: 13, backgroundColor: '#111216', borderColor: '#34363D' },
+  card: { width: 308, minHeight: 192, padding: 14, gap: 8, borderRadius: 13, backgroundColor: colors.surface, borderColor: colors.border },
   titleRow: { minHeight: 28, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   title: { flex: 1 },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -107,10 +107,10 @@ const styles = StyleSheet.create({
   scale: { height: 86 },
   percentile: { position: 'absolute', top: 0, width: 58, marginLeft: -27, textAlign: 'center' },
   trackRow: { position: 'absolute', left: 0, right: 0, top: 25, height: 8, flexDirection: 'row', gap: 6 },
-  trackSegment: { height: 8, borderRadius: 5, backgroundColor: '#5A5B63' },
+  trackSegment: { height: 8, borderRadius: 5, backgroundColor: colors.surfaceSoft },
   trackFill: { position: 'absolute', left: 0, top: 25, height: 8, borderRadius: 5 },
-  markerHalo: { position: 'absolute', top: 18, width: 22, height: 22, marginLeft: -11, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
-  marker: { width: 16, height: 16, borderRadius: 9, borderWidth: 3, borderColor: '#FFFFFF', backgroundColor: '#BFC2C8' },
-  callout: { position: 'absolute', top: 46, width: 76, height: 40, marginLeft: -38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#191A1F' },
-  calloutPointer: { position: 'absolute', top: -5, width: 10, height: 10, transform: [{ rotate: '45deg' }], backgroundColor: '#191A1F' },
+  markerHalo: { position: 'absolute', top: 18, width: 22, height: 22, marginLeft: -11, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
+  marker: { width: 16, height: 16, borderRadius: 9, borderWidth: 3, borderColor: colors.background, backgroundColor: colors.textSecondary },
+  callout: { position: 'absolute', top: 46, width: 76, height: 40, marginLeft: -38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised },
+  calloutPointer: { position: 'absolute', top: -5, width: 10, height: 10, transform: [{ rotate: '45deg' }], backgroundColor: colors.surfaceRaised },
 });

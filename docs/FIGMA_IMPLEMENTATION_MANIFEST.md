@@ -6,9 +6,10 @@ This is the audit trail between the live Figma file and the Expo / React Native 
 
 - Figma file key: `WCcDt0bYdwuoypf03dYcCg`
 - Figma file: [StudioPulse — Roblox Analytics Wireframes](https://www.figma.com/design/WCcDt0bYdwuoypf03dYcCg/StudioPulse-%E2%80%94-Roblox-Analytics-Wireframes)
-- Current page: `0:1`, `01 — Mobile Overview`
+- Dark-mode page: `0:1`, `01 — Mobile Overview`
+- Light-mode page: `187:104`, `02 — Mobile Light Mode`
 - Target iPhone canvas: 393 x 852 points
-- Target implementation: Expo 54, React Native, TypeScript
+- Target implementation: Expo 57, React Native, TypeScript
 - App product name: `roblox-analytics-mobile` (the older name remains only in the Figma file title and historical notes)
 - Figma access mode: read-only
 
@@ -26,6 +27,12 @@ This is the audit trail between the live Figma file and the Expo / React Native 
 | 393 x 852 simulator | Passed on iPhone 15 / iOS 26 |
 
 The former onboarding page `201:104` and the vault's older `16:*`, `19:*`, `209:*`, and `210:*` nodes are no longer present in the live file. They must not be used for new parity claims.
+
+## Light-mode pass — 2026-09-04
+
+The exact light-mode frames were read before implementation: Overview `187:112`, Home `187:178`, Experiences `187:675`, Analytics `187:963`, switcher `187:1695`, selected-experience analytics `187:2371`, Sales overview `187:3013`, Sales live `187:3115`, sale detail `187:3276`, product detail `187:3366`, More `187:3471`, Profile `187:3589`, and Connections `187:3695`.
+
+The implementation retains the existing shared theme and components, adding appearance-aware semantic colors instead of a second design system. Light mode uses the Figma's white canvas, `#F7F8FB` card surfaces, `#E3E6EC` borders, black primary text, iOS secondary-label neutrals, and light-adjusted data accents. Light, Dark, and System appearance choices are persisted from Settings. Native iOS visual QA was run on iPhone 17 Pro / iOS 26; its 402 x 874-point viewport is a small device-geometry variance from the 393 x 852 Figma frame.
 
 ## Current screen map
 
@@ -58,11 +65,17 @@ The former onboarding page `201:104` and the vault's older `16:*`, `19:*`, `209:
 - Natural size: 512 x 512 PNG
 - Used consistently in connected Home, Experiences, Analytics, Sales, and experience-detail surfaces
 
+## Product identity assets
+
+- `assets/images/roblox-analytics-logo.png` remains the opaque app icon, splash, favicon, and About artwork.
+- `assets/images/roblox-analytics-logo-transparent.png` is the owner-supplied alpha-channel variant used by the onboarding welcome, identity, and completion steps so the mark sits directly on either theme surface without a white image canvas.
+
 Do not record login email addresses, authorization data, tokens, secret values, or expiring Figma asset URLs in this manifest.
 
 ## Intentional differences
 
 - Native iOS status bars, safe areas, and the Expo tab navigator replace Figma's drawn device chrome.
+- The light-mode implementation follows the exact Figma palette and surface hierarchy while preserving data-rich production content that intentionally extends beyond the shorter reference frames.
 - The visible product name is `roblox-analytics-mobile`, per the project owner's explicit naming decision, even where old Figma copy still says the historical name.
 - Sample Mode remains explicitly labeled and offline; connected mode labels metrics official only when the authenticated backend returns a Roblox Open Cloud snapshot.
 - Dashboard benchmark values are labeled `ROBLOX WEB` rather than `OFFICIAL` API data because the supported Open Cloud Analytics Query API does not expose genre benchmark comparisons.

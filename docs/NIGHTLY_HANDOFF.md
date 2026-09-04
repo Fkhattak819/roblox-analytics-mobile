@@ -1,6 +1,6 @@
 # roblox-analytics-mobile handoff
 
-Updated: 2026-09-03 (America/Chicago)
+Updated: 2026-09-04 (America/Chicago)
 
 ## Completed
 
@@ -31,6 +31,16 @@ Updated: 2026-09-03 (America/Chicago)
 - Re-ran the 393 x 852 simulator loop after correcting a clipped benchmark callout and the `3th` ordinal. Verified Home, Analytics, horizontal benchmark navigation, loading skeleton transition, and the connected Experiences artwork.
 - Extended connected Home beyond the Figma full-scroll frame. The page now includes a DAU hero, fast revenue/playtime cards, recent peak, game-quality carousel, strongest-change insight, six-section quick look, two deep trend cards, benchmarks, retention snapshot, monetization, acquisition funnel, performance health, three prioritized `Focus next` prompts, and per-section data coverage.
 - Home insight copy is derived only from returned metric values and comparisons. Missing snapshots remain `Not synced`, `Awaiting signal`, or `WAITING`; the UI does not infer health or fabricate live CCU, server counts, product rankings, or Roblox metrics.
+- Upgraded the mobile project and simulator workflow to Expo SDK 57 so it opens in the current Expo Go client.
+- Added a persisted Light / Dark / System appearance preference and wired the root navigation, status bar, tabs, modals, analytics surfaces, skeletons, onboarding, Sales, More, and settings screens to shared appearance-aware tokens.
+- Read all exact production frames on Figma's `02 — Mobile Light Mode` page (`187:104`) and matched its white canvas, pale gray surfaces, thin borders, neutral typography, and light-mode data accents without replacing the existing dark theme.
+- Fixed an SDK 57 runtime incompatibility where `react-native-svg` received opaque `DynamicColorIOS` objects. Charts now resolve appearance-aware values to SVG-safe colors while retaining native dynamic colors everywhere else.
+- Added a functional sign-out flow that clears local Roblox/app-session state and returns to onboarding without embedding or exposing Roblox credentials.
+- Added the supplied Roblox Analytics logo to app icon, splash, favicon, and About surfaces.
+- Added the owner-supplied transparent logo variant to onboarding and replaced the onboarding experience placeholder with the official Most Words Win! thumbnail.
+- Added touch scrubbing to analytics line charts. Dragging across a chart now selects the nearest real point and displays its exact timestamp, formatted current value, and previous-period value when comparison is enabled.
+- Replaced tap-to-cycle analytics controls with anchored dropdown menus for date range, comparison, and the available filter/breakdown options.
+- Moved the connected per-section Data coverage panel from the Home feed into More → Data coverage, preserving cached readiness timestamps, pull-to-refresh, official provenance, waiting states, and the explicit Roblox-web-only Audience limitation.
 
 ## Verification
 
@@ -45,6 +55,7 @@ Updated: 2026-09-03 (America/Chicago)
 - iOS production export: passed (1,558 modules; Builder Sans and official experience artwork included).
 - `git diff --check`: passed.
 - iPhone Simulator QA: populated sample Home/analytics overview/detail layouts were inspected; connected-mode error state was inspected with no sample metrics leaking underneath.
+- Expo SDK 57 iPhone Simulator QA: light Home, Analytics, Sales, and More render correctly on iPhone 17 Pro / iOS 26; the light SVG charts, active tab treatment, card borders, metric trend colors, and persistent bottom navigation were inspected directly.
 
 ## Remaining gated work and limitations
 

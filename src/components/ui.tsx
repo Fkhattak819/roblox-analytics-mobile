@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   segment: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 9 },
   segmentSelected: { backgroundColor: colors.surfaceSoft, ...shadow },
-  persistentTabSafeArea: { backgroundColor: '#0B0D11', borderTopWidth: 1, borderTopColor: '#171A20' },
+  persistentTabSafeArea: { backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.tabBarBorder },
   persistentTabRow: { height: 49, flexDirection: 'row', alignItems: 'center' },
   persistentTab: { flex: 1, height: 49, alignItems: 'center', justifyContent: 'center', gap: 3 },
 });
