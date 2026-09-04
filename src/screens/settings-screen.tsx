@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, StyleSheet, Switch, View } from 'react-native';
 
 import {
   Badge,
@@ -10,15 +11,20 @@ import {
   ListRow,
   PageHeader,
   PersistentTabBar,
-  ProgressBar,
   Screen,
   SegmentedControl,
   StudioText,
 } from '@/src/components/ui';
+import { AnalyticsDataStatus } from '@/src/components/analytics';
+import type { AnalyticsSnapshot } from '@/domain/analytics';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 import { appEnvironment } from '@/services/backend-api';
 import { loadConnectionStatus, type ConnectionStatus } from '@/services/connections-api';
-import { getStoredSessionToken, signInWithRoblox } from '@/services/roblox-auth';
+import { getStoredSessionToken, signInWithRoblox, signOutOfRoblox } from '@/services/roblox-auth';
+import { resetOnboarding } from '@/src/state/onboarding-storage';
+import { appearanceLabel, useAppearancePreference, type AppearancePreference } from '@/src/state/appearance-context';
+import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
+import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -27,7 +33,7 @@ const screenMeta: Record<string, { title: string; subtitle: string; icon: IconNa
   currency: { title: 'Currency display', subtitle: 'Choose how revenue appears', icon: 'cash-outline' },
   appearance: { title: 'Appearance', subtitle: 'Make roblox-analytics-mobile feel right', icon: 'moon-outline' },
   connections: { title: 'Connections', subtitle: 'Identity and analytics access', icon: 'link-outline' },
-  'data-freshness': { title: 'Data freshness', subtitle: 'Know what is official and what is early', icon: 'time-outline' },
+  'data-freshness': { title: 'Data coverage', subtitle: 'Know what is ready before you drill down', icon: 'layers-outline' },
   export: { title: 'Export data', subtitle: 'Prepare a clean CSV export', icon: 'download-outline' },
   'api-security': { title: 'API key security', subtitle: 'How your analytics access stays safe', icon: 'key-outline' },
   'event-signing': { title: 'Event signing', subtitle: 'Verify live events before showing them', icon: 'shield-checkmark-outline' },
@@ -110,10 +116,10 @@ function InfoBanner({
   tone?: 'blue' | 'green' | 'yellow' | 'red';
 }) {
   const palette = {
-    blue: { color: colors.blue, background: colors.blueSoft, border: '#354477' },
-    green: { color: colors.green, background: colors.greenSoft, border: '#28543A' },
-    yellow: { color: colors.yellow, background: colors.yellowSoft, border: '#574922' },
-    red: { color: colors.red, background: colors.redSoft, border: '#60303A' },
+    blue: { color: colors.blue, background: colors.blueSoft, border: colors.blueBorder },
+    green: { color: colors.green, background: colors.greenSoft, border: colors.greenBorder },
+    yellow: { color: colors.yellow, background: colors.yellowSoft, border: colors.yellowBorder },
+    red: { color: colors.red, background: colors.redSoft, border: colors.redBorder },
   }[tone];
 
   return (
@@ -124,46 +130,6 @@ function InfoBanner({
         <StudioText tone="secondary" size={11} lineHeight={16}>{body}</StudioText>
       </View>
     </View>
-  );
-}
-
-function StatusSource({
-  icon,
-  title,
-  subtitle,
-  badge,
-  badgeTone,
-  freshness,
-  progress,
-  color,
-}: {
-  icon: IconName;
-  title: string;
-  subtitle: string;
-  badge: string;
-  badgeTone: 'blue' | 'green' | 'yellow' | 'red' | 'neutral';
-  freshness: string;
-  progress: number;
-  color: string;
-}) {
-  return (
-    <Card>
-      <View style={styles.sourceTop}>
-        <View style={[styles.sourceIcon, { backgroundColor: `${color}1F` }]}>
-          <Ionicons name={icon} size={19} color={color} />
-        </View>
-        <View style={styles.flex}>
-          <StudioText weight="semibold" size={15}>{title}</StudioText>
-          <StudioText tone="muted" size={11}>{subtitle}</StudioText>
-        </View>
-        <Badge label={badge} tone={badgeTone} />
-      </View>
-      <ProgressBar value={progress} color={color} />
-      <View style={styles.sourceFooter}>
-        <StudioText tone="muted" size={11}>Freshness</StudioText>
-        <StudioText weight="semibold" size={11} style={{ color }}>{freshness}</StudioText>
-      </View>
-    </Card>
   );
 }
 
@@ -185,6 +151,94 @@ function SettingButton({ label, icon, onPress }: { label: string; icon: IconName
   );
 }
 
+const DATA_COVERAGE_UNIVERSE_ID = '10009166512';
+
+function DataCoverageSettingsScreen() {
+  const connected = appEnvironment.dataMode === 'aws_dev';
+  const sampleSnapshot = useMemo<AnalyticsSnapshot>(() => ({
+    mode: 'sample',
+    source: 'sample_data',
+    freshness: 'fixture',
+    universeId: DATA_COVERAGE_UNIVERSE_ID,
+    section: 'overview',
+    range: '28D',
+    metrics: [],
+    charts: [],
+    breakdowns: [],
+    message: 'Connect Roblox to inspect official data coverage.',
+  }), []);
+  const overviewState = useAnalyticsSnapshot({
+    universeId: DATA_COVERAGE_UNIVERSE_ID,
+    section: 'overview',
+    range: '28D',
+    sampleSnapshot,
+    enabled: connected,
+  });
+  const quickLook = useAnalyticsQuickLook({ universeId: DATA_COVERAGE_UNIVERSE_ID, enabled: connected });
+  const overview = overviewState.snapshot?.metrics.length ? overviewState.snapshot : undefined;
+  const { engagement, retention, acquisition, monetization, performance } = quickLook.snapshots;
+  const loading = overviewState.loading || quickLook.loading;
+  const message = overview?.message
+    ?? (loading ? 'Checking cached Roblox analytics coverage…' : 'Open an analytics section to sync any missing snapshot.');
+
+  return (
+    <Screen
+      contentContainerStyle={styles.coverageScreen}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { overviewState.reload(); quickLook.reload(); }} tintColor={colors.blue} />}>
+      <PageHeader
+        title="Data coverage"
+        subtitle="Know what is ready before you drill down"
+        back
+        right={<View style={styles.headerIcon}><Ionicons name="layers-outline" size={19} color={colors.blue} /></View>}
+      />
+      <Card style={styles.coverageCard}>
+        <CoverageRow label="Overview" snapshot={overview} />
+        <CoverageRow label="Engagement" snapshot={engagement} />
+        <CoverageRow label="Retention" snapshot={retention} />
+        <CoverageRow label="Acquisition" snapshot={acquisition} />
+        <CoverageRow label="Monetization" snapshot={monetization} />
+        <CoverageRow label="Performance" snapshot={performance} />
+        <View style={styles.coverageWebRow}>
+          <Ionicons name="globe-outline" size={18} color={colors.yellow} />
+          <View style={styles.flex}>
+            <StudioText tone="secondary" weight="medium" size={12}>Audience</StudioText>
+            <StudioText tone="muted" size={10}>Available in Roblox Creator Dashboard, not Open Cloud</StudioText>
+          </View>
+          <StudioText tone="yellow" weight="semibold" size={9}>WEB</StudioText>
+        </View>
+      </Card>
+      <AnalyticsDataStatus live={Boolean(overview)} label={loading ? 'CHECKING' : overview ? 'OFFICIAL' : 'WAITING'} text={message} />
+      {overviewState.error ? (
+        <InfoBanner icon="cloud-offline-outline" title="Coverage could not refresh" body={overviewState.error} tone="red" />
+      ) : null}
+    </Screen>
+  );
+}
+
+function CoverageRow({ label, snapshot }: { label: string; snapshot?: AnalyticsSnapshot }) {
+  const ready = Boolean(snapshot?.metrics.length);
+  return (
+    <View style={styles.coverageRow}>
+      <View style={[styles.coverageDot, !ready && styles.coverageDotMissing]} />
+      <View style={styles.flex}>
+        <StudioText tone="secondary" weight="medium" size={12}>{label}</StudioText>
+        <StudioText tone="muted" size={10}>{ready ? `Updated ${coverageTimestamp(snapshot?.asOf)}` : 'Open section to sync'}</StudioText>
+      </View>
+      <StudioText tone={ready ? 'green' : 'muted'} weight="semibold" size={9}>{ready ? 'READY' : 'WAITING'}</StudioText>
+    </View>
+  );
+}
+
+function coverageTimestamp(value?: string) {
+  if (!value) return 'from cached analytics';
+  return new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ setting?: string | string[] }>();
   const screen = Array.isArray(params.setting) ? params.setting[0] : params.setting ?? 'account';
@@ -195,7 +249,7 @@ export default function SettingsScreen() {
   };
 
   const [currency, setCurrency] = useState<'Robux' | 'USD estimate'>('Robux');
-  const [appearance, setAppearance] = useState<'Dark' | 'System'>('Dark');
+  const { preference: appearance, setPreference: setAppearance } = useAppearancePreference();
   const [exportRange, setExportRange] = useState<'7D' | '30D' | '90D'>('30D');
   const [officialOnly, setOfficialOnly] = useState(true);
   const [includeStatus, setIncludeStatus] = useState(true);
@@ -204,6 +258,7 @@ export default function SettingsScreen() {
 
   if (screen === 'account') return <ProfileFigmaScreen />;
   if (screen === 'connections') return <ConnectionsFigmaScreen />;
+  if (screen === 'data-freshness') return <DataCoverageSettingsScreen />;
 
   const renderContent = () => {
     switch (screen) {
@@ -263,6 +318,12 @@ export default function SettingsScreen() {
         );
 
       case 'appearance':
+        const appearanceOptions = ['Light', 'Dark', 'System'] as const;
+        const appearanceValues: Record<(typeof appearanceOptions)[number], AppearancePreference> = {
+          Light: 'light',
+          Dark: 'dark',
+          System: 'system',
+        };
         return (
           <>
             <Card style={styles.appearancePreview}>
@@ -271,9 +332,13 @@ export default function SettingsScreen() {
               <View style={styles.previewChart}><View style={styles.previewChartLine} /></View>
             </Card>
             <SettingSection title="Theme">
-              <SegmentedControl options={['Dark', 'System'] as const} value={appearance} onChange={setAppearance} />
+              <SegmentedControl
+                options={appearanceOptions}
+                value={appearanceLabel(appearance)}
+                onChange={(value) => void setAppearance(appearanceValues[value])}
+              />
             </SettingSection>
-            <InfoBanner title="Built for quick checks" body="Dark surfaces, restrained color, and Builder Sans keep dense creator data readable on a small screen." />
+            <InfoBanner title="Built for quick checks" body="Light and dark surfaces follow the Figma system while Builder Sans keeps dense creator data readable on a small screen." />
           </>
         );
 
@@ -332,29 +397,6 @@ export default function SettingsScreen() {
               body="roblox-analytics-mobile will never ask for .ROBLOSECURITY. If any app asks for it, stop—the cookie can grant account access."
               tone="yellow"
             />
-          </>
-        );
-
-      case 'data-freshness':
-        return (
-          <>
-            <InfoBanner
-              title="Every number carries a status"
-              body="roblox-analytics-mobile keeps official, reconciled, and preliminary data visibly distinct so an early signal never looks final."
-              tone="blue"
-            />
-            <StatusSource icon="stats-chart" title="Creator analytics" subtitle="Engagement, retention, and acquisition" badge="Official" badgeTone="green" freshness={appEnvironment.dataMode === 'aws_dev' ? 'On demand' : 'Sample'} progress={100} color={colors.green} />
-            <StatusSource icon="diamond" title="Revenue metrics" subtitle="Aggregate Roblox monetization analytics" badge="Official" badgeTone="green" freshness={appEnvironment.dataMode === 'aws_dev' ? 'On demand' : 'Sample'} progress={100} color={colors.green} />
-            <StatusSource icon="flash" title="Live sale events" subtitle="Optional signed event stream" badge={appEnvironment.dataMode === 'aws_dev' ? 'Not set up' : 'Preliminary'} badgeTone="yellow" freshness={appEnvironment.dataMode === 'aws_dev' ? 'Unavailable' : 'Sample'} progress={appEnvironment.dataMode === 'aws_dev' ? 0 : 100} color={colors.yellow} />
-            <SettingSection title="Status guide">
-              <Card>
-                <ListRow leading={<View style={[styles.legendDot, { backgroundColor: colors.green }]} />} title="Official" subtitle="Confirmed by the analytics source" showChevron={false} />
-                <Divider />
-                <ListRow leading={<View style={[styles.legendDot, { backgroundColor: colors.blue }]} />} title="Reconciled" subtitle="Matched against the official revenue total" showChevron={false} />
-                <Divider />
-                <ListRow leading={<View style={[styles.legendDot, { backgroundColor: colors.yellow }]} />} title="Preliminary" subtitle="Useful early signal that can still change" showChevron={false} />
-              </Card>
-            </SettingSection>
           </>
         );
 
@@ -530,7 +572,12 @@ export default function SettingsScreen() {
         return (
           <>
             <Card style={styles.aboutCard}>
-              <View style={styles.appIcon}><Ionicons name="pulse" size={34} color={colors.white} /></View>
+              <Image
+                accessibilityLabel="Roblox Analytics logo"
+                contentFit="cover"
+                source={require('@/assets/images/roblox-analytics-logo.png')}
+                style={styles.appIcon}
+              />
               <StudioText weight="bold" size={26}>roblox-analytics-mobile</StudioText>
               <StudioText tone="muted" size={13}>Creator analytics at a glance</StudioText>
               <Badge label={appEnvironment.dataMode === 'aws_dev' ? 'CONNECTED BUILD' : 'SAMPLE BUILD'} tone={appEnvironment.dataMode === 'aws_dev' ? 'green' : 'blue'} />
@@ -601,8 +648,10 @@ function CompactRow({ label, value, tone = 'primary', chevron = false }: { label
 }
 
 function ProfileFigmaScreen() {
+  const { preference } = useAppearancePreference();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionError, setConnectionError] = useState<string>();
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -621,6 +670,31 @@ function ProfileFigmaScreen() {
   const username = connection?.identity.username ?? 'Roblox creator';
   const connected = Boolean(connection);
   const analyticsActive = connection?.analytics.status === 'active';
+
+  const completeSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOutOfRoblox();
+      await resetOnboarding();
+      router.replace('/onboarding');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Your session could not be cleared from this device.';
+      Alert.alert('Couldn’t sign out', message);
+      setSigningOut(false);
+    }
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert(
+      'Sign out?',
+      'You’ll need to sign in with Roblox again to view your creator analytics.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: () => void completeSignOut() },
+      ],
+    );
+  };
 
   return (
     <Screen contentContainerStyle={styles.figmaScreen} footer={<PersistentTabBar active="more" />}>
@@ -649,7 +723,7 @@ function ProfileFigmaScreen() {
         <Card style={styles.compactGroup}>
           <CompactRow label="Time zone" value="America/Chicago" />
           <CompactRow label="Currency" value="Robux" />
-          <CompactRow label="Appearance" value="Dark" />
+          <CompactRow label="Appearance" value={appearanceLabel(preference)} />
         </Card>
       </CompactSection>
       <CompactSection title="ACCOUNT ACCESS">
@@ -659,6 +733,15 @@ function ProfileFigmaScreen() {
         </Card>
       </CompactSection>
       <Card style={styles.readOnlyCard}><StudioText weight="semibold" size={12}>Read-only Roblox identity</StudioText><StudioText tone="muted" size={10}>roblox-analytics-mobile can read your profile, but cannot edit your Roblox account.</StudioText></Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign out of Roblox"
+        disabled={signingOut}
+        onPress={confirmSignOut}
+        style={({ pressed }) => [styles.signOutButton, (pressed || signingOut) && styles.pressed]}>
+        <Ionicons name="log-out-outline" size={17} color={colors.red} />
+        <StudioText tone="red" weight="semibold" size={12}>{signingOut ? 'Signing out…' : 'Sign out'}</StudioText>
+      </Pressable>
     </Screen>
   );
 }
@@ -737,6 +820,7 @@ function ConnectionsFigmaScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingTop: spacing.xs, paddingBottom: spacing.xxl },
+  coverageScreen: { paddingTop: spacing.xs, paddingBottom: spacing.xxl, gap: 14 },
   figmaScreen: { paddingTop: 7, paddingBottom: spacing.xxl, gap: 10 },
   flex: { flex: 1 },
   pressed: { opacity: 0.68 },
@@ -748,9 +832,11 @@ const styles = StyleSheet.create({
   toggleRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   smallIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
   infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderWidth: 1, borderRadius: radii.md, padding: spacing.md },
-  sourceTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  sourceIcon: { width: 39, height: 39, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  sourceFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  coverageCard: { padding: 4, gap: 0, borderRadius: radii.md, overflow: 'hidden' },
+  coverageRow: { minHeight: 58, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  coverageDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
+  coverageDotMissing: { backgroundColor: colors.textFaint },
+  coverageWebRow: { minHeight: 62, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 7 },
   settingButton: { minHeight: 43, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.blueSoft, marginTop: spacing.xs },
   profileCard: { alignItems: 'center', paddingVertical: spacing.xl },
@@ -758,7 +844,7 @@ const styles = StyleSheet.create({
   profileCopy: { alignItems: 'center', gap: 4 },
   heroSettingCard: { alignItems: 'center', paddingVertical: spacing.xl },
   heroSettingIcon: { width: 48, height: 48, borderRadius: 15, backgroundColor: colors.blueSoft, alignItems: 'center', justifyContent: 'center' },
-  appearancePreview: { backgroundColor: '#101217', padding: spacing.lg, gap: spacing.md },
+  appearancePreview: { backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md },
   previewHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   previewAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blue },
   previewLines: { flex: 1, gap: 7 },
@@ -771,15 +857,14 @@ const styles = StyleSheet.create({
   connectionTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   connectionLogo: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   finePrint: { marginHorizontal: 4 },
-  legendDot: { width: 9, height: 9, borderRadius: 5, marginHorizontal: 11 },
   zeroGapCard: { gap: 0 },
   exportPreviewTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   securityScoreCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  securityRing: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.greenSoft, borderWidth: 1, borderColor: '#2B6142' },
+  securityRing: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.greenSoft, borderWidth: 1, borderColor: colors.greenBorder },
   helpHero: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   helpIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
   aboutCard: { alignItems: 'center', paddingVertical: spacing.xl },
-  appIcon: { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blue, marginBottom: spacing.xs },
+  appIcon: { width: 88, height: 88, borderRadius: 20, marginBottom: spacing.xs },
   centerText: { textAlign: 'center' },
   emptyCard: { alignItems: 'center', paddingVertical: spacing.xxl },
   compactHeader: { gap: 1, paddingBottom: 1 },
@@ -799,6 +884,7 @@ const styles = StyleSheet.create({
   workspaceSummary: { minHeight: 69, padding: 11, flexDirection: 'row', alignItems: 'center' },
   workspaceBadges: { alignItems: 'flex-end', gap: 8 },
   readOnlyCard: { minHeight: 58, padding: 11, gap: 2, backgroundColor: colors.backgroundRaised },
+  signOutButton: { minHeight: 44, borderRadius: radii.md, borderWidth: 1, borderColor: colors.redBorder, backgroundColor: colors.redSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   connectionCard: { minHeight: 124, padding: 11, gap: 7 },
   connectionCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   connectionDetails: { borderRadius: 9, overflow: 'hidden', backgroundColor: colors.backgroundRaised },

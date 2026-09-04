@@ -398,8 +398,21 @@ function ConfiguredAnalyticsDetail({
 
       <AnalyticsFilterBar
         dateLabel={activeDateLabel}
+        dateOptions={ranges.map((range) => ({
+          label: dateRangeLabel(range, config.dateLabel),
+          selected: range === dateRange,
+          onSelect: () => setDateRange(range),
+        }))}
         filterLabel={filter === 'All users' ? 'Filter by' : filter}
+        filterOptions={hasLocalPreviewControls ? [
+          { label: 'All users', selected: filter === 'All users', onSelect: () => setFilter('All users') },
+          { label: 'Phone', selected: filter === 'Phone', onSelect: () => setFilter('Phone') },
+        ] : undefined}
         breakdownLabel={`Breakdown: ${breakdown}`}
+        breakdownOptions={hasLocalPreviewControls ? [
+          { label: 'None', selected: breakdown === 'None', onSelect: () => setBreakdown('None') },
+          { label: 'Platform', selected: breakdown === 'Platform', onSelect: () => setBreakdown('Platform') },
+        ] : undefined}
         compareEnabled={comparePrevious}
         onDatePress={() => setDateRange(nextRange)}
         onFilterPress={hasLocalPreviewControls ? () => setFilter(filter === 'All users' ? 'Phone' : 'All users') : undefined}
@@ -451,6 +464,7 @@ function ConfiguredAnalyticsDetail({
           yAxisLabels={chart.yAxisLabels}
           color={config.charts[chartIndex]?.color}
           labels={chartLabels(chart)}
+          pointTimes={chart.series[0]?.points.map((point) => point.time)}
           showComparison={comparePrevious}
         />
       )) : null}
@@ -549,6 +563,14 @@ function rangesFor(section: AnalyticsSectionId): readonly AnalyticsDateRange[] {
   if (section === 'performance') return ['24H', '7D', '28D'];
   if (section === 'retention' || section === 'acquisition') return ['7D', '28D', '56D', '90D'];
   return ['7D', '28D', '56D', '90D'];
+}
+
+function dateRangeLabel(range: AnalyticsDateRange, defaultLabel: string) {
+  if (range === '24H') return 'Last 1 day';
+  if (range === '7D') return 'Last 7 days';
+  if (range === '28D') return defaultLabel;
+  if (range === '56D') return 'Last 56 days';
+  return 'Last 90 days';
 }
 
 function pointsFor(values: number[]) {

@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   pressed: { opacity: 0.68 },
   titleRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusPill: { minWidth: 108, height: 35, borderRadius: 18, borderWidth: 1, borderColor: '#19683D', backgroundColor: '#103421', alignItems: 'center', justifyContent: 'center' },
+  statusPill: { minWidth: 108, height: 35, borderRadius: 18, borderWidth: 1, borderColor: colors.greenBorder, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
   backLink: { width: 92, height: 30, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised, alignItems: 'center', justifyContent: 'center' },
   purchaseCard: { minHeight: 160, gap: 4, padding: 13 },
   productLinkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

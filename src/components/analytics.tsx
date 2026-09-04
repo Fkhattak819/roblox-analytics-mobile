@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -18,6 +18,12 @@ import { colors, radii, spacing } from '@/src/theme/tokens';
 import { metricTrendColor } from '@/src/utils/metric-trend';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+export type AnalyticsDropdownOption = {
+  label: string;
+  selected?: boolean;
+  onSelect: () => void;
+};
 
 export function AnalyticsSectionHeader({
   title,
@@ -39,6 +45,9 @@ export function AnalyticsFilterBar({
   filterLabel,
   breakdownLabel,
   compareEnabled,
+  dateOptions,
+  filterOptions,
+  breakdownOptions,
   onDatePress,
   onFilterPress,
   onBreakdownPress,
@@ -48,6 +57,9 @@ export function AnalyticsFilterBar({
   filterLabel?: string;
   breakdownLabel?: string;
   compareEnabled?: boolean;
+  dateOptions?: AnalyticsDropdownOption[];
+  filterOptions?: AnalyticsDropdownOption[];
+  breakdownOptions?: AnalyticsDropdownOption[];
   onDatePress: () => void;
   onFilterPress?: () => void;
   onBreakdownPress?: () => void;
@@ -58,14 +70,26 @@ export function AnalyticsFilterBar({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.filterRow}>
-      <FilterButton icon="calendar-clear-outline" label={dateLabel} onPress={onDatePress} emphasized />
-      {onFilterPress ? <FilterButton icon="filter-outline" label={filterLabel ?? 'Filter by'} onPress={onFilterPress} /> : null}
-      {onBreakdownPress ? <FilterButton icon="layers-outline" label={breakdownLabel ?? 'Breakdown: None'} onPress={onBreakdownPress} /> : null}
+      <FilterButton icon="calendar-clear-outline" label={dateLabel} onPress={onDatePress} options={dateOptions} emphasized />
+      {onFilterPress ? <FilterButton icon="filter-outline" label={filterLabel ?? 'Filter by'} onPress={onFilterPress} options={filterOptions} /> : null}
+      {onBreakdownPress ? <FilterButton icon="layers-outline" label={breakdownLabel ?? 'Breakdown: None'} onPress={onBreakdownPress} options={breakdownOptions} /> : null}
       {onComparePress ? (
         <FilterButton
           icon="git-compare-outline"
           label={compareEnabled ? 'Previous period' : 'Compare'}
           onPress={onComparePress}
+          options={[
+            {
+              label: 'No comparison',
+              selected: !compareEnabled,
+              onSelect: () => { if (compareEnabled) onComparePress(); },
+            },
+            {
+              label: 'Previous period',
+              selected: compareEnabled,
+              onSelect: () => { if (!compareEnabled) onComparePress(); },
+            },
+          ]}
           selected={compareEnabled}
         />
       ) : null}
@@ -77,30 +101,86 @@ function FilterButton({
   icon,
   label,
   onPress,
+  options,
   emphasized = false,
   selected = false,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
+  options?: AnalyticsDropdownOption[];
   emphasized?: boolean;
   selected?: boolean;
 }) {
+  const buttonRef = useRef<View>(null);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number }>();
+  const menuWidth = Math.min(240, windowWidth - 24);
+  const estimatedMenuHeight = 48 + (options?.length ?? 0) * 44;
+  const menuLeft = anchor ? Math.max(12, Math.min(anchor.x, windowWidth - menuWidth - 12)) : 12;
+  const menuTop = anchor ? Math.max(12, Math.min(anchor.y, windowHeight - estimatedMenuHeight - 12)) : 12;
+
+  const openMenu = () => {
+    if (!options?.length) {
+      onPress();
+      return;
+    }
+    buttonRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y: y + height + 6, width });
+    });
+  };
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.filterButton,
-        emphasized && styles.filterButtonEmphasized,
-        selected && styles.filterButtonSelected,
-        pressed && styles.pressed,
-      ]}>
-      <Ionicons name={icon} size={14} color={emphasized || selected ? colors.text : colors.textSecondary} />
-      <StudioText weight="medium" size={12} numberOfLines={1}>{label}</StudioText>
-      <Ionicons name="chevron-down" size={11} color={colors.textMuted} />
-    </Pressable>
+    <>
+      <Pressable
+        ref={buttonRef}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, dropdown`}
+        accessibilityState={{ expanded: Boolean(anchor) }}
+        onPress={openMenu}
+        style={({ pressed }) => [
+          styles.filterButton,
+          emphasized && styles.filterButtonEmphasized,
+          selected && styles.filterButtonSelected,
+          pressed && styles.pressed,
+        ]}>
+        <Ionicons name={icon} size={14} color={emphasized || selected ? colors.text : colors.textSecondary} />
+        <StudioText weight="medium" size={12} numberOfLines={1}>{label}</StudioText>
+        <Ionicons name={anchor ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textMuted} />
+      </Pressable>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setAnchor(undefined)}
+        statusBarTranslucent
+        transparent
+        visible={Boolean(anchor)}>
+        <Pressable accessibilityLabel="Close dropdown" onPress={() => setAnchor(undefined)} style={styles.dropdownBackdrop}>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={[styles.dropdownMenu, { left: menuLeft, top: menuTop, width: menuWidth }]}>
+            <StudioText tone="muted" weight="semibold" size={9} style={styles.dropdownTitle}>{label.toUpperCase()}</StudioText>
+            {options?.map((option) => (
+              <Pressable
+                key={option.label}
+                accessibilityRole="menuitem"
+                accessibilityState={{ selected: option.selected }}
+                onPress={() => {
+                  option.onSelect();
+                  setAnchor(undefined);
+                }}
+                style={({ pressed }) => [
+                  styles.dropdownOption,
+                  option.selected && styles.dropdownOptionSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <StudioText weight={option.selected ? 'semibold' : 'medium'} size={13}>{option.label}</StudioText>
+                {option.selected ? <Ionicons name="checkmark" size={16} color={colors.blue} /> : null}
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -159,6 +239,7 @@ export function AnalyticsChartCard({
   comparisonValues,
   color = colors.blue,
   labels,
+  pointTimes,
   yAxisLabels,
   showComparison = true,
   emptyMessage,
@@ -170,6 +251,7 @@ export function AnalyticsChartCard({
   comparisonValues?: number[];
   color?: string;
   labels: string[];
+  pointTimes?: string[];
   yAxisLabels?: string[];
   showComparison?: boolean;
   emptyMessage?: string;
@@ -191,6 +273,8 @@ export function AnalyticsChartCard({
             values={values}
             comparisonValues={showComparison ? comparisonValues : undefined}
             labels={labels}
+            pointLabels={pointTimes?.map(formatChartPointTime)}
+            formatValue={(pointValue) => formatAnalyticsPointValue(pointValue, value)}
             yAxisLabels={yAxisLabels}
             color={color}
             height={154}
@@ -210,6 +294,31 @@ export function AnalyticsChartCard({
       )}
     </Card>
   );
+}
+
+function formatChartPointTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return value;
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  });
+}
+
+function formatAnalyticsPointValue(pointValue: number, displayValue?: string) {
+  if (displayValue?.includes('%')) return `${pointValue.toFixed(2)}%`;
+  if (displayValue?.startsWith('R$')) return `R$ ${formatExactNumber(pointValue)}`;
+  if (/\bmin\b/i.test(displayValue ?? '')) return `${formatExactNumber(pointValue)} min`;
+  if (/\bms\b/i.test(displayValue ?? '')) return `${formatExactNumber(pointValue)} ms`;
+  return formatExactNumber(pointValue);
+}
+
+function formatExactNumber(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 3 });
 }
 
 export function AnalyticsDataStatus({
@@ -385,7 +494,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
   },
   filterButtonEmphasized: { backgroundColor: colors.surfaceSoft, borderColor: colors.borderStrong },
-  filterButtonSelected: { backgroundColor: colors.blueSoft, borderColor: '#3B5197' },
+  filterButtonSelected: { backgroundColor: colors.blueSoft, borderColor: colors.blueBorder },
+  dropdownBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.08)' },
+  dropdownMenu: {
+    position: 'absolute',
+    padding: 6,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 12,
+    backgroundColor: colors.modalSurface,
+    shadowColor: colors.black,
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  dropdownTitle: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 5 },
+  dropdownOption: { minHeight: 42, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  dropdownOptionSelected: { backgroundColor: colors.selectedSurface },
   metricCard: { flex: 1, minWidth: 0, height: 94, padding: 11, gap: 5, borderRadius: 9 },
   chartCard: { padding: 14, gap: 9, borderRadius: 10 },
   chartHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.sm },
@@ -411,24 +537,24 @@ const styles = StyleSheet.create({
   emptyCopy: { textAlign: 'center' },
   emptyAction: { height: 36, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radii.sm, backgroundColor: colors.blueSoft, marginTop: 3 },
   loadingStack: { gap: 14 },
-  ghostBlock: { backgroundColor: '#353C48' },
-  ghostMuted: { backgroundColor: '#252A33' },
-  ghostAccent: { backgroundColor: '#2D3546' },
+  ghostBlock: { backgroundColor: colors.skeleton },
+  ghostMuted: { backgroundColor: colors.skeletonMuted },
+  ghostAccent: { backgroundColor: colors.skeletonAccent },
   loadingSectionHeader: { height: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   loadingSectionTitle: { width: 108, height: 13, borderRadius: 6 },
   loadingSectionAction: { width: 43, height: 8, borderRadius: 4 },
   loadingMetricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  loadingMetric: { width: '48%', height: 104, padding: 12, gap: 13, borderRadius: 12, borderWidth: 1, borderColor: '#2C3038', backgroundColor: '#181B21' },
+  loadingMetric: { width: '48%', height: 104, padding: 12, gap: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   loadingMetricLabel: { width: 72, height: 8, borderRadius: 4 },
   loadingMetricValue: { width: 102, height: 22, borderRadius: 7 },
   loadingMetricDelta: { width: 58, height: 7, borderRadius: 4 },
-  loadingChart: { height: 174, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2C3038', backgroundColor: '#181B21', overflow: 'hidden' },
+  loadingChart: { height: 174, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   loadingChartTall: { height: 190 },
   loadingChartTitle: { width: 102, height: 10, borderRadius: 5 },
   loadingChartValue: { width: 126, height: 18, marginTop: 12, borderRadius: 7 },
   loadingColumns: { position: 'absolute', left: 14, right: 14, bottom: 27, height: 96, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   loadingColumn: { flex: 1, borderRadius: 5 },
   errorState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, borderRadius: radii.md },
-  errorIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#341F25' },
+  errorIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.redSoft },
   retryButton: { minWidth: 92, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radii.sm, backgroundColor: colors.blue },
 });

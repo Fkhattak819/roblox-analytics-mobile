@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
@@ -156,13 +156,10 @@ export default function AnalyticsScreen() {
     () => snapshot?.charts.slice(0, 3).map((chart) => chart.title) ?? trendOptions,
     [snapshot],
   );
-  const trendChart = snapshot?.charts.find((chart) => chart.title === trendMetric);
-
-  useEffect(() => {
-    if (availableTrendOptions.length && !availableTrendOptions.includes(trendMetric)) {
-      setTrendMetric(availableTrendOptions[0]);
-    }
-  }, [availableTrendOptions, trendMetric]);
+  const selectedTrendMetric = availableTrendOptions.includes(trendMetric)
+    ? trendMetric
+    : availableTrendOptions[0] ?? trendMetric;
+  const trendChart = snapshot?.charts.find((chart) => chart.title === selectedTrendMetric);
 
   const nextDateRange = useMemo(() => {
     const currentIndex = dateRanges.indexOf(dateRange);
@@ -192,6 +189,11 @@ export default function AnalyticsScreen() {
 
       <AnalyticsFilterBar
         dateLabel={dateLabels[dateRange]}
+        dateOptions={dateRanges.map((range) => ({
+          label: dateLabels[range],
+          selected: range === dateRange,
+          onSelect: () => setDateRange(range),
+        }))}
         compareEnabled={comparePrevious}
         onDatePress={() => setDateRange(nextDateRange)}
         onComparePress={() => setComparePrevious(!comparePrevious)}
@@ -228,7 +230,7 @@ export default function AnalyticsScreen() {
           ) : null}
 
           <AnalyticsSectionHeader title="Trend explorer" detail="Current vs previous" />
-          <TrendSwitcher value={trendMetric} options={availableTrendOptions} onChange={setTrendMetric} />
+          <TrendSwitcher value={selectedTrendMetric} options={availableTrendOptions} onChange={setTrendMetric} />
           {trendChart ? (
             <AnalyticsChartCard
               title={trendChart.title}
@@ -237,6 +239,7 @@ export default function AnalyticsScreen() {
               values={trendChart.series[0]?.points.map((point) => point.value) ?? []}
               comparisonValues={trendChart.series[1]?.points.map((point) => point.value)}
               labels={chartLabels(trendChart)}
+              pointTimes={trendChart.series[0]?.points.map((point) => point.time)}
               yAxisLabels={trendChart.yAxisLabels}
               showComparison={comparePrevious}
             />
@@ -351,7 +354,7 @@ const styles = StyleSheet.create({
   insightIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
   trendSwitcher: { height: 32, flexDirection: 'row', padding: 2, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised },
   trendOption: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 6, paddingHorizontal: 3 },
-  trendOptionActive: { backgroundColor: '#273044' },
+  trendOptionActive: { backgroundColor: colors.selectedSurface },
   benchmarkSection: { gap: 12, marginTop: 6, marginBottom: 8 },
   benchmarkCard: { padding: 12, gap: 9, borderRadius: radii.md },
   benchmarkTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

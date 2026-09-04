@@ -388,7 +388,7 @@ export default function SalesScreen() {
   const nextRange = salesRangeOptions[(salesRangeOptions.indexOf(salesDateRange) + 1) % salesRangeOptions.length];
   const selectSection = (nextSection: SalesSection) => setSection(nextSection);
   const analyticsRange: AnalyticsDateRange = salesDateRange === '30D' ? '28D' : salesDateRange;
-  const sampleSnapshot = useMemo(createSalesFallbackSnapshot, []);
+  const sampleSnapshot = useMemo(() => createSalesFallbackSnapshot(), []);
   const analytics = useAnalyticsSnapshot({
     universeId: '10009166512',
     section: 'monetization',
@@ -501,8 +501,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundRaised,
   },
   salesSegment: { flex: 1, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-  salesSegmentSelected: { backgroundColor: '#253354' },
-  salesSegmentText: { color: '#C6D1FF' },
+  salesSegmentSelected: { backgroundColor: colors.blueSoft },
+  salesSegmentText: { color: colors.blue },
   revenueHero: { padding: 12, gap: 2, borderRadius: 13, backgroundColor: colors.surface },
   revenueValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   revenueDelta: { flexDirection: 'row', alignItems: 'center', gap: 1 },
@@ -515,15 +515,15 @@ const styles = StyleSheet.create({
   sourceList: { gap: 13, marginTop: 4 },
   sourceRow: { gap: 6 },
   listCard: { paddingVertical: 4, gap: 0 },
-  truthCard: { borderColor: '#5A4920', backgroundColor: '#1D1A13' },
+  truthCard: { borderColor: colors.yellowBorder, backgroundColor: colors.yellowSoft },
   liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.green },
-  livePill: { minWidth: 84, height: 35, borderRadius: 18, borderWidth: 1, borderColor: '#17653A', backgroundColor: '#0F3422', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  livePill: { minWidth: 84, height: 35, borderRadius: 18, borderWidth: 1, borderColor: colors.greenBorder, backgroundColor: colors.greenSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   liveHero: { height: 158, padding: 12, gap: 2, borderRadius: 13 },
   liveHeroValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   liveStats: { flexDirection: 'row', marginTop: 7 },
   liveStat: { flex: 1, gap: 1 },
   liveChart: { height: 34, marginTop: 1 },
-  smartGrouping: { minHeight: 82, borderColor: '#36579C', backgroundColor: '#151B2A', borderRadius: 13, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  smartGrouping: { minHeight: 82, borderColor: colors.blueBorder, backgroundColor: colors.blueSoft, borderRadius: 13, padding: 12, flexDirection: 'row', alignItems: 'center' },
   livePurchaseList: { gap: 7 },
   livePurchaseRow: { minHeight: 72, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
   liveProductTile: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#552765', alignItems: 'center', justifyContent: 'center' },

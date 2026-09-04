@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -11,28 +12,30 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+import Svg, { G, Path } from 'react-native-svg';
 
 import { loadConnectionStatus } from '@/services/connections-api';
 import { appEnvironment } from '@/services/backend-api';
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
 import { getStoredSessionToken, signInWithRoblox } from '@/services/roblox-auth';
+import { colors } from '@/src/theme/tokens';
 
 const palette = {
-  canvas: '#0B0D12',
-  surface: '#11141A',
-  surfaceRaised: '#181C24',
-  subtle: '#222735',
-  border: '#2A303B',
-  borderStrong: '#333946',
-  accent: '#5C80FF',
-  accentText: '#89A0FF',
-  primary: '#FFFFFF',
-  secondary: '#8C929E',
-  success: '#43D17D',
-  successMuted: '#11271A',
-  warning: '#F0B35D',
+  canvas: colors.background,
+  surface: colors.surface,
+  surfaceRaised: colors.surfaceRaised,
+  subtle: colors.surfaceSoft,
+  border: colors.border,
+  borderStrong: colors.borderStrong,
+  accent: colors.blue,
+  accentText: colors.blue,
+  primary: colors.text,
+  secondary: colors.textMuted,
+  success: colors.green,
+  successMuted: colors.greenSoft,
+  warning: colors.yellow,
+  onAccent: colors.white,
 } as const;
 
 const FRAME_WIDTH = 393;
@@ -177,15 +180,13 @@ function BackButton({ onPress }: { onPress: () => void }) {
 
 function RobloxMark({ top }: { top: number }) {
   return (
-    <View style={[styles.robloxMark, { top }]}>
-      <Svg width={66} height={66} viewBox="0 0 66 66">
-        <Path
-          clipRule="evenodd"
-          d="M11 0L66 14L52 66L0 52L11 0ZM26 22L45 27L40 45L21 40L26 22Z"
-          fill={palette.primary}
-          fillRule="evenodd"
-        />
-      </Svg>
+    <View style={[styles.robloxMark, { top: top - 11 }]}>
+      <Image
+        accessibilityLabel="Roblox Analytics logo"
+        contentFit="contain"
+        source={require('@/assets/images/roblox-analytics-logo-transparent.png')}
+        style={styles.robloxMarkImage}
+      />
     </View>
   );
 }
@@ -213,7 +214,7 @@ function ActionButton({
         disabled ? styles.actionDisabled : null,
         pressed && !disabled ? styles.actionPressed : null,
       ]}>
-      <StudioText weight="semibold" size={14} style={styles.actionLabel}>{label}</StudioText>
+      <StudioText weight="semibold" size={14} style={[styles.actionLabel, primary && styles.actionLabelPrimary]}>{label}</StudioText>
     </Pressable>
   );
 }
@@ -583,16 +584,12 @@ function ExperienceCard({
 
 function ExperienceArt() {
   return (
-    <Svg height={70} width={70} viewBox="0 0 70 70">
-      <Defs><ClipPath id="experience-art-clip"><Rect height={70} rx={12} width={70} /></ClipPath></Defs>
-      <G clipPath="url(#experience-art-clip)">
-        <Rect fill={palette.subtle} height={70} rx={12} width={70} />
-        <Rect fill={palette.accent} height={42} width={70} />
-        <Rect fill={palette.success} height={28} width={70} y={42} />
-        <Rect fill={palette.surface} height={32} rx={3} width={18} x={10} y={24} />
-        <Circle cx={55} cy={16} fill={palette.warning} r={7} />
-      </G>
-    </Svg>
+    <Image
+      accessibilityLabel="Most Words Win game thumbnail"
+      contentFit="cover"
+      source={require('@/assets/experiences/most_words_win_official.png')}
+      style={styles.experienceArt}
+    />
   );
 }
 
@@ -603,13 +600,13 @@ function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCoun
       <View style={styles.readyCheck}><StudioText weight="semibold" size={14} lineHeight={19} style={styles.readyCheckText}>✓</StudioText></View>
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, styles.readyEyebrow]}>SETUP COMPLETE</StudioText>
       <StudioText weight="bold" size={24} lineHeight={30} style={[styles.heading, { top: 214 }]}>Your creator analytics are ready</StudioText>
-      <StudioText size={14} lineHeight={20} style={[styles.bodyCopy, { top: 258 }]}>Review your connections, then open the roblox-analytics-mobile{`\n`}workspace.</StudioText>
+      <StudioText size={14} lineHeight={20} style={[styles.bodyCopy, { top: 280 }]}>Review your connections, then open your analytics workspace.</StudioText>
 
-      <StatusRow badge="CONNECTED" badgeTone="success" detail={`${username} · connected`} dotColor={palette.success} title="Roblox identity" top={316} />
-      <StatusRow badge="READ ONLY" badgeTone="accent" detail={`${selectedCount} ${selectedCount === 1 ? 'universe' : 'universes'} · read only`} dotColor={palette.accentText} title="Analytics access" top={400} />
-      <StatusRow badge="OPTIONAL" badgeTone="warning" detail="Available in Sales · optional" dotColor={palette.warning} title="Live sale alerts" top={484} />
+      <StatusRow badge="CONNECTED" badgeTone="success" detail={`${username} · connected`} dotColor={palette.success} title="Roblox identity" top={326} />
+      <StatusRow badge="READ ONLY" badgeTone="accent" detail={`${selectedCount} ${selectedCount === 1 ? 'universe' : 'universes'} · read only`} dotColor={palette.accentText} title="Analytics access" top={410} />
+      <StatusRow badge="OPTIONAL" badgeTone="warning" detail="Available in Sales · optional" dotColor={palette.warning} title="Live sale alerts" top={494} />
 
-      <View style={styles.workspacePreview}>
+      <View style={[styles.workspacePreview, styles.readyWorkspacePreview]}>
         <StudioText weight="semibold" size={11} lineHeight={15} style={styles.workspacePreviewTitle}>OFFICIAL ANALYTICS WORKSPACE</StudioText>
         <PreviewMetric label="EXPERIENCE" left={13} value="1" />
         <PreviewMetric label="SOURCE" left={118} value="Roblox" />
@@ -714,7 +711,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  robloxMark: { position: 'absolute', left: 160, width: 72, height: 72, padding: 3 },
+  robloxMark: { position: 'absolute', left: 153, width: 86, height: 86 },
+  robloxMarkImage: { width: '100%', height: '100%' },
   eyebrow: { position: 'absolute', left: CONTENT_LEFT, color: palette.accentText },
   readyEyebrow: { top: 190, color: palette.success },
   heading: { position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, color: palette.primary },
@@ -736,7 +734,7 @@ const styles = StyleSheet.create({
   previewMetric: { position: 'absolute', top: 70, left: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   metricValue: { color: palette.primary },
   metricChange: { marginTop: 1, color: palette.success },
-  previewChart: { position: 'absolute', top: 101, left: 16, width: 308, height: 112, overflow: 'hidden' },
+  previewChart: { position: 'absolute', top: 101, left: 16, width: 308, height: 112, overflow: 'visible' },
   chartGrid: { position: 'absolute', left: 0, width: 308, height: 1, backgroundColor: palette.border },
   chartDot: { position: 'absolute', top: 9, left: 301, width: 10, height: 10, borderRadius: 5, backgroundColor: palette.accentText },
   primaryActionPosition: { position: 'absolute', top: 706, left: CONTENT_LEFT, width: CONTENT_WIDTH, height: 52 },
@@ -747,6 +745,7 @@ const styles = StyleSheet.create({
   actionDisabled: { backgroundColor: palette.subtle },
   actionPressed: { opacity: 0.82, transform: [{ scale: 0.995 }] },
   actionLabel: { color: palette.primary },
+  actionLabelPrimary: { color: palette.onAccent },
   permissionsCard: {
     position: 'absolute',
     top: 382,
@@ -848,12 +847,13 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceRaised,
   },
   experienceSelected: { borderWidth: 2, borderColor: palette.accentText, padding: 13 },
+  experienceArt: { width: 70, height: 70, borderRadius: 12 },
   experienceCopy: { width: 190, height: 46, overflow: 'hidden', justifyContent: 'center', gap: 5 },
   experienceName: { color: palette.primary },
   experienceMeta: { color: palette.secondary },
   selection: { width: 24, height: 24, borderWidth: 1, borderColor: palette.border, borderRadius: 999, backgroundColor: palette.subtle },
   selectionActive: { borderColor: palette.accentText, backgroundColor: palette.accent },
-  selectionCheck: { position: 'absolute', top: 2, left: 4, color: palette.primary },
+  selectionCheck: { position: 'absolute', top: 2, left: 4, color: palette.onAccent },
   portfolioNote: {
     position: 'absolute',
     top: 420,
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: palette.success,
   },
-  readyCheckText: { position: 'absolute', top: 2, left: 6, color: palette.primary },
+  readyCheckText: { position: 'absolute', top: 2, left: 6, color: palette.onAccent },
   workspacePreview: {
     position: 'absolute',
     top: 576,
@@ -895,6 +895,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: palette.surfaceRaised,
   },
+  readyWorkspacePreview: { top: 578 },
   workspacePreviewTitle: { position: 'absolute', top: 11, left: 13, color: palette.accentText },
   previewMetricColumn: { position: 'absolute', top: 37, width: 96 },
   previewMetricValue: { color: palette.primary },

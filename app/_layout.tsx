@@ -1,37 +1,30 @@
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { AppProvider } from '@/src/state/app-context';
+import { AppearanceProvider, useAppearancePreference } from '@/src/state/appearance-context';
 import { hasCompletedOnboarding } from '@/src/state/onboarding-storage';
 import { colors, fonts } from '@/src/theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
 
-const navigationTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: colors.blue,
-    background: colors.background,
-    card: colors.surface,
-    text: colors.text,
-    border: colors.border,
-    notification: colors.red,
-  },
-};
-
 export const unstable_settings = { anchor: '(tabs)' };
 
 export default function RootLayout() {
+  return <AppearanceProvider><RootNavigation /></AppearanceProvider>;
+}
+
+function RootNavigation() {
   const router = useRouter();
   const segments = useSegments();
+  const colorScheme = useColorScheme() ?? 'dark';
+  const { ready: appearanceReady } = useAppearancePreference();
   const initialRouteChecked = useRef(false);
   const [initialRouteReady, setInitialRouteReady] = useState(false);
   const [loaded, error] = useFonts({
@@ -42,7 +35,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (!loaded && !error) return;
+    if ((!loaded && !error) || !appearanceReady) return;
 
     if (!initialRouteChecked.current) {
       initialRouteChecked.current = true;
@@ -64,7 +57,7 @@ export default function RootLayout() {
     }
 
     setInitialRouteReady(true);
-  }, [error, loaded, router, segments]);
+  }, [appearanceReady, error, loaded, router, segments]);
 
   useEffect(() => {
     if (initialRouteReady) void SplashScreen.hideAsync();
@@ -72,7 +65,21 @@ export default function RootLayout() {
 
   // Web static rendering must produce the same initial tree on the server and client.
   // Native can safely wait behind the splash screen until Builder Sans is loaded.
-  if (!loaded && !error && Platform.OS !== 'web') return null;
+  if ((!loaded && !error || !appearanceReady) && Platform.OS !== 'web') return null;
+
+  const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      primary: colors.blue,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.red,
+    },
+  };
 
   return (
     <SafeAreaProvider>
@@ -92,7 +99,7 @@ export default function RootLayout() {
             <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           </Stack>
         </AppProvider>
-        <StatusBar style="light" backgroundColor={colors.background} />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </SafeAreaProvider>
   );

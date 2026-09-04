@@ -9,3 +9,7 @@ export async function hasCompletedOnboarding() {
 export async function markOnboardingComplete() {
   await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, '1');
 }
+
+export async function resetOnboarding() {
+  await AsyncStorage.removeItem(ONBOARDING_COMPLETE_KEY);
+}

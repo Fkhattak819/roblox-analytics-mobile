@@ -4,10 +4,9 @@
     "slug": "roblox-analytics-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/roblox-analytics-logo.png",
     "scheme": "robloxanalyticsmobile",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false
     },
@@ -18,28 +17,31 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/roblox-analytics-logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/roblox-analytics-logo.png",
+          "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#0C0E12",
+          "backgroundColor": "#FFFFFF",
           "dark": {
-            "backgroundColor": "#0C0E12"
+            "backgroundColor": "#FFFFFF"
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      "expo-image",
+      "expo-web-browser",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

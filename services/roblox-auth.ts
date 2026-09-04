@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { appEnvironment } from '@/services/backend-api';
 import { connectRobloxIdentity } from '@/services/roblox-auth-core';
+import { signOutAppSession } from '@/services/roblox-signout-core';
 
 const SESSION_TOKEN_KEY = 'roblox-analytics-mobile.app-session-v1';
 export const APP_OAUTH_CALLBACK_URI = 'robloxanalyticsmobile://oauth/callback';
@@ -30,3 +31,12 @@ export function clearStoredSessionToken() {
   return SecureStore.deleteItemAsync(SESSION_TOKEN_KEY);
 }
 
+export async function signOutOfRoblox() {
+  const sessionToken = await getStoredSessionToken();
+  return signOutAppSession({
+    apiBaseUrl: appEnvironment.apiBaseUrl,
+    sessionToken,
+    fetchImpl: fetch,
+    clearSessionToken: clearStoredSessionToken,
+  });
+}

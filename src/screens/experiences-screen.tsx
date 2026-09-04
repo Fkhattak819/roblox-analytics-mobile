@@ -117,7 +117,7 @@ export default function ExperiencesScreen() {
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
-  const sampleSnapshot = useMemo(createExperienceSampleSnapshot, []);
+  const sampleSnapshot = useMemo(() => createExperienceSampleSnapshot(), []);
   const { snapshot } = useAnalyticsSnapshot({
     universeId: '10009166512',
     section: 'overview',
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#282C34',
+    backgroundColor: colors.surfaceSoft,
   },
   portfolioImage: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surfaceSoft },
   portfolioText: { flex: 1, gap: 2 },

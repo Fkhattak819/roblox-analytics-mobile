@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { ColorValue, Platform } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -16,7 +16,7 @@ const tabs = [
 
 type StudioTabIconName = (typeof tabs)[number]['icon'];
 
-function StudioTabIcon({ name, color }: { name: StudioTabIconName; color: string }) {
+function StudioTabIcon({ name, color }: { name: StudioTabIconName; color: ColorValue }) {
   if (name === 'home') {
     return (
       <Svg height={21} viewBox="0 0 24 24" width={21}>
@@ -100,8 +100,8 @@ export default function TabLayout() {
           height: Platform.OS === 'android' ? 64 : 78,
           paddingTop: 7,
           paddingBottom: Platform.OS === 'android' ? 7 : 17,
-          backgroundColor: '#0B0D11',
-          borderTopColor: '#171A20',
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.tabBarBorder,
           borderTopWidth: 1,
         },
         tabBarIconStyle: { width: 21, height: 21 },

@@ -8,7 +8,6 @@ import { useHomeDashboard } from '@/hooks/use-home-dashboard';
 import type { AnalyticsDateRange, AnalyticsDirection, AnalyticsMetric, AnalyticsSnapshot } from '@/domain/analytics';
 import { appEnvironment } from '@/services/backend-api';
 import {
-  AnalyticsDataStatus,
   AnalyticsErrorState,
   AnalyticsLoadingSkeleton,
 } from '@/src/components/analytics';
@@ -407,19 +406,6 @@ function FocusRow({
   );
 }
 
-function FreshnessRow({ label, snapshot }: { label: string; snapshot?: AnalyticsSnapshot }) {
-  return (
-    <View style={styles.freshnessRow}>
-      <View style={[styles.freshnessDot, !snapshot && styles.freshnessDotMissing]} />
-      <View style={styles.flex}>
-        <StudioText tone="secondary" weight="medium" size={11}>{label}</StudioText>
-        <StudioText tone="muted" size={9}>{snapshot ? `Updated ${snapshotUpdateLabel(snapshot.asOf)}` : 'Open section to sync'}</StudioText>
-      </View>
-      <StudioText tone={snapshot ? 'green' : 'muted'} weight="semibold" size={9}>{snapshot ? 'READY' : 'WAITING'}</StudioText>
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   return appEnvironment.dataMode === 'aws_dev' ? <ConnectedHomeScreen /> : <SampleHomeScreen />;
 }
@@ -580,12 +566,12 @@ function ConnectedHomeScreen() {
           </View>
 
           <Card onPress={() => router.push('/analytics/performance')} style={styles.recordCardConnected}>
-            <View style={styles.recordIcon}><Ionicons name="pulse-outline" size={20} color="#9DB0FF" /></View>
+            <View style={styles.recordIcon}><Ionicons name="pulse-outline" size={20} color={colors.blue} /></View>
             <View style={styles.flex}>
-              <StudioText weight="semibold" size={15}>{peakCcu ? `Recent peak · ${peakCcu.displayValue} CCU` : 'Performance snapshot'}</StudioText>
+              <StudioText weight="semibold" size={15} style={styles.recordTitle}>{peakCcu ? `Recent peak · ${peakCcu.displayValue} CCU` : 'Performance snapshot'}</StudioText>
               <StudioText style={styles.recordDetail} size={11}>{peakCcu ? 'Aggregated Roblox signal · not a live counter' : 'Open Performance to load the latest signal'}</StudioText>
             </View>
-            <Ionicons name="chevron-forward" size={17} color="#9DB0FF" />
+            <Ionicons name="chevron-forward" size={17} color={colors.blue} />
           </Card>
 
           <View style={styles.firstSection}>
@@ -766,23 +752,6 @@ function ConnectedHomeScreen() {
             <StudioText tone="muted" size={9} lineHeight={13}>Focus prompts are simple product heuristics, not additional Roblox metrics.</StudioText>
           </View>
 
-          <View style={styles.lastSection}>
-            <SectionHeading title="Data coverage" subtitle="Know what is ready before you drill down" action="Manage" onPress={() => router.push('/settings/connections')} />
-            <Card style={styles.freshnessCard}>
-              <FreshnessRow label="Overview" snapshot={snapshot} />
-              <FreshnessRow label="Engagement" snapshot={engagement} />
-              <FreshnessRow label="Retention" snapshot={retention} />
-              <FreshnessRow label="Acquisition" snapshot={acquisition} />
-              <FreshnessRow label="Monetization" snapshot={monetization} />
-              <FreshnessRow label="Performance" snapshot={performance} />
-              <View style={styles.webOnlyRow}>
-                <Ionicons name="globe-outline" size={16} color={colors.yellow} />
-                <View style={styles.flex}><StudioText tone="secondary" weight="medium" size={11}>Audience</StudioText><StudioText tone="muted" size={9}>Available in Roblox Creator Dashboard, not Open Cloud</StudioText></View>
-                <StudioText style={{ color: colors.yellow }} weight="semibold" size={9}>WEB</StudioText>
-              </View>
-            </Card>
-          </View>
-          <AnalyticsDataStatus live={snapshot.source === 'roblox_open_cloud'} text={snapshot.message} />
         </>
       ) : null}
     </Screen>
@@ -873,12 +842,12 @@ function SampleHomeScreen() {
       </View>
 
       <Card onPress={() => router.push('/analytics/engagement')} style={styles.recordCard}>
-        <View style={styles.recordIcon}><Ionicons name="trophy-outline" size={20} color="#9DB0FF" /></View>
+        <View style={styles.recordIcon}><Ionicons name="trophy-outline" size={20} color={colors.blue} /></View>
         <View style={styles.flex}>
-          <StudioText weight="semibold" size={15}>New CCU record</StudioText>
+          <StudioText weight="semibold" size={15} style={styles.recordTitle}>New CCU record</StudioText>
           <StudioText style={styles.recordDetail} size={12}>1,672 players at 7:42 PM</StudioText>
         </View>
-        <Ionicons name="chevron-forward" size={17} color="#9DB0FF" />
+        <Ionicons name="chevron-forward" size={17} color={colors.blue} />
       </Card>
 
       <View style={styles.firstSection}>
@@ -1004,10 +973,10 @@ const styles = StyleSheet.create({
   connectionLabel: { letterSpacing: 0.5, marginTop: 2 },
   creatorHeader: { height: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   creatorIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  spTile: { width: 39, height: 39, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2A2D34' },
+  spTile: { width: 39, height: 39, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
   experienceAvatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surfaceSoft },
   portfolioName: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
-  bellButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#171A20' },
+  bellButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   homeHeading: { minHeight: 76, zIndex: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rangePicker: { position: 'relative', zIndex: 30 },
   todayControl: { minWidth: 105, height: 36, paddingHorizontal: 13, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1025,10 +994,11 @@ const styles = StyleSheet.create({
   metricRowConnected: { flexDirection: 'row', gap: 12, marginTop: 12 },
   compactMetric: { flex: 1, height: 112, minWidth: 0, padding: 11, gap: 2, borderRadius: 13 },
   compactMetricMiddle: { flexDirection: 'row', alignItems: 'center', marginRight: -5 },
-  recordCard: { height: 78, marginTop: 12, borderColor: '#425AAB', backgroundColor: '#171B2A', borderRadius: 13, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  recordCardConnected: { minHeight: 78, marginTop: 12, borderColor: '#425AAB', backgroundColor: '#171B2A', borderRadius: 13, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  recordIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#263662' },
-  recordDetail: { color: '#8DA3FF', marginTop: 2 },
+  recordCard: { height: 78, marginTop: 12, borderColor: colors.blueBorder, backgroundColor: colors.surface, borderRadius: 13, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  recordCardConnected: { minHeight: 78, marginTop: 12, borderColor: colors.blueBorder, backgroundColor: colors.surface, borderRadius: 13, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  recordIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
+  recordTitle: { color: colors.text },
+  recordDetail: { color: colors.blue, marginTop: 2 },
   firstSection: { marginTop: 14, gap: 11 },
   section: { marginTop: 28, gap: 11 },
   lastSection: { marginTop: 28, gap: 11, paddingBottom: spacing.md },
@@ -1056,7 +1026,7 @@ const styles = StyleSheet.create({
   moneyStats: { flexDirection: 'row', gap: 9, marginTop: 6 },
   moneyStat: { flex: 1, minHeight: 43, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised, padding: 7, gap: 0 },
   topProduct: { minHeight: 39, marginTop: 5, borderRadius: 9, backgroundColor: colors.surfaceSoft, flexDirection: 'row', alignItems: 'center', gap: 7, padding: 5 },
-  productTile: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#383D48' },
+  productTile: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
   acquisitionCard: { minHeight: 198, padding: 13, gap: 6, borderRadius: 13 },
   acquisitionCardConnected: { minHeight: 236, padding: 13, gap: 6, borderRadius: 13 },
   acquisitionValue: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1079,9 +1049,4 @@ const styles = StyleSheet.create({
   focusList: { gap: 9 },
   focusRow: { minHeight: 84, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13 },
   focusIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#253463' },
-  freshnessCard: { padding: 4, borderRadius: 13, overflow: 'hidden' },
-  freshnessRow: { minHeight: 50, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  freshnessDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
-  freshnessDotMissing: { backgroundColor: colors.textFaint },
-  webOnlyRow: { minHeight: 54, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9 },
 });
