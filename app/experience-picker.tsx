@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { appEnvironment } from '@/services/backend-api';
@@ -35,9 +36,6 @@ export default function ExperiencePickerScreen() {
           <StudioText weight="semibold" size={23}>Choose experience</StudioText>
           <StudioText tone="muted" size={13}>Switch the Analytics workspace</StudioText>
         </View>
-        <Pressable accessibilityLabel="Close" onPress={() => router.back()} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
-          <Ionicons name="close" size={22} color={colors.textSecondary} />
-        </Pressable>
       </View>
 
       <View style={styles.searchField}>
@@ -53,13 +51,16 @@ export default function ExperiencePickerScreen() {
               <Image
                 accessibilityLabel="Most Words Win game thumbnail"
                 source={wideArtworkFailed ? experiences[0].image : experienceArtwork.mostWordsWinWide}
-                resizeMode="cover"
-                fadeDuration={0}
+                cachePolicy="memory-disk"
+                contentFit="cover"
+                contentPosition="center"
                 onError={() => setWideArtworkFailed(true)}
+                recyclingKey="most-words-win-wide"
+                transition={0}
                 style={styles.heroArtwork}
               />
               <View style={styles.selectedInfo}>
-                <Image source={experiences[0].image} resizeMode="cover" fadeDuration={0} style={styles.selectedIcon} />
+                <Image source={experiences[0].image} cachePolicy="memory-disk" contentFit="cover" transition={0} style={styles.selectedIcon} />
                 <View style={styles.flex}>
                   <StudioText weight="semibold" size={16}>Most Words Win!</StudioText>
                   <StudioText tone="muted" size={11} numberOfLines={1}>
@@ -109,7 +110,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#6E7480', alignSelf: 'center', marginTop: 8 },
   header: { minHeight: 68, marginTop: 8, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  closeButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   searchField: { height: 44, marginHorizontal: 18, marginTop: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 11, backgroundColor: colors.controlSurface, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchInput: { flex: 1, color: colors.text, fontFamily: fonts.regular, fontSize: 14, paddingVertical: 0 },
   content: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 32, gap: 12 },
