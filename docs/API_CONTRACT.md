@@ -4,6 +4,8 @@ The canonical machine-readable contract is [`contracts/openapi.json`](../contrac
 
 ## Route status
 
+AWS login start/callback/exchange now have a local distributed-limit implementation. It returns `429 { error: "login_rate_limited" }` with `Retry-After`, or `503 { error: "login_protection_unavailable" }` when protection cannot run. See `SECURITY_OPERATIONS.md` for bucket scopes and deployment limitations.
+
 | Route | Status | Consumer |
 | --- | --- | --- |
 | `GET /v1/health` | Active | Deployment checks |

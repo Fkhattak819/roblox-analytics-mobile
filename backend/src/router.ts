@@ -1,4 +1,5 @@
 import type { Config } from "./config.js";
+import { loginAction, type LoginLimiter } from './modules/auth/login-limiter.js';
 import { AuthService, AuthServiceError } from "./modules/auth/auth-service.js";
 import {
   ANALYTICS_SCOPE,
@@ -26,6 +27,8 @@ export type RuntimeMode = "local" | "aws";
 export type RouteDependencies = Readonly<{
   authService?: AuthService;
   remainingTimeMs?: () => number;
+  loginLimiter?: LoginLimiter;
+  sourceAddress?: string;
 }>;
 
 function response(
@@ -50,6 +53,15 @@ export async function routeRequest(
   mode: RuntimeMode,
   dependencies: RouteDependencies = {},
 ): Promise<AppResponse> {
+  const action = loginAction(request.method, request.path);
+  if (action && dependencies.loginLimiter) {
+    try {
+      const limit = await dependencies.loginLimiter.consume(dependencies.sourceAddress ?? '', action);
+      if (!limit.allowed) return response(429, { error: 'login_rate_limited' }, { 'retry-after': String(limit.retryAfter) });
+    } catch {
+      return response(503, { error: 'login_protection_unavailable' });
+    }
+  }
   if (request.method === "GET" && request.path === "/v1/health") {
     return response(200, {
       ok: true,

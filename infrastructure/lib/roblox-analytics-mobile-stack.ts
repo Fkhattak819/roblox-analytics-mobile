@@ -5,6 +5,7 @@ import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as ce from "aws-cdk-lib/aws-ce";
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -212,6 +213,28 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       resources: [applicationTable.tableArn],
     }));
     oauthCredentials.grantRead(apiFunction);
+    const failureFilter = new logs.MetricFilter(this, 'AuthFailureMetric', {
+      logGroup: apiLogGroup,
+      filterPattern: logs.FilterPattern.all(
+        logs.FilterPattern.stringValue('$.event', '=', 'auth_result'),
+        logs.FilterPattern.stringValue('$.outcome', '=', 'failure'),
+      ),
+      metricNamespace: 'StudioPulse/Security', metricName: 'AuthFailures',
+      metricValue: '1', defaultValue: 0,
+    });
+    new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
+      metric: failureFilter.metric({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
+      threshold: 5, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, 'ApiRuntimeFailureAlarm', {
+      metric: apiFunction.metricErrors({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
+      threshold: 3, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    apiFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['LIMIT#*'] } },
+    }));
 
     const apiIntegration = new integrations.HttpLambdaIntegration(
       "ApiIntegration",

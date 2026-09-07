@@ -1,5 +1,22 @@
 # roblox-analytics-mobile handoff
 
+## Live AWS checkpoint — September 6
+
+- SSO login completed; verified non-root assumed role. Read-only checks confirmed PITR/deletion protection disabled, private AES256 history bucket with TLS-only policy and no enabled versioning, ten-second API timeout, and no returned CloudWatch metric alarms. IAM policy inventory reads denied.
+- Critical reconciliation finding: deployed stack contains analytics worker/secret resources absent from this branch. Remote master 32ef869 contains corresponding newer analytics/UI code. Do not deploy this branch's older resource inventory over the live stack.
+- Master source checks universe globally before queueing/processing but lacks per-user universe authorization. Tenant-scoped storage alone does not close that gap. No live exploit or application-data read was attempted.
+- See AWS_SECURITY_REVIEW_2026-09-06.md. Next: reconcile newer master functionality with audit fixes and implement server-owned membership checks in API and worker, then review the complete deployment diff. Nothing in AWS was changed.
+
+
+## Login protection candidate — 2026-09-06
+
+- Implemented atomic DynamoDB per-source/per-action minute buckets for AWS start/callback/exchange, trusted gateway address handling, bounded counter calls, 429 retry headers, and fail-closed limiter outages. UpdateItem grant is restricted to LIMIT# keys.
+- Added fixed-schema auth result logs and proposed auth-failure/Lambda-error alarms. No token/request/error objects are logged. Alarms have no notification action; cost/deployment/delivery checks remain pending. See SECURITY_OPERATIONS.md.
+- Verified backend 32 tests and infrastructure synthesis. Counter concurrency uses a synthetic atomic store, not live DynamoDB; live behavior and NAT/distributed abuse coverage remain open.
+- GitHub Security and build CI succeeded for pushed commit 79a0879: https://github.com/Fkhattak819/roblox-analytics-mobile/actions/runs/34073043914. New limiter/logging changes remain local.
+- AWS profile roblox-analytics-mobile exists but SSO is expired. Asked user to refresh it; identity must still be verified as non-root. Asked whether the audit branch is ready on Mac. Independent work remains: creator authorization, deployed recovery/access controls, notification delivery, native tests and owner-account controls.
+
+
 ## URI decoder checkpoint — 2026-09-06
 
 - Replaced the vulnerable decoder with unmodified upstream 0.5.0 via a private CommonJS compatibility adapter, preserving callable exports and plus-to-space behavior. The real upstream package remains in the lockfile/advisory scan. Corrected an initial npm relative-link artifact; npm ls now resolves query-string to the valid root adapter.
