@@ -10,6 +10,15 @@ export class InMemoryAuthStore implements AuthStore {
   readonly #states = new Map<string, OAuthStateRecord>();
   readonly #exchanges = new Map<string, OAuthExchangeRecord>();
   readonly #sessions = new Map<string, AppSessionRecord>();
+  readonly #generations = new Map<string, string>();
+
+  async getAuthGeneration(userId: string): Promise<string> {
+    return this.#generations.get(userId) ?? "initial";
+  }
+
+  async setAuthGeneration(userId: string, generation: string): Promise<void> {
+    this.#generations.set(userId, generation);
+  }
 
   async putOAuthState(state: string, record: OAuthStateRecord): Promise<void> {
     this.#states.set(digestOpaqueValue(state), record);
@@ -26,9 +35,11 @@ export class InMemoryAuthStore implements AuthStore {
     this.#exchanges.set(digestOpaqueValue(code), record);
   }
 
-  async consumeOAuthExchange(code: string): Promise<OAuthExchangeRecord | null> {
+  async consumeOAuthExchange(code: string, clientChallenge: string): Promise<OAuthExchangeRecord | null> {
     const key = digestOpaqueValue(code);
     const record = this.#exchanges.get(key) ?? null;
+    // Validate before deleting so intercepted codes cannot burn a legitimate exchange.
+    if (!record || record.clientChallenge !== clientChallenge) return null;
     this.#exchanges.delete(key);
     return isCurrent(record);
   }

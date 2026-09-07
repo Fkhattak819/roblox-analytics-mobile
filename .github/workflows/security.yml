@@ -1,0 +1,59 @@
+name: Security and build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_NO_DOTENV: '1'
+      EXPO_PUBLIC_DATA_MODE: sample
+      EXPO_PUBLIC_API_BASE_URL: ''
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.18.0'
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix infrastructure --ignore-scripts
+      - name: Verify source and infrastructure
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm --prefix backend test
+          npm --prefix infrastructure test
+          node scripts/security-audit.mjs
+      - name: Export iOS sample artifact
+        run: npx expo export --platform ios --output-dir dist-security-ios
+      - name: Install verified secret scanner
+        run: |
+          mkdir -p .security-tools
+          curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o .security-tools/gitleaks.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  .security-tools/gitleaks.tar.gz' | sha256sum --check
+          tar -xzf .security-tools/gitleaks.tar.gz -C .security-tools gitleaks
+      - name: Scan history, source, and iOS artifact
+        env:
+          GITLEAKS_PATH: .security-tools/gitleaks
+        run: node scripts/scan-secrets.mjs dist-security-ios
+      - name: Dependency advisories
+        run: |
+          npm audit --ignore-scripts --audit-level=low
+          npm audit --prefix infrastructure --ignore-scripts --audit-level=low

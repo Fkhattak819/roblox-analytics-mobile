@@ -1,4 +1,5 @@
 import { loadConfig } from "../config.js";
+import { publicHttpError, RequestBodyTooLargeError } from "../http.js";
 import { createAwsAuthService } from "../modules/auth/auth-runtime.js";
 import type { AuthService } from "../modules/auth/auth-service.js";
 import { routeRequest } from "../router.js";
@@ -37,13 +38,13 @@ function parseBody(event: HttpApiEvent): unknown {
     : event.body;
 
   if (Buffer.byteLength(raw) > MAX_BODY_BYTES) {
-    throw new Error("Request body too large");
+    throw new RequestBodyTooLargeError();
   }
 
   return JSON.parse(raw);
 }
 
-export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
+export async function handler(event: HttpApiEvent, context?: { getRemainingTimeInMillis: () => number }): Promise<HttpApiResponse> {
   try {
     const config = loadConfig();
     const authService = getAuthService(config);
@@ -57,7 +58,7 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
       },
       config,
       "aws",
-      { authService },
+      { authService, remainingTimeMs: context ? () => context.getRemainingTimeInMillis() : undefined },
     );
 
     return {
@@ -67,21 +68,21 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
       isBase64Encoded: false,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unexpected error";
+    const result = publicHttpError(error);
     return {
-      statusCode: message === "Request body too large" ? 413 : 400,
+      statusCode: result.statusCode,
       headers: {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
       },
-      body: JSON.stringify({ error: message }),
+      body: JSON.stringify(result.body),
       isBase64Encoded: false,
     };
   }
 }
 
 function getAuthService(config: ReturnType<typeof loadConfig>): AuthService | undefined {
-  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}`;
+  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}\0${config.sessionEpoch}`;
   if (key !== cachedAuthConfigKey) {
     cachedAuthConfigKey = key;
     cachedAuthService = createAwsAuthService(config);

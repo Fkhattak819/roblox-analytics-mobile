@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { Config } from "../../config.js";
 import type { AppSessionRecord, AuthStore } from "./auth-store.js";
 import { OAuthConfigurationError, type RobloxOAuthCredentialsProvider } from "./oauth-credentials.js";
@@ -17,7 +17,11 @@ export class AuthService {
     private readonly robloxApi = new RobloxOAuthApi(),
   ) {}
 
-  async startRobloxOAuth(): Promise<{ authorizationUrl: string }> {
+  async startRobloxOAuth(input: { clientChallenge: unknown; clientState: unknown }): Promise<{ authorizationUrl: string }> {
+    if (typeof input.clientChallenge !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(input.clientChallenge)
+      || typeof input.clientState !== "string" || !OPAQUE_VALUE_PATTERN.test(input.clientState)) {
+      throw new AuthServiceError(400, "invalid_client_proof", "A valid S256 client challenge and state are required");
+    }
     try {
       const credentials = await this.credentialProvider.getCredentials();
       const flow = createOAuthStart({
@@ -27,6 +31,9 @@ export class AuthService {
       });
       await this.store.putOAuthState(flow.state, {
         codeVerifier: flow.codeVerifier,
+        sessionEpoch: this.config.sessionEpoch,
+        clientChallenge: input.clientChallenge,
+        clientState: input.clientState,
         expiresAt: Date.now() + STATE_TTL_MS,
       });
       return { authorizationUrl: flow.authorizationUrl };
@@ -35,7 +42,7 @@ export class AuthService {
     }
   }
 
-  async completeRobloxOAuth(input: { code: string; state: string }): Promise<string> {
+  async completeRobloxOAuth(input: { code: string; state: string; remainingTimeMs?: () => number }): Promise<string> {
     if (
       !OPAQUE_VALUE_PATTERN.test(input.state)
       || !input.code
@@ -45,7 +52,7 @@ export class AuthService {
     }
 
     const state = await this.store.consumeOAuthState(input.state);
-    if (!state) {
+    if (!state?.clientChallenge || !state.clientState || state.sessionEpoch !== this.config.sessionEpoch) {
       throw new AuthServiceError(400, "invalid_oauth_state", "OAuth state is invalid or expired");
     }
 
@@ -56,13 +63,17 @@ export class AuthService {
         codeVerifier: state.codeVerifier,
         redirectUri: this.config.robloxOAuthRedirectUri,
         credentials,
+        remainingTimeMs: input.remainingTimeMs,
       });
       const exchangeCode = randomOpaqueValue();
       await this.store.putOAuthExchange(exchangeCode, {
         user,
+        clientChallenge: state.clientChallenge,
+        authGeneration: await this.store.getAuthGeneration(user.sub),
+        sessionEpoch: this.config.sessionEpoch,
         expiresAt: Date.now() + EXCHANGE_TTL_MS,
       });
-      return appRedirect(this.config.appOAuthCallbackUri, { code: exchangeCode });
+      return appRedirect(this.config.appOAuthCallbackUri, { code: exchangeCode, state: state.clientState });
     } catch (error) {
       throw normalizeError(error);
     }
@@ -73,24 +84,31 @@ export class AuthService {
       throw new AuthServiceError(400, "invalid_oauth_state", "OAuth state is invalid or expired");
     }
     const state = await this.store.consumeOAuthState(stateValue);
-    if (!state) {
+    if (!state?.clientState || !state.clientChallenge || state.sessionEpoch !== this.config.sessionEpoch) {
       throw new AuthServiceError(400, "invalid_oauth_state", "OAuth state is invalid or expired");
     }
-    return appRedirect(this.config.appOAuthCallbackUri, { error: "authorization_denied" });
+    return appRedirect(this.config.appOAuthCallbackUri, { error: "authorization_denied", state: state.clientState });
   }
 
-  async exchangeAppSession(code: unknown): Promise<{ token: string; session: AppSessionRecord }> {
+  async exchangeAppSession(code: unknown, clientVerifier: unknown): Promise<{ token: string; session: AppSessionRecord }> {
     if (typeof code !== "string" || !OPAQUE_VALUE_PATTERN.test(code)) {
       throw new AuthServiceError(400, "invalid_exchange_code", "Invalid session exchange code");
     }
-    const exchange = await this.store.consumeOAuthExchange(code);
-    if (!exchange) {
+    if (typeof clientVerifier !== "string" || !/^[A-Za-z0-9._~-]{43,128}$/.test(clientVerifier)) {
+      throw new AuthServiceError(400, "invalid_client_proof", "A valid client verifier is required");
+    }
+    const clientChallenge = createHash("sha256").update(clientVerifier, "ascii").digest("base64url");
+    const exchange = await this.store.consumeOAuthExchange(code, clientChallenge);
+    if (!exchange || exchange.sessionEpoch !== this.config.sessionEpoch
+      || exchange.authGeneration !== await this.store.getAuthGeneration(exchange.user.sub)) {
       throw new AuthServiceError(401, "invalid_exchange_code", "Session exchange code is invalid or expired");
     }
 
     const token = randomOpaqueValue();
     const session = {
       user: exchange.user,
+      authGeneration: exchange.authGeneration,
+      sessionEpoch: this.config.sessionEpoch,
       expiresAt: Date.now() + this.config.sessionTtlSeconds * 1_000,
     };
     await this.store.putSession(token, session);
@@ -100,13 +118,24 @@ export class AuthService {
   async getSession(authorization: string | undefined): Promise<AppSessionRecord> {
     const token = bearerToken(authorization);
     const session = await this.store.getSession(token);
-    if (!session) throw new AuthServiceError(401, "invalid_session", "Session is invalid or expired");
+    if (!session || session.sessionEpoch !== this.config.sessionEpoch
+      || session.authGeneration !== await this.store.getAuthGeneration(session.user.sub)) {
+      throw new AuthServiceError(401, "invalid_session", "Session is invalid or expired");
+    }
     return session;
   }
 
   async logout(authorization: string | undefined): Promise<void> {
     const token = bearerToken(authorization);
     await this.store.deleteSession(token);
+  }
+
+  async logoutAll(authorization: string | undefined): Promise<void> {
+    const session = await this.getSession(authorization);
+    // A random replacement avoids lost increments during concurrent revocations.
+    // This record has no TTL: expiring it could revive old sessions.
+    await this.store.setAuthGeneration(session.user.sub, randomOpaqueValue());
+    await this.store.deleteSession(bearerToken(authorization));
   }
 }
 

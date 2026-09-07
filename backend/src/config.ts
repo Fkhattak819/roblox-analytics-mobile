@@ -9,6 +9,7 @@ export type Config = {
   appOAuthCallbackUri: string;
   appBaseUrl: string;
   sessionTtlSeconds: number;
+  sessionEpoch: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -20,6 +21,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const sessionTtlSeconds = Number(env.SESSION_TTL_SECONDS ?? 30 * 24 * 60 * 60);
   if (!Number.isInteger(sessionTtlSeconds) || sessionTtlSeconds < 300) {
     throw new Error("SESSION_TTL_SECONDS must be an integer of at least 300");
+  }
+
+  const sessionEpoch = env.SESSION_EPOCH ?? "1";
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(sessionEpoch)) {
+    throw new Error("SESSION_EPOCH must be a nonempty deployment identifier");
   }
 
   return {
@@ -35,5 +41,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       env.APP_OAUTH_CALLBACK_URI ?? "robloxanalyticsmobile://oauth/callback",
     appBaseUrl: env.APP_BASE_URL ?? `http://localhost:${port}`,
     sessionTtlSeconds,
+    sessionEpoch,
   };
 }

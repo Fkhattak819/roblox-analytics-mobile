@@ -15,7 +15,8 @@ import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
-import { signInWithRoblox } from '@/services/roblox-auth';
+import { sessionController, signInWithRoblox } from '@/services/roblox-auth';
+import { useSession } from '@/src/state/session-context';
 
 const palette = {
   canvas: '#0B0D12',
@@ -53,6 +54,13 @@ export default function OnboardingScreen() {
     }
   };
 
+  const exploreSample = async () => {
+    try {
+      await sessionController.useSample();
+      await finish();
+    } catch { Alert.alert('Couldn’t clear sign-in', 'Please try again before opening sample data.'); }
+  };
+
   const goForward = () => {
     setStep((current) => Math.min(current + 1, 4) as OnboardingStep);
   };
@@ -78,13 +86,13 @@ export default function OnboardingScreen() {
         {step > 0 && step < 4 ? <BackButton onPress={goBack} /> : null}
 
         {step === 0 ? (
-          <WelcomeStep onPrimary={goForward} onSample={() => void finish()} />
+          <WelcomeStep onPrimary={goForward} onSample={() => void exploreSample()} />
         ) : null}
         {step === 1 ? (
-          <IdentityStep onPrimary={goForward} onSample={() => void finish()} />
+          <IdentityStep onPrimary={goForward} onSample={() => void exploreSample()} />
         ) : null}
         {step === 2 ? (
-          <AnalyticsAccessStep onPrimary={goForward} onSample={() => void finish()} />
+          <AnalyticsAccessStep onPrimary={goForward} onSample={() => void exploreSample()} />
         ) : null}
         {step === 3 ? (
           <ChooseExperiencesStep
@@ -322,6 +330,8 @@ function AnimatedTrendChart() {
 }
 
 function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+  const session = useSession();
+  const connected = session.status === 'authenticated';
   const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
@@ -353,10 +363,10 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: () => void; onSample
       </View>
 
       <StatusRow
-        badge="CONNECTED"
-        badgeTone="success"
+        badge={connected ? 'CONNECTED' : 'NOT CONNECTED'}
+        badgeTone={connected ? 'success' : 'warning'}
         detail="OAuth + PKCE · profile only"
-        dotColor={palette.success}
+        dotColor={connected ? palette.success : palette.warning}
         title="Roblox identity"
         top={580}
       />
@@ -399,10 +409,10 @@ function AnalyticsAccessStep({ onPrimary, onSample }: { onPrimary: () => void; o
       <SecureAnalyticsVisual />
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 256 }]}>ROBLOX OPEN CLOUD</StudioText>
       <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 280 }]}>Add read-only analytics</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 328 }]}>Create a key in Roblox Creator Hub, choose its{`\n`}universes, then add it here. It stays encrypted on{`\n`}the backend.</StudioText>
+      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 328 }]}>Live analytics setup is not available yet.{`\n`}Do not submit an API key. You can explore{`\n`}sample experiences below.</StudioText>
 
       <StatusRow
-        badge="READ ONLY"
+        badge="NOT CONNECTED"
         badgeTone="accent"
         detail="universe.analytics:read"
         dotColor={palette.accentText}
@@ -559,17 +569,19 @@ function ExperienceArt() {
 }
 
 function ReadyStep({ selectedCount, onOpen, onReview }: { selectedCount: number; onOpen: () => void; onReview: () => void }) {
+  const session = useSession();
+  const connected = session.status === 'authenticated';
   return (
     <>
       <RobloxMark top={104} />
       <View style={styles.readyCheck}><StudioText weight="semibold" size={14} lineHeight={19} style={styles.readyCheckText}>✓</StudioText></View>
-      <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, styles.readyEyebrow]}>SETUP COMPLETE</StudioText>
+      <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, styles.readyEyebrow]}>SAMPLE WORKSPACE READY</StudioText>
       <StudioText weight="bold" size={24} lineHeight={30} style={[styles.heading, { top: 214 }]}>Your creator pulse is ready</StudioText>
       <StudioText size={14} lineHeight={20} style={[styles.bodyCopy, { top: 258 }]}>Review your connections, then open the roblox-analytics-mobile{`\n`}workspace.</StudioText>
 
-      <StatusRow badge="CONNECTED" badgeTone="success" detail="fkhattak819 · connected" dotColor={palette.success} title="Roblox identity" top={316} />
-      <StatusRow badge="READ ONLY" badgeTone="accent" detail={`${selectedCount} ${selectedCount === 1 ? 'universe' : 'universes'} · read only`} dotColor={palette.accentText} title="Analytics access" top={400} />
-      <StatusRow badge="OPTIONAL" badgeTone="warning" detail="Available in Sales · optional" dotColor={palette.warning} title="Live sale alerts" top={484} />
+      <StatusRow badge={connected ? 'CONNECTED' : 'NOT CONNECTED'} badgeTone={connected ? 'success' : 'warning'} detail={connected ? 'Profile identity verified' : 'No verified sign-in'} dotColor={connected ? palette.success : palette.warning} title="Roblox identity" top={316} />
+      <StatusRow badge="SAMPLE" badgeTone="accent" detail={`${selectedCount} sample experiences · no live access`} dotColor={palette.accentText} title="Analytics access" top={400} />
+      <StatusRow badge="NOT ENABLED" badgeTone="warning" detail="Sample events only" dotColor={palette.warning} title="Live sale alerts" top={484} />
 
       <View style={styles.workspacePreview}>
         <StudioText weight="semibold" size={11} lineHeight={15} style={styles.workspacePreviewTitle}>Sample workspace preview</StudioText>

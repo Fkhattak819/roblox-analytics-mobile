@@ -1,4 +1,7 @@
 import test from "node:test";
+import { createHash } from "node:crypto";
+const clientVerifier = "v".repeat(64);
+const clientProof = { clientChallenge: createHash("sha256").update(clientVerifier).digest("base64url"), clientState: "s".repeat(64) };
 import assert from "node:assert/strict";
 import { parseHomeSnapshot } from "../dist/contracts/src/home.js";
 import { fingerprintSecret, validateConnectionInput } from "../dist/backend/src/modules/analytics/connection.js";
@@ -61,7 +64,7 @@ test("AWS scaffold rejects Roblox credentials before inspecting them", async () 
 test("OAuth start persists PKCE state and exposes only the authorization URL", async () => {
   const { authService } = testAuthService();
   const response = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     loadConfig({}),
     "local",
     { authService },
@@ -84,7 +87,7 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const dependencies = { authService };
 
   const start = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     config,
     "local",
     dependencies,
@@ -116,8 +119,8 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const exchange = await routeRequest(
     {
       method: "POST",
-      path: "/v1/auth/session/exchange",
-      body: { code: exchangeCode },
+      path: "/v2/auth/session/exchange",
+      body: { code: exchangeCode, clientVerifier },
     },
     config,
     "local",
@@ -130,8 +133,8 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const replayedExchange = await routeRequest(
     {
       method: "POST",
-      path: "/v1/auth/session/exchange",
-      body: { code: exchangeCode },
+      path: "/v2/auth/session/exchange",
+      body: { code: exchangeCode, clientVerifier },
     },
     config,
     "local",
@@ -171,7 +174,7 @@ test("OAuth state is consumed before the authorization code can be replayed", as
   const config = loadConfig({});
   const dependencies = { authService };
   const start = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     config,
     "local",
     dependencies,

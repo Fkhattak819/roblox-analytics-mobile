@@ -15,6 +15,7 @@ test('publishes an OpenAPI 3.1 contract for every implemented route', () => {
   assert.equal(openApi.openapi, '3.1.0');
   assert.deepEqual(Object.keys(openApi.paths ?? {}).sort(), [
     '/v1/auth/logout',
+    '/v1/auth/logout-all',
     '/v1/auth/roblox/callback',
     '/v1/auth/roblox/start',
     '/v1/auth/session',
@@ -22,6 +23,8 @@ test('publishes an OpenAPI 3.1 contract for every implemented route', () => {
     '/v1/connections/analytics/validate',
     '/v1/health',
     '/v1/sample/home',
+    '/v2/auth/roblox/start',
+    '/v2/auth/session/exchange',
   ]);
 });
 

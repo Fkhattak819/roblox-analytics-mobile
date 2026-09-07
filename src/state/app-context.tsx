@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useLayoutEffect, useMemo, useState } from 'react';
 
 import { experiences } from '@/src/data/sample-data';
+import { useSession } from '@/src/state/session-context';
 
 type DateRange = '24H' | '7D' | '30D' | '90D';
 type NotificationMode = 'Every sale' | 'Smart' | 'Milestones' | 'Digest';
@@ -22,11 +23,20 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: React.PropsWithChildren) {
+  const { revision } = useSession();
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>('30D');
   const [comparePrevious, setComparePrevious] = useState(true);
   const [notificationMode, setNotificationMode] = useState<NotificationMode>('Smart');
   const [liveSalesAlertsEnabled, setLiveSalesAlertsEnabled] = useState(false);
+
+  useLayoutEffect(() => {
+    setSelectedExperienceId(null);
+    setDateRange('30D');
+    setComparePrevious(true);
+    setNotificationMode('Smart');
+    setLiveSalesAlertsEnabled(false);
+  }, [revision]);
 
   const value = useMemo<AppContextValue>(() => ({
     selectedExperienceId,

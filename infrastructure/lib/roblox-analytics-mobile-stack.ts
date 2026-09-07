@@ -171,6 +171,10 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
     });
 
     const functionName = `${resourcePrefix}-api`;
+    const sessionEpoch = new cdk.CfnParameter(this, "SessionEpoch", {
+      type: "String", default: "1", allowedPattern: "^[A-Za-z0-9_-]{1,128}$",
+      description: "Change to a never-used value before serving restored auth data, invalidating all old sessions and exchanges",
+    });
     const apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
       logGroupName: `/aws/lambda/${functionName}`,
       retention: logs.RetentionDays.ONE_WEEK,
@@ -193,6 +197,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       logGroup: apiLogGroup,
       environment: {
         APP_ENV: "dev",
+        SESSION_EPOCH: sessionEpoch.valueAsString,
         APP_OAUTH_CALLBACK_URI: "robloxanalyticsmobile://oauth/callback",
         ROBLOX_OAUTH_REDIRECT_URI: oauthRedirectUri.valueAsString,
         ROBLOX_OAUTH_SCOPES: "openid profile",

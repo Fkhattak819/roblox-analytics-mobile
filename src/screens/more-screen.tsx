@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card, Screen, StudioText } from '@/src/components/ui';
 import { colors, radii } from '@/src/theme/tokens';
+import { useSession } from '@/src/state/session-context';
 
 type SettingsRowProps = {
   title: string;
@@ -37,6 +38,9 @@ function SettingsGroup({ title, children }: React.PropsWithChildren<{ title: str
 }
 
 export default function MoreScreen() {
+  const session = useSession();
+  const connected = session.status === 'authenticated';
+  const user = session.session?.user;
   return (
     <Screen contentContainerStyle={styles.screenContent}>
       <View style={styles.titleBlock}>
@@ -50,19 +54,19 @@ export default function MoreScreen() {
             <Ionicons name="person-outline" size={19} color={colors.blue} />
           </View>
           <View style={styles.accountCopy}>
-            <StudioText weight="semibold" size={15}>Fahd Khattak</StudioText>
-            <StudioText tone="muted" size={10}>@fkhattak819</StudioText>
+            <StudioText weight="semibold" size={15}>{user?.name ?? user?.preferredUsername ?? (connected ? 'Roblox creator' : 'Sample workspace')}</StudioText>
+            <StudioText tone="muted" size={10}>{connected ? `Roblox ID ${user?.sub}` : 'No verified creator identity'}</StudioText>
           </View>
           <View style={styles.verifiedBadge}>
-            <StudioText tone="blue" weight="semibold" size={8}>VERIFIED</StudioText>
+            <StudioText tone="blue" weight="semibold" size={8}>{connected ? 'SIGNED IN' : 'SAMPLE'}</StudioText>
           </View>
         </View>
         <View style={styles.accountConnection}>
           <View style={styles.connectionLabel}>
-            <View style={styles.connectionDot} />
-            <StudioText tone="muted" size={10}>Roblox identity connected</StudioText>
+            <View style={[styles.connectionDot, !connected && { backgroundColor: colors.textMuted }]} />
+            <StudioText tone="muted" size={10}>{connected ? 'Roblox identity connected' : 'Roblox identity not connected'}</StudioText>
           </View>
-          <StudioText tone="green" weight="semibold" size={8}>CONNECTED</StudioText>
+          <StudioText tone={connected ? 'green' : 'muted'} weight="semibold" size={8}>{connected ? 'CONNECTED' : 'NOT CONNECTED'}</StudioText>
         </View>
       </Card>
 
@@ -70,10 +74,10 @@ export default function MoreScreen() {
         <View style={styles.workspaceCopy}>
           <StudioText tone="muted" weight="medium" size={8}>WORKSPACE</StudioText>
           <StudioText weight="semibold" size={13}>BrainNourishment Studios</StudioText>
-          <StudioText tone="muted" size={10}>2 experiences · analytics connected</StudioText>
+          <StudioText tone="muted" size={10}>Sample experiences · no live analytics</StudioText>
         </View>
         <View style={styles.workspaceAction}>
-          <StudioText tone="blue" weight="semibold" size={8}>OWNER</StudioText>
+          <StudioText tone="blue" weight="semibold" size={8}>SAMPLE</StudioText>
           <View style={styles.switchRow}>
             <StudioText tone="blue" weight="semibold" size={8}>SWITCH</StudioText>
             <Ionicons name="chevron-forward" size={11} color={colors.blue} />
@@ -83,24 +87,24 @@ export default function MoreScreen() {
 
       <Card style={styles.healthCard} onPress={() => router.push('/settings/connections')} accessibilityLabel="Open Roblox data connection">
         <View style={styles.healthCopy}>
-          <StudioText weight="medium" size={14}>Roblox data connected</StudioText>
-          <StudioText tone="muted" size={10}>Analytics refreshed 2 min ago</StudioText>
+          <StudioText weight="medium" size={14}>Sample analytics</StudioText>
+          <StudioText tone="muted" size={10}>Live data is not connected</StudioText>
         </View>
         <View style={styles.healthyBadge}>
-          <StudioText tone="green" weight="semibold" size={8}>HEALTHY</StudioText>
+          <StudioText tone="muted" weight="semibold" size={8}>SAMPLE</StudioText>
         </View>
       </Card>
 
       <SettingsGroup title="ACCOUNT">
-        <SettingsRow title="Profile and account" value="fkhattak819" onPress={() => router.push('/settings/account')} />
+        <SettingsRow title="Profile and account" value={connected ? 'Signed in' : 'Sign in'} onPress={() => router.push('/settings/account')} />
         <SettingsRow title="Notifications" value="Smart alerts" onPress={() => router.push('/notifications')} />
-        <SettingsRow title="Team & permissions" value="Owner" onPress={() => router.push('/settings/account')} last />
+        <SettingsRow title="Team & permissions" value="Not connected" onPress={() => router.push('/settings/account')} last />
       </SettingsGroup>
 
       <SettingsGroup title="DATA & SECURITY">
-        <SettingsRow title="Roblox connections" value="Connected" valueTone="green" onPress={() => router.push('/settings/connections')} />
-        <SettingsRow title="Data sources" value="2 sources" onPress={() => router.push('/settings/data-freshness')} />
-        <SettingsRow title="Privacy & security" value="Protected" valueTone="blue" onPress={() => router.push('/settings/privacy')} last />
+        <SettingsRow title="Roblox connections" value="View status" onPress={() => router.push('/settings/connections')} />
+        <SettingsRow title="Data sources" value="Sample" onPress={() => router.push('/settings/data-freshness')} />
+        <SettingsRow title="Privacy & security" value="View status" valueTone="blue" onPress={() => router.push('/settings/connections')} last />
       </SettingsGroup>
 
       <SettingsGroup title="SUPPORT">

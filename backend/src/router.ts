@@ -25,6 +25,7 @@ export type RuntimeMode = "local" | "aws";
 
 export type RouteDependencies = Readonly<{
   authService?: AuthService;
+  remainingTimeMs?: () => number;
 }>;
 
 function response(
@@ -61,9 +62,17 @@ export async function routeRequest(
     return response(200, sampleHome());
   }
 
-  if (request.method === "GET" && request.path === "/v1/auth/roblox/start") {
+  if ((request.method === "GET" && request.path === "/v1/auth/roblox/start")
+    || (request.method === "POST" && request.path === "/v1/auth/session/exchange")) {
+    return response(410, { error: "client_upgrade_required", message: "Update the app to use secure sign-in" });
+  }
+
+  if (request.method === "GET" && request.path === "/v2/auth/roblox/start") {
     return withAuth(dependencies.authService, async (auth) => {
-      const result = await auth.startRobloxOAuth();
+      const result = await auth.startRobloxOAuth({
+        clientChallenge: request.query?.clientChallenge,
+        clientState: request.query?.clientState,
+      });
       return response(200, result);
     });
   }
@@ -75,15 +84,16 @@ export async function routeRequest(
         : await auth.completeRobloxOAuth({
             code: request.query?.code ?? "",
             state: request.query?.state ?? "",
+            remainingTimeMs: dependencies.remainingTimeMs,
           });
       return response(302, { status: "redirecting" }, { location: redirectUrl });
     });
   }
 
-  if (request.method === "POST" && request.path === "/v1/auth/session/exchange") {
+  if (request.method === "POST" && request.path === "/v2/auth/session/exchange") {
     return withAuth(dependencies.authService, async (auth) => {
       const code = getObjectProperty(request.body, "code");
-      const result = await auth.exchangeAppSession(code);
+      const result = await auth.exchangeAppSession(code, getObjectProperty(request.body, "clientVerifier"));
       return response(200, {
         token: result.token,
         expiresAt: new Date(result.session.expiresAt).toISOString(),
@@ -105,6 +115,13 @@ export async function routeRequest(
   if (request.method === "POST" && request.path === "/v1/auth/logout") {
     return withAuth(dependencies.authService, async (auth) => {
       await auth.logout(request.headers?.authorization);
+      return response(204, null);
+    });
+  }
+
+  if (request.method === "POST" && request.path === "/v1/auth/logout-all") {
+    return withAuth(dependencies.authService, async (auth) => {
+      await auth.logoutAll(request.headers?.authorization);
       return response(204, null);
     });
   }

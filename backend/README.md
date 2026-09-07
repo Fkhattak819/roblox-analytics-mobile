@@ -4,9 +4,10 @@ This backend runs locally and through an AWS Lambda adapter. Its Roblox identity
 
 - `GET /v1/health` — service health
 - `GET /v1/sample/home` — deterministic sample payload for the Expo app
-- `GET /v1/auth/roblox/start` — persisted, one-time PKCE authorization start
+- `GET /v2/auth/roblox/start?clientChallenge=...&clientState=...` — mobile-bound, one-time PKCE authorization start
 - `GET /v1/auth/roblox/callback` — Roblox callback and one-time mobile redirect
-- `POST /v1/auth/session/exchange` — one-time app-session exchange
+- `POST /v2/auth/session/exchange` — one-time app-session exchange requiring `{ code, clientVerifier }`
+- Legacy v1 start/exchange routes return 410 and cannot create a session
 - `GET /v1/auth/session` — current Roblox identity for a bearer app session
 - `POST /v1/auth/logout` — app-session revocation
 - `POST /v1/connections/analytics/validate` — request-shape validation only in local mode

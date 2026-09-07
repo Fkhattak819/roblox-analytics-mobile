@@ -21,7 +21,11 @@ type StoredRecord = {
   expiresAt: number;
   ttl: number;
   codeVerifier?: string;
+  clientChallenge?: string;
+  clientState?: string;
   user?: RobloxUserProfile;
+  authGeneration?: string;
+  sessionEpoch?: string;
 };
 
 export class DynamoDbAuthStore implements AuthStore {
@@ -30,37 +34,81 @@ export class DynamoDbAuthStore implements AuthStore {
     private readonly tableName: string,
   ) {}
 
+  async getAuthGeneration(userId: string): Promise<string> {
+    const result = await this.client.send(new GetItemCommand({
+      TableName: this.tableName,
+      Key: marshall({ PK: `AUTH#GENERATION#${digestOpaqueValue(userId)}`, SK: "AUTH" }),
+      ConsistentRead: true,
+    }));
+    if (!result.Item) return "initial";
+    const record = unmarshall(result.Item);
+    if (typeof record.generation !== "string" || !record.generation) throw new Error("Invalid auth generation record");
+    return record.generation;
+  }
+
+  async setAuthGeneration(userId: string, generation: string): Promise<void> {
+    await this.client.send(new PutItemCommand({
+      TableName: this.tableName,
+      Item: marshall({ PK: `AUTH#GENERATION#${digestOpaqueValue(userId)}`, SK: "AUTH", generation }),
+    }));
+  }
+
   async putOAuthState(state: string, record: OAuthStateRecord): Promise<void> {
     await this.put("STATE", state, {
       type: "oauth-state",
+      sessionEpoch: record.sessionEpoch,
       expiresAt: record.expiresAt,
       codeVerifier: record.codeVerifier,
+      clientChallenge: record.clientChallenge,
+      clientState: record.clientState,
     });
   }
 
   async consumeOAuthState(state: string): Promise<OAuthStateRecord | null> {
     const record = await this.consume("STATE", state);
-    if (record?.type !== "oauth-state" || !record.codeVerifier) return null;
-    return isCurrent({ codeVerifier: record.codeVerifier, expiresAt: record.expiresAt });
+    if (record?.type !== "oauth-state" || !record.codeVerifier || !record.clientChallenge || !record.clientState || !record.sessionEpoch) return null;
+    return isCurrent({ codeVerifier: record.codeVerifier, clientChallenge: record.clientChallenge,
+      clientState: record.clientState, sessionEpoch: record.sessionEpoch, expiresAt: record.expiresAt });
   }
 
   async putOAuthExchange(code: string, record: OAuthExchangeRecord): Promise<void> {
     await this.put("EXCHANGE", code, {
       type: "oauth-exchange",
+      clientChallenge: record.clientChallenge,
+      authGeneration: record.authGeneration,
+      sessionEpoch: record.sessionEpoch,
       expiresAt: record.expiresAt,
       user: record.user,
     });
   }
 
-  async consumeOAuthExchange(code: string): Promise<OAuthExchangeRecord | null> {
-    const record = await this.consume("EXCHANGE", code);
-    if (record?.type !== "oauth-exchange" || !record.user) return null;
-    return isCurrent({ user: record.user, expiresAt: record.expiresAt });
+  async consumeOAuthExchange(code: string, clientChallenge: string): Promise<OAuthExchangeRecord | null> {
+    try {
+      // Proof, expiry, and deletion are one operation; no read/delete race exists.
+      const result = await this.client.send(new DeleteItemCommand({
+        TableName: this.tableName,
+        Key: marshall(this.key("EXCHANGE", code)),
+        ConditionExpression: "#challenge = :challenge AND #expires > :now AND #type = :type",
+        ExpressionAttributeNames: { "#challenge": "clientChallenge", "#expires": "expiresAt", "#type": "type" },
+        ExpressionAttributeValues: marshall({ ":challenge": clientChallenge, ":now": Date.now(), ":type": "oauth-exchange" }),
+        ReturnValues: "ALL_OLD",
+      }));
+      const record = result.Attributes ? unmarshall(result.Attributes) as StoredRecord : null;
+      if (record?.type !== "oauth-exchange" || !record.user || record.clientChallenge !== clientChallenge
+        || !record.authGeneration || !record.sessionEpoch) return null;
+      return isCurrent({ user: record.user, clientChallenge, authGeneration: record.authGeneration,
+        sessionEpoch: record.sessionEpoch, expiresAt: record.expiresAt });
+    } catch (error) {
+      if (error instanceof Error && error.name === "ConditionalCheckFailedException") return null;
+      throw error;
+    }
   }
 
   async putSession(token: string, record: AppSessionRecord): Promise<void> {
     await this.put("SESSION", token, {
       type: "app-session",
+      authGeneration: record.authGeneration,
+      sessionEpoch: record.sessionEpoch,
       expiresAt: record.expiresAt,
       user: record.user,
     });
@@ -74,8 +122,9 @@ export class DynamoDbAuthStore implements AuthStore {
     }));
     if (!result.Item) return null;
     const record = unmarshall(result.Item) as StoredRecord;
-    if (record.type !== "app-session" || !record.user) return null;
-    return isCurrent({ user: record.user, expiresAt: record.expiresAt });
+    if (record.type !== "app-session" || !record.user || !record.authGeneration || !record.sessionEpoch) return null;
+    return isCurrent({ user: record.user, authGeneration: record.authGeneration,
+      sessionEpoch: record.sessionEpoch, expiresAt: record.expiresAt });
   }
 
   async deleteSession(token: string): Promise<void> {

@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { loadConfig } from "./config.js";
-import { readJson } from "./http.js";
+import { publicHttpError, readJson } from "./http.js";
 import { createLocalAuthService } from "./modules/auth/auth-runtime.js";
 import { routeRequest } from "./router.js";
 
@@ -35,9 +35,9 @@ const server = createServer(async (req, res) => {
     });
     res.end(payload);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    const payload = JSON.stringify({ error: message });
-    res.writeHead(message === "Request body too large" ? 413 : 400, {
+    const result = publicHttpError(error);
+    const payload = JSON.stringify(result.body);
+    res.writeHead(result.statusCode, {
       "content-type": "application/json; charset=utf-8",
       "content-length": Buffer.byteLength(payload),
       "cache-control": "no-store",

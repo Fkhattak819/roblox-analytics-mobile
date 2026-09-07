@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "roblox-analytics-mobile API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Development API contract for sample data and Roblox identity sessions. Analytics credential submission remains disabled until its separate security gates are complete."
   },
   "servers": [
@@ -55,24 +55,20 @@
     },
     "/v1/auth/roblox/start": {
       "get": {
-        "operationId": "startRobloxOAuth",
-        "tags": ["Authentication"],
-        "summary": "Start Roblox OAuth",
-        "description": "Creates server-side one-time PKCE state and returns only the Roblox authorization URL.",
+        "operationId": "retiredOAuthStart",
+        "tags": [
+          "Authentication"
+        ],
+        "deprecated": true,
+        "summary": "Retired insecure login protocol",
         "responses": {
-          "200": {
-            "description": "Roblox authorization is ready to open",
+          "410": {
+            "description": "App upgrade required. No login or exchange is performed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OAuthStartResponse" }
-              }
-            }
-          },
-          "503": {
-            "description": "OAuth client configuration is absent or unavailable",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -82,13 +78,33 @@
     "/v1/auth/roblox/callback": {
       "get": {
         "operationId": "completeRobloxOAuth",
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Complete Roblox OAuth",
-        "description": "Consumes one-time PKCE state, obtains the stable Roblox user identity, revokes the short-lived Roblox authorization, and redirects to the mobile app with a one-time exchange code.",
+        "description": "Consumes one-time PKCE state, obtains the stable Roblox user identity, revokes the short-lived Roblox authorization, and redirects to the mobile app with a one-time exchange code. The app redirect includes the stored mobile client state for correlation. Legacy states without mobile proof are rejected.",
         "parameters": [
-          { "name": "code", "in": "query", "schema": { "type": "string" } },
-          { "name": "state", "in": "query", "schema": { "type": "string" } },
-          { "name": "error", "in": "query", "schema": { "type": "string" } }
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "302": {
@@ -96,7 +112,10 @@
             "headers": {
               "Location": {
                 "required": true,
-                "schema": { "type": "string", "pattern": "^robloxanalyticsmobile://" }
+                "schema": {
+                  "type": "string",
+                  "pattern": "^robloxanalyticsmobile://"
+                }
               }
             }
           },
@@ -104,7 +123,9 @@
             "description": "OAuth state is malformed, expired, or already consumed",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -112,7 +133,9 @@
             "description": "Roblox rejected or could not complete the OAuth exchange",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -121,39 +144,20 @@
     },
     "/v1/auth/session/exchange": {
       "post": {
-        "operationId": "exchangeAppSession",
-        "tags": ["Authentication"],
-        "summary": "Exchange a one-time mobile code for an app session",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/SessionExchangeRequest" }
-            }
-          }
-        },
+        "operationId": "retiredSessionExchange",
+        "tags": [
+          "Authentication"
+        ],
+        "deprecated": true,
+        "summary": "Retired insecure login protocol",
         "responses": {
-          "200": {
-            "description": "A new opaque app session",
+          "410": {
+            "description": "App upgrade required. No login or exchange is performed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SessionExchangeResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed exchange code",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "Exchange code is expired or already consumed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -183,6 +187,19 @@
               }
             }
           }
+        }
+      }
+    },
+    "/v1/auth/logout-all": {
+      "post": {
+        "operationId": "revokeAllAccountSessions",
+        "tags": ["Authentication"],
+        "summary": "Revoke all sessions and pending exchanges for the authenticated account",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "204": {"description": "The account generation was replaced. Older sessions and exchanges are rejected."},
+          "401": {"description": "A current authenticated session is required."},
+          "503": {"description": "Authentication is not configured."}
         }
       }
     },
@@ -245,6 +262,113 @@
             }
           }
         }
+      }
+    },
+    "/v2/auth/roblox/start": {
+      "get": {
+        "operationId": "startRobloxOAuth",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Start Roblox OAuth",
+        "description": "Requires a mobile S256 challenge and random client state. Stores these alongside the independent server-to-Roblox PKCE flow. The mobile verifier must remain on the initiating device.",
+        "responses": {
+          "200": {
+            "description": "Roblox authorization is ready to open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid mobile proof parameters"
+          },
+          "503": {
+            "description": "OAuth client configuration is absent or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientChallenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          },
+          {
+            "name": "clientState",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32,128}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v2/auth/session/exchange": {
+      "post": {
+        "operationId": "exchangeAppSession",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange a one-time mobile code for an app session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionExchangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new opaque app session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionExchangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed exchange code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Exchange code is expired or already consumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "Atomically validates the S256 verifier and consumes the unexpired exchange code. Invalid proof cannot consume the code or create a session."
       }
     }
   },
@@ -318,9 +442,22 @@
       "SessionExchangeRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["code"],
+        "required": [
+          "code",
+          "clientVerifier"
+        ],
         "properties": {
-          "code": { "type": "string", "minLength": 32, "maxLength": 128, "writeOnly": true }
+          "code": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 128,
+            "writeOnly": true
+          },
+          "clientVerifier": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._~-]{43,128}$",
+            "writeOnly": true
+          }
         }
       },
       "SessionResponse": {
@@ -333,16 +470,27 @@
         }
       },
       "SessionExchangeResponse": {
-        "allOf": [
-          { "$ref": "#/components/schemas/SessionResponse" },
-          {
-            "type": "object",
-            "required": ["token"],
-            "properties": {
-              "token": { "type": "string", "minLength": 32, "readOnly": true }
-            }
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "expiresAt",
+          "user"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 32,
+            "readOnly": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "$ref": "#/components/schemas/RobloxUserProfile"
           }
-        ]
+        }
       },
       "AnalyticsConnectionRequest": {
         "type": "object",

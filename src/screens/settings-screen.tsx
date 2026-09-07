@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import {
   Badge,
@@ -15,6 +15,8 @@ import {
   StudioText,
 } from '@/src/components/ui';
 import { colors, radii, spacing } from '@/src/theme/tokens';
+import { sessionController } from '@/services/roblox-auth';
+import { useSession } from '@/src/state/session-context';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -174,7 +176,7 @@ function CheckRow({ children }: React.PropsWithChildren) {
 
 function SettingButton({ label, icon, onPress }: { label: string; icon: IconName; onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.settingButton, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled: !onPress }} disabled={!onPress} onPress={onPress} style={({ pressed }) => [styles.settingButton, pressed && styles.pressed]}>
       <Ionicons name={icon} size={17} color={colors.blue} />
       <StudioText tone="blue" weight="semibold" size={13}>{label}</StudioText>
     </Pressable>
@@ -183,7 +185,28 @@ function SettingButton({ label, icon, onPress }: { label: string; icon: IconName
 
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ screen?: string | string[] }>();
-  const screen = Array.isArray(params.screen) ? params.screen[0] : params.screen ?? 'account';
+  const requestedScreen = Array.isArray(params.screen) ? params.screen[0] : params.screen ?? 'account';
+  // These security destinations now use the reviewed, truthful account/connection views.
+  const screen = requestedScreen === 'sessions' ? 'account'
+    : ['api-security', 'event-signing'].includes(requestedScreen) ? 'connections' : requestedScreen;
+  const session = useSession();
+  const connected = session.status === 'authenticated';
+  const user = session.session?.user;
+  const [busy, setBusy] = useState(false);
+  const accountAction = async (action: 'login' | 'logout' | 'logout-all' | 'retry' | 'sample') => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (action === 'login') await sessionController.signIn();
+      else if (action === 'sample') await sessionController.useSample();
+      else if (action === 'retry') await sessionController.restore();
+      else {
+        const result = await sessionController.signOut(action === 'logout-all');
+        if (result === 'local_only') Alert.alert('Signed out on this device', 'Server revocation was not confirmed. Sign in again to retry signing out all sessions.');
+      }
+    } catch { Alert.alert('Account action incomplete', 'Please check your connection and retry. Secure-storage cleanup may need another attempt.'); }
+    finally { setBusy(false); }
+  };
   const meta = screenMeta[screen] ?? {
     title: 'Settings',
     subtitle: 'roblox-analytics-mobile preferences',
@@ -195,8 +218,6 @@ export default function SettingsScreen() {
   const [exportRange, setExportRange] = useState<'7D' | '30D' | '90D'>('30D');
   const [officialOnly, setOfficialOnly] = useState(true);
   const [includeStatus, setIncludeStatus] = useState(true);
-  const [eventSigning, setEventSigning] = useState(true);
-  const [replayProtection, setReplayProtection] = useState(true);
 
   const renderContent = () => {
     switch (screen) {
@@ -204,35 +225,33 @@ export default function SettingsScreen() {
         return (
           <>
             <Card style={styles.profileCard}>
-              <View style={styles.profileAvatar}><StudioText weight="bold" size={25}>FK</StudioText></View>
+              <View style={styles.profileAvatar}><StudioText weight="bold" size={25}>{user?.name?.slice(0, 2).toUpperCase() ?? 'SP'}</StudioText></View>
               <View style={styles.profileCopy}>
-                <StudioText weight="bold" size={20}>Fahd Khattak</StudioText>
-                <StudioText tone="muted" size={12}>@fahd · Creator account</StudioText>
-                <Badge label="OAuth connected" tone="green" />
+                <StudioText weight="bold" size={20}>{user?.name ?? user?.preferredUsername ?? 'No verified sign-in'}</StudioText>
+                <StudioText tone="muted" size={12}>{connected ? 'Roblox ID ' + user?.sub : 'Sample analytics remain available'}</StudioText>
+                <Badge label={connected ? 'Identity connected' : session.status === 'checking' ? 'Checking' : 'Not connected'} tone={connected ? 'green' : 'yellow'} />
               </View>
             </Card>
             <SettingSection title="Roblox identity">
               <Card>
-                <KeyValueRow label="Sign-in method" value="Roblox OAuth" />
+                <KeyValueRow label="Sign-in method" value={connected ? 'Roblox OAuth' : 'Not verified'} />
                 <Divider />
-                <KeyValueRow label="Identity access" value="Profile only" valueTone="green" />
+                <KeyValueRow label="Identity access" value={connected ? 'Profile only' : 'Not connected'} />
                 <Divider />
-                <KeyValueRow label="Creator groups" value="2 connected" />
+                <KeyValueRow label="Session expires" value={session.session ? new Date(session.session.expiresAt).toLocaleString() : 'Not available'} />
               </Card>
             </SettingSection>
-            <InfoBanner
-              icon="lock-closed-outline"
-              title="Identity is separate from analytics"
-              body="OAuth signs you in and identifies your creator account. It does not expose the Open Cloud key used by the server to fetch analytics."
-              tone="blue"
-            />
-            <SettingSection title="Workspace access">
+            <SettingSection title="Account access">
               <Card>
-                <ListRow icon="albums-outline" title="BrainNourish Studios" subtitle="Owner · 3 experiences" value="Active" showChevron={false} />
-                <Divider />
-                <ListRow icon="albums-outline" title="Squishy Works" subtitle="Member · 2 experiences" value="Active" showChevron={false} />
+                <SettingButton label={busy ? 'Working…' : connected ? 'Switch Roblox account' : 'Sign in with Roblox'} icon="person-outline" onPress={busy ? undefined : () => void accountAction('login')} />
+                <SettingButton label="Check saved sign-in" icon="refresh-outline" onPress={busy ? undefined : () => void accountAction('retry')} />
+                <SettingButton label="Sign out this device" icon="log-out-outline" onPress={busy ? undefined : () => void accountAction('logout')} />
+                <SettingButton label="Sign out all sessions" icon="shield-checkmark-outline" onPress={busy ? undefined : () => void accountAction('logout-all')} />
+                <SettingButton label="Use sample data offline" icon="flask-outline" onPress={busy ? undefined : () => void accountAction('sample')} />
               </Card>
             </SettingSection>
+            <InfoBanner title="Identity is separate from analytics" body="Sign-in verifies your Roblox profile. Analytics, groups, and live events are not connected in this build. Sample data does not belong to your account." />
+            <InfoBanner title="Session status" body={session.status === 'unavailable' ? 'Your saved sign-in could not be verified. Check your connection or retry sign-out.' : 'Only the current verified identity is shown. Other device names and locations are not collected.'} />
           </>
         );
 
@@ -273,58 +292,35 @@ export default function SettingsScreen() {
       case 'connections':
         return (
           <>
-            <InfoBanner
-              icon="shield-checkmark-outline"
-              title="Two connections, two different jobs"
-              body="Roblox OAuth handles your identity. A dedicated Open Cloud key stays on the roblox-analytics-mobile server and supplies read-only analytics."
-              tone="green"
-            />
+            <InfoBanner title="Identity and analytics are separate" body="Roblox sign-in only identifies your creator profile. The charts in this build use sample data." />
             <SettingSection title="Identity connection">
               <Card>
                 <View style={styles.connectionTop}>
                   <View style={[styles.connectionLogo, { backgroundColor: colors.blueSoft }]}><Ionicons name="person" size={21} color={colors.blue} /></View>
-                  <View style={styles.flex}><StudioText weight="bold" size={16}>Roblox OAuth</StudioText><StudioText tone="muted" size={11}>Signed in as @fahd</StudioText></View>
-                  <Badge label="Connected" tone="green" />
+                  <View style={styles.flex}><StudioText weight="bold" size={16}>Roblox OAuth</StudioText><StudioText tone="muted" size={11}>{user?.preferredUsername ?? (connected ? 'Verified profile' : 'No verified sign-in')}</StudioText></View>
+                  <Badge label={connected ? 'Connected' : 'Not connected'} tone={connected ? 'green' : 'yellow'} />
                 </View>
                 <Divider />
-                <KeyValueRow label="Purpose" value="Identity only" />
-                <KeyValueRow label="Session renewed" value="Today, 8:42 AM" />
+                <KeyValueRow label="Purpose" value="Profile identity only" />
+                <SettingButton label={busy ? 'Working…' : 'Connect Roblox'} icon="person-outline" onPress={busy ? undefined : () => void accountAction('login')} />
               </Card>
             </SettingSection>
             <SettingSection title="Analytics connection">
               <Card>
-                <View style={styles.connectionTop}>
-                  <View style={[styles.connectionLogo, { backgroundColor: colors.greenSoft }]}><Ionicons name="cloud-done" size={21} color={colors.green} /></View>
-                  <View style={styles.flex}><StudioText weight="bold" size={16}>Open Cloud relay</StudioText><StudioText tone="muted" size={11}>Server-side connection</StudioText></View>
-                  <Badge label="Healthy" tone="green" />
-                </View>
-                <Divider />
-                <KeyValueRow label="Scope" value="universe.analytics:read" valueTone="blue" />
-                <KeyValueRow label="Key location" value="Encrypted server vault" valueTone="green" />
-                <KeyValueRow label="Key fingerprint" value="…7A4C" />
-                <KeyValueRow label="Protected universes" value="5" />
-                <KeyValueRow label="Official refresh" value="4 min ago" valueTone="green" />
-                <KeyValueRow label="Last rotation" value="July 28, 2026" />
+                <KeyValueRow label="Connection" value="Not connected" />
+                <KeyValueRow label="API key submission" value="Disabled" />
+                <KeyValueRow label="Stored analytics key" value="None" />
+                <KeyValueRow label="Authorized experiences" value="Not loaded" />
               </Card>
-              <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>
-                The fingerprint identifies which key is active; it is not the secret key and cannot be used to access Roblox data.
-              </StudioText>
             </SettingSection>
-            <SettingSection title="Protected universes">
+            <SettingSection title="Live events">
               <Card>
-                <ListRow icon="game-controller-outline" title="Most Words Win" subtitle="Official analytics enabled" value="Fresh" showChevron={false} />
-                <Divider />
-                <ListRow icon="game-controller-outline" title="Fling Squishies" subtitle="Official analytics enabled" value="Fresh" showChevron={false} />
-                <Divider />
-                <ListRow icon="ellipsis-horizontal" title="3 more experiences" subtitle="Scoped on the server" showChevron={false} />
+                <KeyValueRow label="Live sales ingestion" value="Not enabled" />
+                <KeyValueRow label="Displayed events" value="Sample data" />
+                <StudioText tone="muted" size={12}>Signature enforcement must run on the server. This app cannot turn verification off.</StudioText>
               </Card>
             </SettingSection>
-            <InfoBanner
-              icon="warning-outline"
-              title="Never paste a Roblox browser cookie"
-              body="roblox-analytics-mobile will never ask for .ROBLOSECURITY. If any app asks for it, stop—the cookie can grant account access."
-              tone="yellow"
-            />
+            <InfoBanner title="No analytics key is needed yet" body="Do not submit an API key or a Roblox browser cookie. Credential intake remains disabled until the backend security requirements are met." tone="yellow" />
           </>
         );
 
@@ -372,96 +368,6 @@ export default function SettingsScreen() {
               <SettingButton label="Prepare sample export" icon="download-outline" />
             </Card>
             <InfoBanner title="Prototype export" body="This sample build previews export choices without sending or modifying Roblox data." />
-          </>
-        );
-
-      case 'api-security':
-        return (
-          <>
-            <Card style={styles.securityScoreCard}>
-              <View style={styles.securityRing}><Ionicons name="shield-checkmark" size={34} color={colors.green} /></View>
-              <View style={styles.flex}><StudioText weight="bold" size={19}>Connection is safely scoped</StudioText><StudioText tone="muted" size={12}>Read-only · server-side · five universes</StudioText></View>
-              <Badge label="Safe" tone="green" />
-            </Card>
-            <SettingSection title="Key controls">
-              <Card>
-                <CheckRow>Dedicated Open Cloud key; not shared with Roblox OAuth.</CheckRow>
-                <Divider />
-                <CheckRow>Only the universe.analytics:read scope is enabled.</CheckRow>
-                <Divider />
-                <CheckRow>The secret is encrypted on the server and never stored on this phone.</CheckRow>
-                <Divider />
-                <CheckRow>Access is limited to five explicitly selected universes.</CheckRow>
-              </Card>
-            </SettingSection>
-            <SettingSection title="Active key">
-              <Card>
-                <KeyValueRow label="Fingerprint" value="oc_live_••••7A4C" />
-                <KeyValueRow label="Last rotated" value="July 28, 2026" />
-                <KeyValueRow label="Recommended rotation" value="October 26, 2026" valueTone="blue" />
-                <KeyValueRow label="Last successful use" value="4 min ago" valueTone="green" />
-              </Card>
-              <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>A fingerprint is a safe identifier, not a credential. Rotation happens in the Roblox Creator Dashboard and the roblox-analytics-mobile server vault.</StudioText>
-            </SettingSection>
-            <InfoBanner
-              icon="hand-left-outline"
-              title="We never need your browser cookie"
-              body="Do not share .ROBLOSECURITY with roblox-analytics-mobile—or anyone. The app uses supported OAuth and Open Cloud access instead."
-              tone="yellow"
-            />
-          </>
-        );
-
-      case 'event-signing':
-        return (
-          <>
-            <InfoBanner
-              icon="shield-checkmark-outline"
-              title="Signed before it reaches the app"
-              body="The roblox-analytics-mobile backend verifies each live event signature and timestamp. Invalid or replayed events are discarded."
-              tone="green"
-            />
-            <SettingSection title="Verification">
-              <Card style={styles.zeroGapCard}>
-                <ToggleRow icon="finger-print-outline" title="Verify event signatures" subtitle="Reject events that fail HMAC verification" value={eventSigning} onValueChange={setEventSigning} />
-                <Divider />
-                <ToggleRow icon="timer-outline" title="Replay protection" subtitle="Reject expired or repeated event IDs" value={replayProtection} onValueChange={setReplayProtection} />
-              </Card>
-            </SettingSection>
-            <SettingSection title="Recent checks">
-              <Card>
-                <KeyValueRow label="Last verified event" value="28 sec ago" valueTone="green" />
-                <KeyValueRow label="Events verified today" value="418" />
-                <KeyValueRow label="Rejected today" value="0" valueTone="green" />
-                <KeyValueRow label="Signing secret" value="Server-side only" valueTone="green" />
-              </Card>
-            </SettingSection>
-            <InfoBanner
-              icon="flash-outline"
-              title="Verified does not mean final"
-              body="A valid signature proves where a live event came from. The sale remains Preliminary until it reconciles with official revenue."
-              tone="yellow"
-            />
-          </>
-        );
-
-      case 'sessions':
-        return (
-          <>
-            <SettingSection title="Current session">
-              <Card>
-                <ListRow icon="phone-portrait" title="This iPhone" subtitle="Chicago, IL · Active now" value="Current" showChevron={false} />
-                <Divider />
-                <KeyValueRow label="Signed in" value="Today, 8:42 AM" />
-                <KeyValueRow label="Authentication" value="Roblox OAuth" valueTone="green" />
-              </Card>
-            </SettingSection>
-            <SettingSection title="Other sessions">
-              <Card>
-                <ListRow icon="laptop-outline" title="Safari on Mac" subtitle="Chicago, IL · 2 hours ago" value="Trusted" showChevron={false} />
-              </Card>
-            </SettingSection>
-            <InfoBanner title="Session safety" body="OAuth sessions can be revoked without rotating the separate Open Cloud analytics key." />
           </>
         );
 

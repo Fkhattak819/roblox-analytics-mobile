@@ -6,6 +6,9 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-security-ios/
+.security-tools/
+.security-scan/
 web-build/
 expo-env.d.ts
 cdk.out/

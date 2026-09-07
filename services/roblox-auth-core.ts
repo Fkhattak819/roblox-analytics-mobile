@@ -1,3 +1,5 @@
+import type { LoginProof } from './roblox-auth-proof';
+
 export type RobloxProfile = Readonly<{
   sub: string;
   name?: string;
@@ -13,6 +15,8 @@ export type AppSession = Readonly<{
   user: RobloxProfile;
 }>;
 
+export type SessionMetadata = Omit<AppSession, 'token'>;
+
 type AuthBrowserResult =
   | Readonly<{ type: 'success'; url: string }>
   | Readonly<{ type: string; url?: string }>;
@@ -23,6 +27,8 @@ export type ConnectRobloxOptions = Readonly<{
   fetchImpl: typeof fetch;
   openAuthSession: (authorizationUrl: string, callbackUri: string) => Promise<AuthBrowserResult>;
   saveSessionToken: (token: string) => Promise<void>;
+  createProof: () => Promise<LoginProof>;
+  allowLocalHttp?: boolean;
 }>;
 
 export class RobloxSignInCancelledError extends Error {
@@ -38,13 +44,23 @@ export async function connectRobloxIdentity({
   fetchImpl,
   openAuthSession,
   saveSessionToken,
+  createProof,
+  allowLocalHttp = false,
 }: ConnectRobloxOptions): Promise<AppSession> {
-  const baseUrl = apiBaseUrl.trim().replace(/\/$/, '');
-  if (!baseUrl) throw new Error('The backend URL is not configured');
+  const baseUrl = validateAuthBaseUrl(apiBaseUrl, allowLocalHttp);
+  const proof = await createProof();
+  if (!/^[A-Za-z0-9._~-]{43,128}$/.test(proof.verifier)
+    || !/^[A-Za-z0-9_-]{43}$/.test(proof.challenge)
+    || !/^[A-Za-z0-9_-]{32,128}$/.test(proof.state)) throw new Error('Invalid login proof');
+  const startUrl = new URL(`${baseUrl}/v2/auth/roblox/start`);
+  startUrl.searchParams.set('clientChallenge', proof.challenge);
+  startUrl.searchParams.set('clientState', proof.state);
 
-  const startResponse = await fetchImpl(`${baseUrl}/v1/auth/roblox/start`, {
+  const startResponse = await fetchImpl(startUrl.toString(), {
     method: 'GET',
     headers: { accept: 'application/json' },
+    redirect: 'error',
+    signal: AbortSignal.timeout(15_000),
   });
   if (!startResponse.ok) throw new Error('Roblox sign-in is not ready yet');
   const authorizationUrl = parseAuthorizationUrl(await startResponse.json());
@@ -54,14 +70,16 @@ export async function connectRobloxIdentity({
     throw new RobloxSignInCancelledError();
   }
 
-  const callback = parseAppCallback(browserResult.url, appCallbackUri);
-  const exchangeResponse = await fetchImpl(`${baseUrl}/v1/auth/session/exchange`, {
+  const callback = parseAppCallback(browserResult.url, appCallbackUri, proof.state);
+  const exchangeResponse = await fetchImpl(`${baseUrl}/v2/auth/session/exchange`, {
     method: 'POST',
     headers: {
       accept: 'application/json',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ code: callback.code }),
+    body: JSON.stringify({ code: callback.code, clientVerifier: proof.verifier }),
+    redirect: 'error',
+    signal: AbortSignal.timeout(15_000),
   });
   if (!exchangeResponse.ok) throw new Error('The Roblox sign-in expired. Please try again.');
 
@@ -81,19 +99,39 @@ function parseAuthorizationUrl(value: unknown): string {
   return url.toString();
 }
 
-function parseAppCallback(value: string, expectedCallback: string): { code: string } {
+export function validateAuthBaseUrl(value: string, allowLocalHttp = false): string {
+  if (!value.trim()) throw new Error('The backend URL is not configured');
+  const url = new URL(value.trim());
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if ((url.protocol !== 'https:' && !(allowLocalHttp && local && url.protocol === 'http:'))
+    || url.username || url.password || url.search || url.hash) {
+    throw new Error('The authentication backend requires HTTPS');
+  }
+  return url.toString().replace(/\/$/, '');
+}
+
+function parseAppCallback(value: string, expectedCallback: string, expectedState: string): { code: string } {
   const url = new URL(value);
   const expected = new URL(expectedCallback);
   if (
     url.protocol !== expected.protocol
     || url.hostname !== expected.hostname
     || url.pathname !== expected.pathname
+    || url.port !== expected.port
+    || url.username || url.password || url.hash
+    || url.searchParams.getAll('state').length !== 1
+    || url.searchParams.get('state') !== expectedState
   ) {
     throw new Error('Invalid sign-in callback');
   }
-  if (url.searchParams.has('error')) throw new RobloxSignInCancelledError();
+  if (url.searchParams.has('error')) {
+    if (url.searchParams.getAll('error').length !== 1 || url.searchParams.has('code')) {
+      throw new Error('Invalid sign-in callback');
+    }
+    throw new RobloxSignInCancelledError();
+  }
   const code = url.searchParams.get('code');
-  if (!code || !/^[A-Za-z0-9_-]{32,128}$/.test(code)) {
+  if (!code || url.searchParams.getAll('code').length !== 1 || !/^[A-Za-z0-9_-]{32,128}$/.test(code)) {
     throw new Error('Invalid sign-in callback');
   }
   return { code };
@@ -107,6 +145,7 @@ function parseSession(value: unknown): AppSession {
     || !/^[A-Za-z0-9_-]{32,256}$/.test(candidate.token)
     || typeof candidate.expiresAt !== 'string'
     || !Number.isFinite(Date.parse(candidate.expiresAt))
+    || Date.parse(candidate.expiresAt) <= Date.now()
     || !candidate.user
   ) {
     throw new Error('Invalid session response');
@@ -117,6 +156,14 @@ function parseSession(value: unknown): AppSession {
     expiresAt: candidate.expiresAt,
     user,
   };
+}
+
+export function parseSessionMetadata(value: unknown): SessionMetadata {
+  if (!value || typeof value !== 'object') throw new Error('Invalid session response');
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.expiresAt !== 'string' || !Number.isFinite(Date.parse(candidate.expiresAt))
+    || Date.parse(candidate.expiresAt) <= Date.now()) throw new Error('Invalid session response');
+  return { expiresAt: candidate.expiresAt, user: parseRobloxProfile(candidate.user) };
 }
 
 function parseRobloxProfile(value: unknown): RobloxProfile {

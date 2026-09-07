@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { AppProvider } from '@/src/state/app-context';
+import { SessionLifecycle } from '@/src/state/session-context';
 import { hasCompletedOnboarding } from '@/src/state/onboarding-storage';
 import { colors, fonts } from '@/src/theme/tokens';
 
@@ -77,7 +78,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navigationTheme}>
-        <AppProvider>
+        <SessionLifecycle><AppProvider>
           <Stack
             initialRouteName="onboarding"
             screenOptions={{
@@ -91,7 +92,7 @@ export default function RootLayout() {
             <Stack.Screen name="experience-picker" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           </Stack>
-        </AppProvider>
+        </AppProvider></SessionLifecycle>
         <StatusBar style="light" backgroundColor={colors.background} />
       </ThemeProvider>
     </SafeAreaProvider>

@@ -1,0 +1,10 @@
+title = "StudioPulse secret scanning"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Exact public Figma document identifier; not an authentication credential"
+regexTarget = "secret"
+regexes = ['''^WCcDt0bYdwuoypf03dYcCg$''']
