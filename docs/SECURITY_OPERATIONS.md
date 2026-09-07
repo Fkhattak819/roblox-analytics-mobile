@@ -16,6 +16,10 @@ Proposed CDK alarms detect five auth 5xx results in five minutes or three Lambda
 
 ## Incident response
 
+Worker budget follow-up: invocation work now shares a deadline capped at 110 seconds or remaining Lambda time minus two seconds. AWS sends receive the same abort signal and are bounded even during SDK credential resolution. Deadline-bound client facades are never cached across invocations. Parallel queries inherit the cancellation signal; expired work cannot start another SDK request. Tests cover these boundaries with synthetic stalled services. Aborting an already-submitted transaction is not proof of rollback; atomic authorization and idempotent snapshot writes remain required. Live timeout and redelivery behavior are still unverified.
+
+Analytics transport candidate (September 7): query creation, response body and polling share a 30-second deadline. Fetch receives an abort signal and rejects redirects. Deadline failures are nonretryable, operation paths require the expected universe and a simple operation identifier, and upstream operation error text is not propagated. Synthetic stalled-transport tests pass. This does not yet bound the entire worker invocation: credential retrieval, DynamoDB calls and multiple query phases still need a shared remaining-time budget and coordinated cancellation. No live request/deployment verification occurred.
+
 1. Determine whether failure is application 5xx, Lambda timeout, throttling, upstream failure, or expired deployment configuration. Inspect aggregate metrics first. Do not enable request-body or authorization-header logging.
 2. If login is being abused, retain proof verification and fail-closed behavior. Review source limits and global capacity; do not reactivate retired v1 login endpoints.
 3. For suspected account compromise, revoke all sessions from a verified session and verify old sessions fail. For a global recovery or widespread compromise, deploy a never-used SessionEpoch before reopening traffic.

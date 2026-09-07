@@ -1,3 +1,4 @@
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as cdk from "aws-cdk-lib";
@@ -113,6 +114,11 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       writeCapacity: 1,
       encryption: dynamodb.TableEncryption.DEFAULT,
       timeToLiveAttribute: "ttl",
+      deletionProtection: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+        recoveryPeriodInDays: 35,
+      },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
@@ -136,6 +142,18 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    const analyticsCredentials = new secretsmanager.Secret(this, "RobloxAnalyticsCredentials", {
+      secretName: "roblox-analytics-mobile/dev/roblox-analytics-v1",
+      description: "Least-privilege Roblox Open Cloud analytics key for the development worker",
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ status: "replace-after-creation" }),
+        generateStringKey: "setupNonce",
+        excludePunctuation: true,
+        passwordLength: 32,
+      },
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     const deadLetterQueue = new sqs.Queue(this, "SyncDeadLetterQueue", {
       queueName: `${resourcePrefix}-sync-dlq`,
       encryption: sqs.QueueEncryption.SQS_MANAGED,
@@ -147,7 +165,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       queueName: `${resourcePrefix}-sync`,
       encryption: sqs.QueueEncryption.SQS_MANAGED,
       retentionPeriod: cdk.Duration.days(4),
-      visibilityTimeout: cdk.Duration.seconds(60),
+      visibilityTimeout: cdk.Duration.seconds(720),
       deadLetterQueue: {
         queue: deadLetterQueue,
         maxReceiveCount: 3,
@@ -160,12 +178,13 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      versioned: false,
+      versioned: true,
       lifecycleRules: [
         {
           id: "expire-dev-history",
           enabled: true,
           expiration: cdk.Duration.days(30),
+          noncurrentVersionExpiration: cdk.Duration.days(30),
         },
       ],
       removalPolicy: cdk.RemovalPolicy.RETAIN,
@@ -205,14 +224,17 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
         ROBLOX_OAUTH_SECRET_ARN: oauthCredentials.secretArn,
         TABLE_NAME: applicationTable.tableName,
         SYNC_QUEUE_URL: syncQueue.queueUrl,
+        ANALYTICS_UNIVERSE_IDS: '10009166512',
         HISTORY_BUCKET_NAME: historyBucket.bucketName,
       },
     });
     apiFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],
       resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['AUTH#*', 'TENANT#*'] } },
     }));
     oauthCredentials.grantRead(apiFunction);
+    syncQueue.grantSendMessages(apiFunction);
     const failureFilter = new logs.MetricFilter(this, 'AuthFailureMetric', {
       logGroup: apiLogGroup,
       filterPattern: logs.FilterPattern.all(
@@ -235,6 +257,61 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       resources: [applicationTable.tableArn],
       conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['LIMIT#*'] } },
     }));
+
+    const workerName = `${resourcePrefix}-analytics-worker`;
+    const workerLogGroup = new logs.LogGroup(this, "AnalyticsWorkerLogGroup", {
+      logGroupName: `/aws/lambda/${workerName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    const analyticsWorker = new lambdaNodejs.NodejsFunction(this, "AnalyticsWorker", {
+      functionName: workerName,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      entry: path.join(backendRoot, "src/lambda/analytics-worker.ts"),
+      handler: "handler",
+      depsLockFilePath: rootLockFile,
+      bundling: {
+        externalModules: [],
+        sourceMap: true,
+      },
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 256,
+      logGroup: workerLogGroup,
+      environment: {
+        APP_ENV: "dev",
+        TABLE_NAME: applicationTable.tableName,
+        ROBLOX_ANALYTICS_SECRET_ARN: analyticsCredentials.secretArn,
+        ANALYTICS_UNIVERSE_IDS: "10009166512",
+      },
+    });
+    analyticsWorker.addEventSource(new lambdaEventSources.SqsEventSource(syncQueue, {
+      batchSize: 1,
+      reportBatchItemFailures: true,
+      maxConcurrency: 2,
+    }));
+    analyticsWorker.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:PutItem"],
+      resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['TENANT#*'] } },
+    }));
+    for (const fn of [apiFunction, analyticsWorker]) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem'], resources: [applicationTable.tableArn],
+        conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
+      }));
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.DENY,
+        actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem', 'dynamodb:BatchWriteItem'],
+        resources: [applicationTable.tableArn],
+        conditions: { 'ForAnyValue:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
+      }));
+    }
+    analyticsWorker.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:ConditionCheckItem'], resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
+    }));
+    analyticsCredentials.grantRead(analyticsWorker);
 
     const apiIntegration = new integrations.HttpLambdaIntegration(
       "ApiIntegration",
@@ -270,6 +347,9 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "SyncQueueUrl", {
       value: syncQueue.queueUrl,
+    });
+    new cdk.CfnOutput(this, "RobloxAnalyticsSecretName", {
+      value: analyticsCredentials.secretName,
     });
     new cdk.CfnOutput(this, "HistoryBucketName", {
       value: historyBucket.bucketName,

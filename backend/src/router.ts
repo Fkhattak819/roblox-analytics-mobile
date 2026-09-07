@@ -1,4 +1,9 @@
 import type { Config } from "./config.js";
+import { analyticsRoute } from './modules/analytics/routes.js';
+import type { AnalyticsAuthorizer } from './modules/analytics/authorization.js';
+import type { AnalyticsSnapshotStore } from './modules/analytics/snapshot-store.js';
+import type { AnalyticsSyncJobService } from './modules/analytics/sync-jobs.js';
+import type { AnalyticsConnectionStatusStore } from './modules/analytics/connection-status-store.js';
 import { loginAction, type LoginLimiter } from './modules/auth/login-limiter.js';
 import { AuthService, AuthServiceError } from "./modules/auth/auth-service.js";
 import {
@@ -29,6 +34,10 @@ export type RouteDependencies = Readonly<{
   remainingTimeMs?: () => number;
   loginLimiter?: LoginLimiter;
   sourceAddress?: string;
+  analyticsAuthorizer?: AnalyticsAuthorizer;
+  analyticsSnapshotStore?: AnalyticsSnapshotStore;
+  analyticsSyncJobService?: AnalyticsSyncJobService;
+  analyticsConnectionStatusStore?: AnalyticsConnectionStatusStore;
 }>;
 
 function response(
@@ -54,6 +63,8 @@ export async function routeRequest(
   dependencies: RouteDependencies = {},
 ): Promise<AppResponse> {
   const action = loginAction(request.method, request.path);
+  const analytics = await analyticsRoute(request, dependencies);
+  if (analytics) return analytics;
   if (action && dependencies.loginLimiter) {
     try {
       const limit = await dependencies.loginLimiter.consume(dependencies.sourceAddress ?? '', action);

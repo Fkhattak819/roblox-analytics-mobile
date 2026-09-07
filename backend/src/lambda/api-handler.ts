@@ -6,6 +6,9 @@ import { publicHttpError, RequestBodyTooLargeError } from "../http.js";
 import { createAwsAuthService } from "../modules/auth/auth-runtime.js";
 import type { AuthService } from "../modules/auth/auth-service.js";
 import { routeRequest } from "../router.js";
+import { DynamoAnalyticsAuthorizer } from '../modules/analytics/authorization.js';
+import { createAwsAnalyticsSnapshotStore, createAwsAnalyticsConnectionStatusStore } from '../modules/analytics/snapshot-runtime.js';
+import { createAwsAnalyticsSyncJobService } from '../modules/analytics/sync-runtime.js';
 
 type HttpApiEvent = {
   rawPath?: string;
@@ -67,6 +70,10 @@ export async function handler(event: HttpApiEvent, context?: { getRemainingTimeI
         authService, remainingTimeMs: context ? () => context.getRemainingTimeInMillis() : undefined,
         loginLimiter: config.tableName ? new DynamoLoginLimiter(limiterClient, config.tableName) : undefined,
         sourceAddress: event.requestContext?.http?.sourceIp,
+        analyticsAuthorizer: config.tableName ? new DynamoAnalyticsAuthorizer(limiterClient, config.tableName) : undefined,
+        analyticsSnapshotStore: createAwsAnalyticsSnapshotStore(config),
+        analyticsConnectionStatusStore: createAwsAnalyticsConnectionStatusStore(config),
+        analyticsSyncJobService: createAwsAnalyticsSyncJobService(config),
       },
     );
 

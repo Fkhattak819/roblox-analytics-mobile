@@ -1,5 +1,57 @@
 # roblox-analytics-mobile handoff
 
+## Security branch release checks — September 7
+
+- TypeScript, lint (telemetry/dotenv disabled), 40 app tests, 48 backend tests, infrastructure synthesis, and all synthetic security probes pass. Root and infrastructure npm audit report zero vulnerabilities.
+- Fresh iOS sample export completed (1,554 modules). Redacted scans of all local Git history, working source and that export report no findings. Native simulator testing remains unverified.
+- Checkpoint includes tenant-grant API/worker enforcement, worker deadlines and proposed recovery/IAM changes. This is a review branch, not deployment approval; newer master frontend reconciliation and all live/native gates remain open.
+
+## Worker invocation budget — September 7
+
+- Worker uses one invocation-local budget capped at 110 seconds and Lambda remaining time minus two seconds. SDK sends are bounded including credential resolution, receive the cancellation signal, and use one attempt. Parallel upstream queries share that signal. Expired work cannot begin another SDK send; remaining queue records return partial failures.
+- Shared SDK clients persist across warm invocations, while deadline facades and analytics credential providers are invocation-local. This removes the former cross-invocation analytics-key cache and may increase Secrets Manager reads; include this in cost validation.
+- Backend compilation and 48 tests pass, covering stalled SDK resolution, blocked later writes, parallel-query cancellation and insufficient Lambda time. Cancellation does not roll back an already-submitted transaction; live timeout/duplicate-delivery tests remain required.
+- Ownership details and alarm destination remain pending. No AWS deployment or push. Next: native/frontend reconciliation, final source/export scans and remote CI, verified grants and notification configuration, then approved deployment and recovery drill.
+
+## Analytics transport deadline — September 7
+
+- Added a shared 30-second deadline across query request headers, body parsing and polling delays; transport receives an abort signal. Deadline errors are nonretryable. Redirects are rejected to prevent forwarding the analytics key, operation identifiers are restricted, and upstream error text is excluded from thrown diagnostics.
+- Backend compilation and all 45 tests pass, including stalled headers/body/poll tests, path rejection and fixed error messages. No live Roblox queries, cloud changes or push.
+- This is a per-query deadline, not an invocation-wide worker budget. Remaining: AWS SDK/credential lookup bounds, coordinated multi-query cancellation, worker remaining-time propagation, ownership grant provisioning and pending user details, alarm delivery, frontend/native acceptance, deployment/recovery and release controls.
+
+## Live diff verified — September 7
+
+- Infrastructure test escalation succeeded: backend compilation, Lambda bundling and recovery/IAM assertions pass.
+- Read-only `npm run diff:dev -- --no-change-set` completed against the intended non-root account/Ohio stack. No resources removed/replaced in template diff. Adds two alarms/one metric filter and SessionEpoch; changes recovery settings, queue timeout, two IAM policies and Lambda code. No cloud mutation.
+- Table metadata: 73,843 bytes, 18 items, deletion protection false. Preliminary published-rate planning figures and remaining variable charges recorded in AWS_RECOVERY_PLAN.md; regional pricing still needs confirmation.
+- Asked for creator user ID/ownership type and preferred alarm email. No grant or notification created. Next: verify ownership/provisioning path, complete worker deadlines and newer frontend reconciliation, then final checks/remote CI before deployment approval. Native, restore and owner-account gates remain open.
+
+## Recovery controls candidate — September 7
+
+- Follow-up: user refreshed SSO. Escalated read-only STS succeeded and verified the non-root assumed role; CloudFormation inventory returned 25 resources, including the existing worker/secret/mapping. Network escalation for these reads succeeded; the earlier test escalation rejection is separate. Fresh synthesis and full live property comparison remain pending.
+
+- Prepared table deletion protection/35-day PITR, history versioning/30-day old-version retention, and 720-second queue visibility for the 120-second worker. Restored analytics secret output. No AWS mutation or push.
+- Added infrastructure assertions for retention, recovery, public-access blocks and queue/worker timeout relationship. Backend compilation passed; test runner hit sandbox EPERM. Automatic approval review rejected test escalation due to account usage limits; synthesis remains unverified.
+- Live identity check found expired SSO; asked for login refresh. Live resource comparison, pricing/deployment approval, grant provisioning, actual restore drill, frontend/native tests and release/owner controls remain open.
+- Next: after SSO and execution access recover, run infrastructure tests and read-only live diff. Follow AWS_RECOVERY_PLAN.md before deployment or recovery testing.
+
+
+## Worker and infrastructure reconciliation — September 7
+
+- Restored worker, retained analytics secret, queue mapping and worker settings from master. API/worker IAM now explicitly deny ACCESS# grant mutation; grant reads and worker ConditionCheckItem are scoped separately. Worker snapshot/status writes use transactional membership checks.
+- Worker checks access before credential retrieval, before sync, and before status publication. Restored /v1/connections with checks before/after metadata reads. Added cross-account and revocation worker/connection tests.
+- Verified 41 backend tests, 40 app tests, TypeScript, and infrastructure synthesis (two functions/two secrets/mapping/grant-write denials). No deployment or push occurred.
+- Next: verify synthesized resources against the live stack, reconcile newer master frontend under live Figma, establish operator grant provisioning and backup/recovery deployment plan. Live IAM inspection remains permission-limited; native/owner-account checks remain open.
+
+
+## Analytics authorization integration — September 7
+
+- Checkpointed limiter/logging work as d2faade on the review branch; not pushed. Imported new backend analytics modules/contracts from master and added a required operator-owned user/universe grant.
+- Wired protected snapshot/sync routes into the AWS adapter. Reads validate grants, queueing rechecks after the gate, worker checks before credential retrieval, and snapshot publication transactionally checks grant validity.
+- Backend 36 tests pass. Integration is local and partial: deployed worker/secret/IAM reconciliation, grant-write isolation, connection status, full worker revocation tests, newer UI/Figma reconciliation, and live validation remain pending. Do not deploy the current partial resource inventory.
+- Details: ANALYTICS_AUTHORIZATION.md. No AWS mutations or new remote push occurred.
+
+
 ## Live AWS checkpoint — September 6
 
 - SSO login completed; verified non-root assumed role. Read-only checks confirmed PITR/deletion protection disabled, private AES256 history bucket with TLS-only policy and no enabled versioning, ten-second API timeout, and no returned CloudWatch metric alarms. IAM policy inventory reads denied.
@@ -129,4 +181,3 @@ After explicit approval, deploy the reviewed AWS change, create the prepared pri
 ```text
 https://bqrr070bkf.execute-api.us-east-2.amazonaws.com/v1/auth/roblox/callback
 ```
-
