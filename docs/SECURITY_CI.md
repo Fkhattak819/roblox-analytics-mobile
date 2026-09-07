@@ -1,6 +1,18 @@
 # Security CI and scanning
 
-The local workflow `.github/workflows/security.yml` runs types, lint, app/backend tests, infrastructure synthesis, synthetic security probes, an iOS sample export, Gitleaks, and dependency advisories. It has read-only repository permissions, does not retain checkout credentials, and uses no cloud/account secrets. It is not active remotely until a separately authorized push. No remote CI run has been verified.
+The workflow `.github/workflows/security.yml` runs types, lint, app/backend tests, infrastructure synthesis, synthetic security probes, an iOS sample export, Gitleaks, and dependency advisories. It has read-only repository permissions, does not retain checkout credentials, and uses no cloud/account secrets. The `verify` check passed remotely for pushed commit `9945f43d5efe018e866a1c6e7aa4b1f259f68845`: [GitHub run](https://github.com/Fkhattak819/roblox-analytics-mobile/actions/runs/34152891788). Root and infrastructure advisory scans reported zero vulnerabilities at this checkpoint. Historical dependency entries below are not current findings.
+
+## Repository protection candidate — September 7
+
+Public GitHub API checks found `main` (default), `master` and `codex/security-audit` unprotected, and returned no repository rulesets. Git push access does not prove administration access. No authenticated GitHub admin connector or CLI is currently available; repository settings have not been changed.
+
+`.github/release-ruleset.json` is a prepared configuration for both release branches. It requires pull requests, resolved review conversations and the up-to-date `verify` check from GitHub Actions (app ID 15368, verified from the current check run). It blocks force pushes and deletions, with no bypass actors. It allows zero independent approvals because no second maintainer is established; this is a CI/PR gate, not independent human review. Establish an additional reviewer before requiring an approval count of one.
+
+An administrator can import the JSON from repository Settings > Rules > Rulesets or apply it through the [GitHub rules REST API](https://docs.github.com/en/rest/repos/rules). Inspect existing rules again first and update a matching rule rather than creating duplicates. After activation, re-read the rule and both branch states; confirm an intentionally failing test PR cannot merge without attempting a destructive branch operation.
+
+Required CI should be present on the intended target branch before relying on PR events. The security branch still needs reconciliation with newer master frontend code before merge. Do not weaken the check to work around missing target workflow configuration.
+
+Secret scanning/push protection and owner-account MFA/recovery are separate settings and remain unverified. A successful Gitleaks run is not server-side push protection. Use authenticated security settings to enable and verify those controls without exposing recovery codes or credentials.
 
 Checkout/setup-node are pinned to verified commit IDs. Gitleaks 8.30.1 is pinned with a Linux archive SHA-256 check. Its official CLI documentation is at https://github.com/gitleaks/gitleaks. Update pins through a reviewed change.
 

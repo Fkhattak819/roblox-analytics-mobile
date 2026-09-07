@@ -1,5 +1,25 @@
 # roblox-analytics-mobile handoff
 
+## Mac handoff package — September 7
+
+- Added scripts/mac-security-preflight.sh: macOS-only, clean-tree preflight using locked installs, TypeScript/lint/app/backend/infrastructure tests, synthetic security probes and an iOS sample export with dotenv disabled.
+- Updated native login instructions with the deployed public API URL and explicit nonsecret Expo variables. The app scheme is already robloxanalyticsmobile; the Mac local build may prompt for a simulator bundle identifier.
+- No credentials or private account values are included. Manual login/logout/account-switching, Keychain, accessibility, screenshots and Figma comparisons still require the Mac simulator.
+
+## AWS security deployment completed — September 7
+
+- User explicitly requested deployment. Refreshed non-root assumed-role identity and reviewed the read-only diff, then deployed source 9945f43 to roblox-analytics-mobile-dev in account 896979073148/us-east-2. CDK succeeded; CloudFormation reports UPDATE_COMPLETE. Local uncommitted changes were documentation/ruleset only.
+- Live verification: database PITR ENABLED/35 days, deletion protection true, table ACTIVE; history versioning Enabled; queue visibility 720 seconds. Both security alarms exist with no actions (auth alarm OK, runtime alarm INSUFFICIENT_DATA at first check).
+- HTTP smoke checks: health 200; anonymous session 401; anonymous analytics 401; retired v1 login start 410. Full browser/native v2 login and authenticated tenant isolation remain unverified.
+- Important product gap: current deployment requires server-managed ACCESS# grants. Automatic OAuth-based experience ownership/permission verification is still unimplemented. No real grant was provisioned. Older v1 clients must update. User was informed before deployment.
+- Still open: automatic ownership flow, alarm email/delivery, isolated restore drill, effective IAM/live worker tests, newer master frontend reconciliation, Mac validation, GitHub protection activation and owner MFA/recovery. Do not mark the audit complete.
+
+## Remote CI and repository controls — September 7
+
+- Pushed security work as 9945f43; GitHub Actions `verify` succeeded for that exact SHA (run 34152891788, app ID 15368).
+- Public API reports main/default, master and security branch unprotected; repository ruleset list empty. Prepared .github/release-ruleset.json for main/master with required PR/current verify check, no force pushes/deletions or bypass. This has not been applied; authenticated repository-admin access is unavailable.
+- Updated Mac instructions to use the pushed security branch. Native testing remains pending, along with master frontend reconciliation, ownership verification, alarm destination/delivery, approved AWS deployment/restore, push protection and owner MFA/recovery.
+
 ## Security branch release checks — September 7
 
 - TypeScript, lint (telemetry/dotenv disabled), 40 app tests, 48 backend tests, infrastructure synthesis, and all synthetic security probes pass. Root and infrastructure npm audit report zero vulnerabilities.

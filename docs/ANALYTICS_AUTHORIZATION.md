@@ -1,5 +1,7 @@
 # Analytics authorization integration
 
+Deployment update: source 9945f43 was deployed on explicit user request September 7. Anonymous analytics reads return 401. Automatic OAuth-based ownership/permissions verification is NOT implemented; runtime access still requires server-managed grants and no real grant was created by this audit. Authenticated cross-account and worker checks remain locally tested only. This supersedes historical no-deployment wording below.
+
 September 7 live diff update: read-only CDK comparison now succeeds and preserves all existing resource logical IDs, including worker/secret/mapping. Infrastructure recovery/IAM synthesis assertions pass. This resolves the resource-inventory comparison step, not deployment, effective IAM, grant provisioning or application/native acceptance. Requested the actual creator user ID/ownership type before preparing any real grant.
 
 Latest checkpoint: CDK now includes the deployed analytics worker, retained analytics secret, queue mapping, concurrency and visibility settings from master. API and worker roles have explicit denials on writing/deleting ACCESS# grant records; grant reads and worker transactional ConditionCheckItem are scoped to that prefix. Worker writes remain tenant-prefixed. Connection status publication now checks membership in the same transaction as its write, and its restored API checks authorization before and after reading.

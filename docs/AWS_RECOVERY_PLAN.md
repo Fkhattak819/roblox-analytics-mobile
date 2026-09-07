@@ -1,5 +1,7 @@
 # AWS recovery deployment candidate — September 7, 2026
 
+Deployment update: after explicit user authorization, CDK deployment of source 9945f43 succeeded on September 7 and CloudFormation reports UPDATE_COMPLETE. Live metadata confirms PITR ENABLED (35 days), deletion protection true and S3 versioning Enabled. Queue visibility is 720 seconds. Both alarms exist, with empty action lists. Health and anonymous authorization smoke checks passed. The isolated recovery drill below remains pending; historical candidate statements below describe the pre-deployment review.
+
 Status: local candidate only. After the user refreshed SSO, a read-only STS check verified the non-root AWSReservedSSO assumed role in account 896979073148. CloudFormation returned 25 deployed resources, including both functions, both secrets and the existing worker queue mapping. Full comparison against freshly synthesized output is pending. No cloud resources were changed and no restore has been tested.
 
 ## Proposed controls

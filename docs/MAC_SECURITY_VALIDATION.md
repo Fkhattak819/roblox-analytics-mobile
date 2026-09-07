@@ -2,7 +2,13 @@
 
 Status: pending. The user has a Mac with an iPhone simulator; this Windows task has no access to it. Local Node tests and iOS exports do not prove native behavior.
 
-Use the current working copy, including uncommitted changes. A fresh clone alone will omit these fixes. Transfer source through your own trusted local method, excluding environment files, credentials, node_modules, generated native folders, and build output. Install dependencies on the Mac from the lockfile.
+The security implementation is pushed on `codex/security-audit`. In a clean Mac checkout, fetch origin and check out that branch; verify the revision with `git rev-parse HEAD` against the handoff message. Preserve any existing Mac work before changing branches. Do not copy environment files, credentials, node_modules or generated build output from Windows. Later frontend reconciliation may require repeating acceptance at a newer revision.
+
+Run the checked-in preflight from the repository root. It refuses a dirty working tree, installs from both lockfiles, runs the app/backend/infrastructure checks and produces a sample iOS export without loading `.env` files:
+
+```sh
+bash scripts/mac-security-preflight.sh
+```
 
 ## Offline UI check
 
@@ -20,6 +26,17 @@ Use an Expo Go runtime compatible with the project's installed SDK 54. Verify on
 The custom callback `robloxanalyticsmobile://oauth/callback` needs a project-specific native app. Expo Go alone does not validate that callback. Use the Expo-managed local iOS build workflow (`npx expo run:ios`) on the Mac after configuring an approved app bundle identifier. Let Expo generate native files; do not hand-edit them. No paid EAS service or cloud deployment is required for the sample check above.
 
 Real login additionally requires the reviewed v2 backend and approved OAuth configuration. Keep secret values out of the app and captured evidence. Backend activation remains a separate authorized deployment step.
+
+The reviewed backend is now deployed at `https://bqrr070bkf.execute-api.us-east-2.amazonaws.com`. For the native login run, configure a local simulator bundle identifier when Expo prompts, then launch with public mode selection and the public API base URL only:
+
+```sh
+EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 \
+EXPO_PUBLIC_DATA_MODE=aws_dev \
+EXPO_PUBLIC_API_BASE_URL=https://bqrr070bkf.execute-api.us-east-2.amazonaws.com \
+npx expo run:ios
+```
+
+These variables contain no credential. Do not add OAuth secrets, analytics keys or app session tokens to Expo configuration. The deployed backend requires v2 proof-bound login; the v1 start/exchange routes intentionally return 410.
 
 Record pass/fail for:
 
