@@ -20,7 +20,7 @@ npm test
 npm run synth -- --profile roblox-analytics-mobile
 ```
 
-Deployment requires a bootstrapped AWS account and a reviewed `cdk diff`. Supply the alert recipient at deployment time so no email address is stored in source control:
+Deployment requires a bootstrapped AWS account and a reviewed `cdk diff`. Supply the alert recipient at deployment time so no email address is stored in source control. The address receives budget and cost-anomaly alerts immediately; AWS also sends an SNS confirmation email that must be accepted before security and runtime alarm notifications can be delivered:
 
 ```sh
 npm run deploy:dev -- --parameters roblox-analytics-mobile-dev:BudgetAlertEmail=you@example.com

@@ -7,6 +7,7 @@ import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as ce from "aws-cdk-lib/aws-ce";
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -14,6 +15,8 @@ import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
@@ -32,7 +35,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
 
     const budgetAlertEmail = new cdk.CfnParameter(this, "BudgetAlertEmail", {
       type: "String",
-      description: "Email address for AWS budget and cost anomaly alerts",
+      description: "Email address for AWS budget, cost anomaly, security, and runtime alerts",
       allowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
       constraintDescription: "Enter a valid email address",
     });
@@ -104,6 +107,15 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
         },
       }),
     });
+
+    const securityAlarmTopic = new sns.Topic(this, 'SecurityAlarmTopic', {
+      topicName: `${resourcePrefix}-security-alerts`,
+      displayName: 'StudioPulse security alerts',
+      enforceSSL: true,
+    });
+    securityAlarmTopic.addSubscription(
+      new subscriptions.EmailSubscription(budgetAlertEmail.valueAsString),
+    );
 
     const applicationTable = new dynamodb.Table(this, "ApplicationTable", {
       tableName: `${resourcePrefix}-app`,
@@ -244,14 +256,17 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       metricNamespace: 'StudioPulse/Security', metricName: 'AuthFailures',
       metricValue: '1', defaultValue: 0,
     });
-    new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
+    const authFailureAlarm = new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
       metric: failureFilter.metric({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
       threshold: 5, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    new cloudwatch.Alarm(this, 'ApiRuntimeFailureAlarm', {
+    const apiRuntimeFailureAlarm = new cloudwatch.Alarm(this, 'ApiRuntimeFailureAlarm', {
       metric: apiFunction.metricErrors({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
       threshold: 3, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    const securityAlarmAction = new cloudwatchActions.SnsAction(securityAlarmTopic);
+    authFailureAlarm.addAlarmAction(securityAlarmAction);
+    apiRuntimeFailureAlarm.addAlarmAction(securityAlarmAction);
     apiFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
       resources: [applicationTable.tableArn],

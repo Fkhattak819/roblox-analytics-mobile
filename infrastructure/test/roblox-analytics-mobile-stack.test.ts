@@ -34,6 +34,12 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
   template.resourceCountIs("AWS::CE::AnomalySubscription", 1);
   template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
   template.resourceCountIs('AWS::Logs::MetricFilter', 1);
+  template.resourceCountIs('AWS::SNS::Topic', 1);
+  template.resourceCountIs('AWS::SNS::Subscription', 1);
+  template.hasResourceProperties('AWS::SNS::Subscription', {
+    Protocol: 'email',
+    Endpoint: { Ref: 'BudgetAlertEmail' },
+  });
   template.hasResourceProperties('AWS::IAM::Policy', {
     PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({
       Action: 'dynamodb:UpdateItem',
@@ -43,7 +49,11 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
   template.hasResourceProperties('AWS::CloudWatch::Alarm', {
     Namespace: 'StudioPulse/Security', MetricName: 'AuthFailures',
     Threshold: 5, Period: 300, EvaluationPeriods: 1,
-    TreatMissingData: 'notBreaching', AlarmActions: Match.absent(),
+    TreatMissingData: 'notBreaching', AlarmActions: Match.anyValue(),
+  });
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    MetricName: 'Errors', Threshold: 3, Period: 300, EvaluationPeriods: 1,
+    TreatMissingData: 'notBreaching', AlarmActions: Match.anyValue(),
   });
 
   template.hasResourceProperties("AWS::Lambda::Function", {
