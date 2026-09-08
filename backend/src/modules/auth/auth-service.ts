@@ -4,6 +4,10 @@ import type { AppSessionRecord, AuthStore } from "./auth-store.js";
 import { OAuthConfigurationError, type RobloxOAuthCredentialsProvider } from "./oauth-credentials.js";
 import { createOAuthStart } from "./roblox-oauth.js";
 import { RobloxOAuthApi, RobloxOAuthUpstreamError } from "./roblox-oauth-api.js";
+import {
+  InMemoryRobloxAuthorizationVault,
+  type RobloxAuthorizationVault,
+} from './roblox-authorization-vault.js';
 
 // Roblox login can include password recovery, email verification, or account
 // switching. Keep the PKCE state single-use, but allow enough time to finish it.
@@ -17,6 +21,7 @@ export class AuthService {
     private readonly store: AuthStore,
     private readonly credentialProvider: RobloxOAuthCredentialsProvider,
     private readonly robloxApi = new RobloxOAuthApi(),
+    private readonly authorizationVault: RobloxAuthorizationVault = new InMemoryRobloxAuthorizationVault(),
   ) {}
 
   async startRobloxOAuth(input: { clientChallenge: unknown; clientState: unknown }): Promise<{ authorizationUrl: string }> {
@@ -60,21 +65,48 @@ export class AuthService {
 
     try {
       const credentials = await this.credentialProvider.getCredentials();
-      const user = await this.robloxApi.exchangeCodeForProfile({
+      const authorization = await this.robloxApi.exchangeCodeForAuthorization({
         code: input.code,
         codeVerifier: state.codeVerifier,
         redirectUri: this.config.robloxOAuthRedirectUri,
         credentials,
         remainingTimeMs: input.remainingTimeMs,
       });
+      const authorizedUniverseIds = authorization.universeIds.filter((universeId) =>
+        this.config.analyticsUniverseIds.includes(universeId));
+      if (!authorizedUniverseIds.length) {
+        await this.robloxApi.revokeRefreshToken(authorization.refreshToken, credentials);
+        throw new AuthServiceError(403, 'analytics_permission_required',
+          'Approve analytics access to an available experience');
+      }
+      const delegatedAuthorization = { ...authorization, universeIds: authorizedUniverseIds };
+      const previousRefreshToken = await this.authorizationVault.saveAuthorization(
+        authorization.user.sub,
+        delegatedAuthorization,
+      );
       const exchangeCode = randomOpaqueValue();
-      await this.store.putOAuthExchange(exchangeCode, {
-        user,
-        clientChallenge: state.clientChallenge,
-        authGeneration: await this.store.getAuthGeneration(user.sub),
-        sessionEpoch: this.config.sessionEpoch,
-        expiresAt: Date.now() + EXCHANGE_TTL_MS,
-      });
+      try {
+        await this.store.putOAuthExchange(exchangeCode, {
+          user: authorization.user,
+          authorizedUniverseIds,
+          clientChallenge: state.clientChallenge,
+          authGeneration: await this.store.getAuthGeneration(authorization.user.sub),
+          sessionEpoch: this.config.sessionEpoch,
+          expiresAt: Date.now() + EXCHANGE_TTL_MS,
+        });
+      } catch (error) {
+        const refreshToken = await this.authorizationVault.deleteAuthorization(authorization.user.sub);
+        if (refreshToken) await this.robloxApi.revokeRefreshToken(refreshToken, credentials);
+        throw error;
+      }
+      if (previousRefreshToken && previousRefreshToken !== authorization.refreshToken) {
+        try {
+          await this.robloxApi.revokeRefreshToken(previousRefreshToken, credentials);
+        } catch {
+          // The replacement is encrypted and active; the superseded token expires
+          // independently and is never retained or returned by this service.
+        }
+      }
       return appRedirect(this.config.appOAuthCallbackUri, { code: exchangeCode, state: state.clientState });
     } catch (error) {
       throw normalizeError(error);
@@ -109,6 +141,7 @@ export class AuthService {
     const token = randomOpaqueValue();
     const session = {
       user: exchange.user,
+      authorizedUniverseIds: exchange.authorizedUniverseIds,
       authGeneration: exchange.authGeneration,
       sessionEpoch: this.config.sessionEpoch,
       expiresAt: Date.now() + this.config.sessionTtlSeconds * 1_000,
@@ -138,6 +171,15 @@ export class AuthService {
     // This record has no TTL: expiring it could revive old sessions.
     await this.store.setAuthGeneration(session.user.sub, randomOpaqueValue());
     await this.store.deleteSession(bearerToken(authorization));
+    const refreshToken = await this.authorizationVault.deleteAuthorization(session.user.sub);
+    if (refreshToken) {
+      try {
+        const credentials = await this.credentialProvider.getCredentials();
+        await this.robloxApi.revokeRefreshToken(refreshToken, credentials);
+      } catch (error) {
+        throw normalizeError(error);
+      }
+    }
   }
 }
 

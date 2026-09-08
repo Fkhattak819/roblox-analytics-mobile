@@ -10,6 +10,7 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -156,7 +157,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
 
     const analyticsCredentials = new secretsmanager.Secret(this, "RobloxAnalyticsCredentials", {
       secretName: "roblox-analytics-mobile/dev/roblox-analytics-v1",
-      description: "Least-privilege Roblox Open Cloud analytics key for the development worker",
+      description: "Legacy retained rollback secret; no runtime role can read it after OAuth delegation rollout",
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ status: "replace-after-creation" }),
         generateStringKey: "setupNonce",
@@ -165,6 +166,23 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+
+    const oauthTokenKey = new kms.Key(this, 'RobloxOAuthTokenKey', {
+      alias: 'alias/roblox-analytics-mobile-dev-oauth-tokens',
+      description: 'Application encryption for delegated Roblox OAuth tokens',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pendingWindow: cdk.Duration.days(30),
+    });
+    const grantOAuthTokenCrypt = (fn: lambda.IFunction) => fn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['kms:Encrypt', 'kms:Decrypt'],
+      resources: [oauthTokenKey.keyArn],
+      conditions: {
+        StringEquals: {
+          'kms:EncryptionContext:project': 'roblox-analytics-mobile',
+          'kms:EncryptionContext:purpose': 'roblox-delegated-oauth',
+        },
+      },
+    }));
 
     const deadLetterQueue = new sqs.Queue(this, "SyncDeadLetterQueue", {
       queueName: `${resourcePrefix}-sync-dlq`,
@@ -232,8 +250,9 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
         SESSION_EPOCH: sessionEpoch.valueAsString,
         APP_OAUTH_CALLBACK_URI: "robloxanalyticsmobile://oauth/callback",
         ROBLOX_OAUTH_REDIRECT_URI: oauthRedirectUri.valueAsString,
-        ROBLOX_OAUTH_SCOPES: "openid profile",
+        ROBLOX_OAUTH_SCOPES: "openid profile universe.analytics:read",
         ROBLOX_OAUTH_SECRET_ARN: oauthCredentials.secretArn,
+        ROBLOX_OAUTH_TOKEN_KEY_ARN: oauthTokenKey.keyArn,
         TABLE_NAME: applicationTable.tableName,
         SYNC_QUEUE_URL: syncQueue.queueUrl,
         ANALYTICS_UNIVERSE_IDS: '10009166512',
@@ -245,7 +264,13 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       resources: [applicationTable.tableArn],
       conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['AUTH#*', 'TENANT#*'] } },
     }));
+    apiFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['AUTH#OAUTH#*'] } },
+    }));
     oauthCredentials.grantRead(apiFunction);
+    grantOAuthTokenCrypt(apiFunction);
     syncQueue.grantSendMessages(apiFunction);
     const failureFilter = new logs.MetricFilter(this, 'AuthFailureMetric', {
       logGroup: apiLogGroup,
@@ -296,7 +321,8 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       environment: {
         APP_ENV: "dev",
         TABLE_NAME: applicationTable.tableName,
-        ROBLOX_ANALYTICS_SECRET_ARN: analyticsCredentials.secretArn,
+        ROBLOX_OAUTH_SECRET_ARN: oauthCredentials.secretArn,
+        ROBLOX_OAUTH_TOKEN_KEY_ARN: oauthTokenKey.keyArn,
         ANALYTICS_UNIVERSE_IDS: "10009166512",
       },
     });
@@ -309,6 +335,11 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       actions: ["dynamodb:PutItem"],
       resources: [applicationTable.tableArn],
       conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['TENANT#*'] } },
+    }));
+    analyticsWorker.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:ConditionCheckItem'],
+      resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['AUTH#OAUTH#*'] } },
     }));
     for (const fn of [apiFunction, analyticsWorker]) {
       fn.addToRolePolicy(new iam.PolicyStatement({
@@ -326,7 +357,8 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       actions: ['dynamodb:ConditionCheckItem'], resources: [applicationTable.tableArn],
       conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
     }));
-    analyticsCredentials.grantRead(analyticsWorker);
+    oauthCredentials.grantRead(analyticsWorker);
+    grantOAuthTokenCrypt(analyticsWorker);
 
     const apiIntegration = new integrations.HttpLambdaIntegration(
       "ApiIntegration",
@@ -365,6 +397,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "RobloxAnalyticsSecretName", {
       value: analyticsCredentials.secretName,
+      description: 'Legacy retained rollback secret; unused by the deployed runtime',
     });
     new cdk.CfnOutput(this, "HistoryBucketName", {
       value: historyBucket.bucketName,

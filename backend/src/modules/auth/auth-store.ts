@@ -19,6 +19,7 @@ export type OAuthStateRecord = Readonly<{
 
 export type OAuthExchangeRecord = Readonly<{
   user: RobloxUserProfile;
+  authorizedUniverseIds: string[];
   clientChallenge: string;
   authGeneration: string;
   sessionEpoch: string;
@@ -27,6 +28,7 @@ export type OAuthExchangeRecord = Readonly<{
 
 export type AppSessionRecord = Readonly<{
   user: RobloxUserProfile;
+  authorizedUniverseIds: string[];
   authGeneration: string;
   sessionEpoch: string;
   expiresAt: number;
@@ -47,4 +49,3 @@ export interface AuthStore {
 export function digestOpaqueValue(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
-

@@ -32,11 +32,14 @@ const observations = [];
 function record(check, protectedBehavior, detail) {
   observations.push({ check, result: protectedBehavior ? 'protected' : 'finding', detail });
 }
-const config = loadConfig({});
+const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: '10009166512' });
 const store = new InMemoryAuthStore();
 const authService = new AuthService(config, store,
   new StaticOAuthCredentialsProvider({ clientId: 'audit-client', clientSecret: 'audit-dummy' }),
-  { exchangeCodeForProfile: async () => ({ sub: '123456' }) },
+  { exchangeCodeForAuthorization: async () => ({ user: { sub: '123456' }, accessToken: 'audit-access',
+    refreshToken: 'audit-refresh', accessExpiresAt: Date.now() + 60_000,
+    refreshExpiresAt: Date.now() + 86400_000, universeIds: ['10009166512'] }),
+    revokeRefreshToken: async () => undefined },
 );
 const route = (request) => routeRequest(request, config, 'local', { authService });
 const opaque = (character) => character.repeat(43);
@@ -46,17 +49,17 @@ const clientChallenge = createHash('sha256').update(verifier).digest('base64url'
 
 const anonymous = await route({ method: 'GET', path: '/v1/auth/session' });
 record('anonymous session access', anonymous.statusCode === 401, `HTTP ${anonymous.statusCode}`);
-await store.putSession(opaque('a'), { user: { sub: '123456' }, authGeneration: 'initial', sessionEpoch: '1', expiresAt: Date.now() - 1 });
+await store.putSession(opaque('a'), { user: { sub: '123456' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1', expiresAt: Date.now() - 1 });
 const expired = await route({ method: 'GET', path: '/v1/auth/session', headers: { authorization: `Bearer ${opaque('a')}` } });
 record('expired session access', expired.statusCode === 401, `HTTP ${expired.statusCode}`);
-await store.putSession(opaque('b'), { user: { sub: '123456' }, authGeneration: 'initial', sessionEpoch: '1', expiresAt: Date.now() + 60_000 });
+await store.putSession(opaque('b'), { user: { sub: '123456' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1', expiresAt: Date.now() + 60_000 });
 const headers = { authorization: `Bearer ${opaque('b')}` };
 const logout = await route({ method: 'POST', path: '/v1/auth/logout', headers });
 const revoked = await route({ method: 'GET', path: '/v1/auth/session', headers });
 record('revoked session access', logout.statusCode === 204 && revoked.statusCode === 401,
   `logout ${logout.statusCode}; subsequent read ${revoked.statusCode}`);
 
-await store.putOAuthExchange(opaque('c'), { user: { sub: '123456' }, authGeneration: 'initial', sessionEpoch: '1', clientChallenge, expiresAt: Date.now() + 60_000 });
+await store.putOAuthExchange(opaque('c'), { user: { sub: '123456' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1', clientChallenge, expiresAt: Date.now() + 60_000 });
 const codeOnly = await route({ method: 'POST', path: '/v2/auth/session/exchange', body: { code: opaque('c') } });
 record('client proof required for exchange', codeOnly.statusCode === 400, `code-only request: HTTP ${codeOnly.statusCode}`);
 const race = await Promise.all(Array.from({ length: 20 }, () => route({
@@ -67,7 +70,7 @@ record('concurrent exchange single use', successes === 1 && race.filter((r) => r
   `${successes} sessions from 20 concurrent in-memory requests`);
 
 
-await store.putOAuthExchange(opaque('d'), { user: { sub: '123456' }, authGeneration: 'initial', sessionEpoch: '1', clientChallenge, expiresAt: Date.now() - 1 });
+await store.putOAuthExchange(opaque('d'), { user: { sub: '123456' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1', clientChallenge, expiresAt: Date.now() - 1 });
 const expiredExchange = await route({ method: 'POST', path: '/v2/auth/session/exchange', body: { code: opaque('d'), clientVerifier: verifier } });
 record('expired exchange rejection', expiredExchange.statusCode === 401, `HTTP ${expiredExchange.statusCode}`);
 await store.putOAuthState(opaque('e'), { codeVerifier: opaque('f'), sessionEpoch: '1', clientChallenge, clientState, expiresAt: Date.now() - 1 });
@@ -113,7 +116,7 @@ async function mobileProbe({ baseUrl = 'https://api.example.test', callbackState
         requests += 1;
         if (requests === 1) return Response.json({ authorizationUrl: 'https://apis.roblox.com/oauth/v1/authorize?state=initiating' });
         exchangeFields = Object.keys(JSON.parse(init.body));
-        return Response.json({ token: opaque('g'), expiresAt, user: { sub: '123456' } });
+        return Response.json({ token: opaque('g'), expiresAt, user: { sub: '123456' }, authorizedUniverseIds: ['10009166512'] });
       },
       openAuthSession: async () => ({ type: 'success', url: `robloxanalyticsmobile://oauth/callback?code=${opaque('h')}&state=${callbackState}` }),
       saveSessionToken: async () => { stored = true; },
@@ -138,19 +141,22 @@ for (const profileFails of [true, false]) {
   const api = new RobloxOAuthApi(async (url) => {
     const path = new URL(url).pathname;
     calls.push(path);
-    if (path.endsWith('/token')) return Response.json({ access_token: 'audit-access', refresh_token: 'audit-refresh' });
+    if (path.endsWith('/token')) return Response.json({ access_token: 'audit-access', refresh_token: 'audit-refresh',
+      expires_in: 899, scope: 'openid profile universe.analytics:read' });
     if (path.endsWith('/userinfo')) return Response.json(profileFails ? {} : { sub: '123456' }, { status: profileFails ? 500 : 200 });
-    if (path.endsWith('/revoke')) return new Response(null, { status: profileFails ? 200 : 500 });
+    if (path.endsWith('/resources')) return new Response(null, { status: 500 });
+    if (path.endsWith('/revoke')) return new Response(null, { status: 200 });
     throw new Error('Unexpected mock endpoint');
   });
   let rejected = false;
   try {
-    await api.exchangeCodeForProfile({ code: 'audit-code', codeVerifier: opaque('i'),
+    await api.exchangeCodeForAuthorization({ code: 'audit-code', codeVerifier: opaque('i'),
       redirectUri: config.robloxOAuthRedirectUri, credentials: { clientId: 'audit-client', clientSecret: 'audit-dummy' },
     });
   } catch { rejected = true; }
-  record(profileFails ? 'profile failure attempts revocation' : 'revocation failure rejects login',
-    rejected && calls.at(-1).endsWith('/revoke'), `rejected: ${rejected}; revoke attempted: ${calls.at(-1).endsWith('/revoke')}`);
+  const revokeAttempted = calls.at(-1)?.endsWith('/revoke') === true;
+  record(profileFails ? 'profile failure attempts revocation' : 'resource validation failure attempts revocation',
+    rejected && revokeAttempted, `rejected: ${rejected}; revoke attempted: ${revokeAttempted}`);
 }
 assert.equal(observations.length, 18);
 console.log(JSON.stringify({ scope: 'local synthetic audit; no live services', observations,

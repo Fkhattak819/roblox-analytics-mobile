@@ -87,7 +87,7 @@ test("OAuth start persists PKCE state and exposes only the authorization URL", a
   const authorizationUrl = new URL(response.body.authorizationUrl);
   assert.equal(authorizationUrl.origin, "https://apis.roblox.com");
   assert.equal(authorizationUrl.searchParams.get("client_id"), "configured-client");
-  assert.equal(authorizationUrl.searchParams.get("scope"), "openid profile");
+  assert.equal(authorizationUrl.searchParams.get("scope"), "openid profile universe.analytics:read");
   assert.equal(authorizationUrl.searchParams.get("code_challenge_method"), "S256");
 });
 
@@ -208,6 +208,7 @@ test("analytics snapshot route requires a session and reads only the session ten
   const sessionToken = "s".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authorizedUniverseIds: ["10009166512"],
     authGeneration: "initial",
     sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
@@ -263,6 +264,7 @@ test("analytics snapshot route requires a session and reads only the session ten
   const otherTenantToken = "t".repeat(32);
   await authStore.putSession(otherTenantToken, {
     user: { sub: "999999" },
+    authorizedUniverseIds: ["10009166512"],
     authGeneration: "initial",
     sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
@@ -282,6 +284,7 @@ test("analytics sync jobs derive the tenant from the authenticated session", asy
   const sessionToken = "q".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authorizedUniverseIds: ["10009166512"],
     authGeneration: "initial",
     sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
@@ -346,6 +349,7 @@ test("connection status exposes backend metadata without secret material", async
   const sessionToken = "c".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authorizedUniverseIds: ["10009166512"],
     authGeneration: "initial",
     sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
@@ -438,7 +442,7 @@ test("analytics sync projects official metric queries into a cached snapshot", a
   const store = new InMemoryAnalyticsSnapshotStore();
   const service = new AnalyticsSnapshotSyncService(queryClient, store, async () => undefined);
   const snapshot = await service.sync({
-    apiKey: "server-only-analytics-key",
+    credential: "server-only-analytics-key",
     ownerSub: "123456",
     universeId: "10009166512",
     section: "overview",
@@ -483,7 +487,7 @@ test("acquisition sync uses period-unique summaries instead of summing daily uni
   const store = new InMemoryAnalyticsSnapshotStore();
   const service = new AnalyticsSnapshotSyncService(queryClient, store, async () => undefined);
   const snapshot = await service.sync({
-    apiKey: "server-only-analytics-key",
+    credential: "server-only-analytics-key",
     ownerSub: "123456",
     universeId: "10009166512",
     section: "acquisition",
@@ -500,7 +504,7 @@ test("acquisition sync uses period-unique summaries instead of summing daily uni
 
 function testAuthService() {
   const calls = [];
-  const config = loadConfig({});
+  const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: "10009166512" });
   const authService = new AuthService(
     config,
     new InMemoryAuthStore(),
@@ -509,15 +513,23 @@ function testAuthService() {
       clientSecret: "configured-secret",
     }),
     {
-      async exchangeCodeForProfile(input) {
+      async exchangeCodeForAuthorization(input) {
         calls.push(input);
         return {
-          sub: "123456",
-          name: "Creator Name",
-          preferredUsername: "creator_name",
-          profileUrl: "https://www.roblox.com/users/123456/profile",
+          user: {
+            sub: "123456",
+            name: "Creator Name",
+            preferredUsername: "creator_name",
+            profileUrl: "https://www.roblox.com/users/123456/profile",
+          },
+          accessToken: "synthetic-access",
+          refreshToken: "synthetic-refresh",
+          accessExpiresAt: Date.now() + 60_000,
+          refreshExpiresAt: Date.now() + 90 * 86400_000,
+          universeIds: ["10009166512"],
         };
       },
+      async revokeRefreshToken() {},
     },
   );
   return { authService, calls };

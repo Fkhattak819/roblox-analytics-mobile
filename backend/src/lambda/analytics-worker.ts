@@ -1,7 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { KMSClient } from '@aws-sdk/client-kms';
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { loadConfig } from "../config.js";
-import { SecretsManagerAnalyticsApiKeyProvider } from "../modules/analytics/analytics-credentials.js";
 import { DynamoDbAnalyticsConnectionStatusStore } from "../modules/analytics/connection-status-store.js";
 import { DynamoDbAnalyticsSnapshotStore } from "../modules/analytics/dynamodb-snapshot-store.js";
 import { RobloxAnalyticsQueryClient } from "../modules/analytics/roblox-analytics-query.js";
@@ -14,6 +14,8 @@ import { DynamoAnalyticsAuthorizer } from '../modules/analytics/authorization.js
 import type { AnalyticsAuthorizer } from '../modules/analytics/authorization.js';
 import type { AnalyticsConnectionStatusStore } from '../modules/analytics/connection-status-store.js';
 import { WorkBudget, budgetClient } from '../modules/analytics/work-budget.js';
+import { SecretsManagerOAuthCredentialsProvider } from '../modules/auth/oauth-credentials.js';
+import { DynamoKmsRobloxAuthorizationVault } from '../modules/auth/roblox-authorization-vault.js';
 
 type SqsEvent = Readonly<{
   Records?: Array<Readonly<{ messageId?: string; body?: string }>>;
@@ -25,6 +27,7 @@ type SqsBatchResponse = Readonly<{
 
 const dynamoClient = new DynamoDBClient({ maxAttempts: 1 });
 const secretsClient = new SecretsManagerClient({ maxAttempts: 1 });
+const kmsClient = new KMSClient({ maxAttempts: 1 });
 
 export async function handler(event: SqsEvent, context?: { getRemainingTimeInMillis(): number }): Promise<SqsBatchResponse> {
   const budget = new WorkBudget(Math.min(110_000, (context?.getRemainingTimeInMillis() ?? 120_000) - 2_000));
@@ -53,7 +56,7 @@ async function processRecord(body: string | undefined, budget: WorkBudget): Prom
 
 export type WorkerDependencies = {
   authorizer: AnalyticsAuthorizer;
-  apiKeyProvider: Pick<SecretsManagerAnalyticsApiKeyProvider, 'getApiKey'>;
+  accessTokenProvider: { getAccessToken(ownerSub: string, universeId: string): Promise<string> };
   syncService: Pick<AnalyticsSnapshotSyncService, 'sync'>;
   statusStore: AnalyticsConnectionStatusStore;
 };
@@ -69,10 +72,13 @@ export async function processAnalyticsMessage(body: string | undefined, config: 
   await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
   const attemptedAt = new Date().toISOString();
   try {
-    const apiKey = await dependencies.apiKeyProvider.getApiKey();
+    const accessToken = await dependencies.accessTokenProvider.getAccessToken(
+      message.ownerSub,
+      message.universeId,
+    );
     await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
     const snapshot = await dependencies.syncService.sync({
-      apiKey,
+      credential: { type: 'oauth', accessToken },
       ownerSub: message.ownerSub,
       universeId: message.universeId,
       section: message.section,
@@ -99,18 +105,26 @@ export async function processAnalyticsMessage(body: string | undefined, config: 
 }
 
 function createRuntime(config: ReturnType<typeof loadConfig>, budget: WorkBudget) {
-  if (!config.tableName || !config.robloxAnalyticsSecretArn) {
+  if (!config.tableName || !config.robloxOAuthSecretArn || !config.robloxOAuthTokenKeyArn) {
     throw new Error("Analytics worker is not configured");
   }
   const client = budgetClient(dynamoClient, budget);
   const store = new DynamoDbAnalyticsSnapshotStore(client, config.tableName);
   const statusStore = new DynamoDbAnalyticsConnectionStatusStore(client, config.tableName);
+  const credentials = new SecretsManagerOAuthCredentialsProvider(
+    budgetClient(secretsClient, budget),
+    config.robloxOAuthSecretArn,
+  );
+  const authorizationVault = new DynamoKmsRobloxAuthorizationVault(
+    client,
+    budgetClient(kmsClient, budget),
+    config.tableName,
+    config.robloxOAuthTokenKeyArn,
+    credentials,
+  );
   return {
     authorizer: new DynamoAnalyticsAuthorizer(client, config.tableName),
-    apiKeyProvider: new SecretsManagerAnalyticsApiKeyProvider(
-      budgetClient(secretsClient, budget),
-      config.robloxAnalyticsSecretArn,
-    ),
+    accessTokenProvider: authorizationVault,
     syncService: new AnalyticsSnapshotSyncService(
       new RobloxAnalyticsQueryClient({ signal: budget.signal }),
       store,

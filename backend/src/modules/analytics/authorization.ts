@@ -1,5 +1,6 @@
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { digestOpaqueValue } from '../auth/auth-store.js';
 
 export class AnalyticsAccessDenied extends Error {
   constructor() { super('Analytics access denied'); }
@@ -7,12 +8,16 @@ export class AnalyticsAccessDenied extends Error {
 export interface AnalyticsAuthorizer {
   requireAccess(ownerSub: string, universeId: string): Promise<void>;
 }
+export function oauthAuthorizationKey(ownerSub: string) {
+  if (!/^\d{1,20}$/.test(ownerSub)) throw new AnalyticsAccessDenied();
+  return { PK: `AUTH#OAUTH#${digestOpaqueValue(ownerSub)}`, SK: 'AUTH' as const };
+}
 export function accessKey(ownerSub: string, universeId: string) {
   if (!/^\d{1,20}$/.test(ownerSub) || !/^\d{1,20}$/.test(universeId)) throw new AnalyticsAccessDenied();
-  return { PK: `ACCESS#${ownerSub}`, SK: `UNIVERSE#${universeId}` };
+  return oauthAuthorizationKey(ownerSub);
 }
-// Only an operator-controlled provisioning path may write grants. A Roblox
-// identity or deployment-wide universe allowlist alone never grants access.
+// Roblox's OAuth resource grant is the authorization source of truth. The
+// deployment allowlist still limits which universes this app is willing to serve.
 export class DynamoAnalyticsAuthorizer implements AnalyticsAuthorizer {
   constructor(private readonly client: Pick<DynamoDBClient, 'send'>, private readonly table: string) {}
   async requireAccess(ownerSub: string, universeId: string) {
@@ -21,13 +26,19 @@ export class DynamoAnalyticsAuthorizer implements AnalyticsAuthorizer {
     }));
     if (!result.Item) throw new AnalyticsAccessDenied();
     const grant = unmarshall(result.Item);
-    if (grant.type !== 'analytics-access' || grant.enabled !== true) throw new AnalyticsAccessDenied();
+    if (grant.type !== 'roblox-oauth-authorization'
+      || !Number.isFinite(grant.refreshExpiresAt) || grant.refreshExpiresAt <= Date.now()
+      || !Array.isArray(grant.universeIds) || !grant.universeIds.includes(universeId)) {
+      throw new AnalyticsAccessDenied();
+    }
   }
 }
 
 export function accessCondition(table: string, ownerSub: string, universeId: string) {
   return { TableName: table, Key: marshall(accessKey(ownerSub, universeId)),
-    ConditionExpression: '#type = :type AND #enabled = :enabled',
-    ExpressionAttributeNames: { '#type': 'type', '#enabled': 'enabled' },
-    ExpressionAttributeValues: marshall({ ':type': 'analytics-access', ':enabled': true }) };
+    ConditionExpression: '#type = :type AND refreshExpiresAt > :now AND contains(universeIds, :universe)',
+    ExpressionAttributeNames: { '#type': 'type' },
+    ExpressionAttributeValues: marshall({
+      ':type': 'roblox-oauth-authorization', ':now': Date.now(), ':universe': universeId,
+    }) };
 }

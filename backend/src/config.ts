@@ -5,6 +5,7 @@ export type Config = {
   robloxAnalyticsSecretArn?: string;
   analyticsUniverseIds: string[];
   robloxOAuthSecretArn?: string;
+  robloxOAuthTokenKeyArn?: string;
   robloxOAuthClientId?: string;
   robloxOAuthClientSecret?: string;
   robloxOAuthRedirectUri: string;
@@ -40,11 +41,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     robloxAnalyticsSecretArn: env.ROBLOX_ANALYTICS_SECRET_ARN || undefined,
     analyticsUniverseIds,
     robloxOAuthSecretArn: env.ROBLOX_OAUTH_SECRET_ARN || undefined,
+    robloxOAuthTokenKeyArn: env.ROBLOX_OAUTH_TOKEN_KEY_ARN || undefined,
     robloxOAuthClientId: env.ROBLOX_OAUTH_CLIENT_ID || undefined,
     robloxOAuthClientSecret: env.ROBLOX_OAUTH_CLIENT_SECRET || undefined,
     robloxOAuthRedirectUri:
       env.ROBLOX_OAUTH_REDIRECT_URI ?? "http://localhost:8787/v1/auth/roblox/callback",
-    robloxOAuthScopes: env.ROBLOX_OAUTH_SCOPES ?? "openid profile",
+    robloxOAuthScopes: env.ROBLOX_OAUTH_SCOPES ?? "openid profile universe.analytics:read",
     appOAuthCallbackUri:
       env.APP_OAUTH_CALLBACK_URI ?? "robloxanalyticsmobile://oauth/callback",
     appBaseUrl: env.APP_BASE_URL ?? `http://localhost:${port}`,

@@ -8,7 +8,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 const token = 't'.repeat(43);
-const metadata = () => ({ user: { sub: '123' }, expiresAt: new Date(Date.now() + 60_000).toISOString() });
+const metadata = () => ({ user: { sub: '123' }, authorizedUniverseIds: ['10009166512'], expiresAt: new Date(Date.now() + 60_000).toISOString() });
 function setup(options: { token?: string; fetch?: typeof fetch; login?: () => Promise<ReturnType<typeof metadata> & { token: string }> } = {}) {
   let stored: string | null = options.token ?? null;
   const requests: string[] = [];

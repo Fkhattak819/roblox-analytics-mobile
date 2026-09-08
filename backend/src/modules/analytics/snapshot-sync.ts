@@ -10,6 +10,7 @@ import {
   RobloxAnalyticsQueryClient,
   RobloxAnalyticsQueryError,
   type AnalyticsGranularity,
+  type RobloxAnalyticsCredential,
   type AnalyticsSeries as RobloxAnalyticsSeries,
 } from './roblox-analytics-query.js';
 import type { AnalyticsSnapshotStore } from './snapshot-store.js';
@@ -116,7 +117,7 @@ export function isSyncableAnalyticsSection(value: AnalyticsSectionId): boolean {
 }
 
 type SyncOptions = Readonly<{
-  apiKey: string;
+  credential: RobloxAnalyticsCredential;
   ownerSub: string;
   universeId: string;
   section: AnalyticsSectionId;
@@ -194,7 +195,7 @@ export class AnalyticsSnapshotSyncService {
   ) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        return await this.queryClient.queryMetric(options.apiKey, options.universeId, {
+        return await this.queryClient.queryMetric(options.credential, options.universeId, {
           metric: plan.robloxMetric,
           granularity,
           startTime,

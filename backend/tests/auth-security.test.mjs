@@ -16,11 +16,15 @@ const clientState = 's'.repeat(64);
 const code = 'c'.repeat(43);
 function setup() {
   const store = new InMemoryAuthStore();
-  const config = loadConfig({});
+  const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: '10009166512' });
   let upstreamCalls = 0;
   const authService = new AuthService(config, store,
     { getCredentials: async () => ({ clientId: 'test-client', clientSecret: 'synthetic' }) },
-    { exchangeCodeForProfile: async () => { upstreamCalls++; return { sub: '123' }; } });
+    { exchangeCodeForAuthorization: async () => { upstreamCalls++; return {
+      user: { sub: '123' }, accessToken: 'access', refreshToken: 'refresh',
+      accessExpiresAt: Date.now() + 60_000, refreshExpiresAt: Date.now() + 90 * 86400_000,
+      universeIds: ['10009166512'],
+    }; }, revokeRefreshToken: async () => undefined });
   return { store, authService, calls: () => upstreamCalls,
     route: (request) => routeRequest(request, config, 'local', { authService }) };
 }
@@ -57,7 +61,7 @@ test('public routes cannot start legacy or missing-proof logins', async () => {
 
 test('proof-bound expiry and cancellation fail closed', async () => {
   const { authService, store, calls } = setup();
-  await store.putOAuthExchange(code, { user: { sub: '123' }, authGeneration: 'initial', sessionEpoch: '1', clientChallenge: challenge, expiresAt: Date.now() - 1 });
+  await store.putOAuthExchange(code, { user: { sub: '123' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1', clientChallenge: challenge, expiresAt: Date.now() - 1 });
   await assert.rejects(authService.exchangeAppSession(code, verifier), { code: 'invalid_exchange_code' });
   await store.putOAuthState(code, { codeVerifier: verifier, sessionEpoch: '1', clientChallenge: challenge, clientState, expiresAt: Date.now() - 1 });
   await assert.rejects(authService.completeRobloxOAuth({ state: code, code: 'test' }), { code: 'invalid_oauth_state' });
@@ -82,7 +86,7 @@ test('DynamoDB binds proof and expiry in the atomic delete request', async () =>
   const store = new DynamoDbAuthStore({ send: async (command) => {
     calls.push(command);
     return { Attributes: marshall({ type: 'oauth-exchange', clientChallenge: challenge,
-      expiresAt: Date.now() + 60_000, user: { sub: '123' }, authGeneration: 'initial', sessionEpoch: '1' }) };
+      expiresAt: Date.now() + 60_000, user: { sub: '123' }, authorizedUniverseIds: ['10009166512'], authGeneration: 'initial', sessionEpoch: '1' }) };
   } }, 'test-table');
   const result = await store.consumeOAuthExchange(code, challenge);
   assert.equal(result.user.sub, '123');

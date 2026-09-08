@@ -278,15 +278,15 @@ export default function SettingsScreen() {
               <Card>
                 <KeyValueRow label="Sign-in method" value="Roblox OAuth" />
                 <Divider />
-                <KeyValueRow label="Identity access" value="Profile only" valueTone="green" />
+                <KeyValueRow label="OAuth access" value="Profile + analytics" valueTone="green" />
                 <Divider />
                 <KeyValueRow label="Creator groups" value="2 connected" />
               </Card>
             </SettingSection>
             <InfoBanner
               icon="lock-closed-outline"
-              title="Identity is separate from analytics"
-              body="OAuth signs you in and identifies your creator account. It does not expose the Open Cloud key used by the server to fetch analytics."
+              title="One secure Roblox connection"
+              body="Roblox OAuth signs you in and delegates read-only analytics access. The encrypted delegated tokens remain on the server."
               tone="blue"
             />
             <SettingSection title="Workspace access">
@@ -348,8 +348,8 @@ export default function SettingsScreen() {
           <>
             <InfoBanner
               icon="shield-checkmark-outline"
-              title="Two connections, two different jobs"
-              body="Roblox OAuth handles your identity. A dedicated Open Cloud key stays on the roblox-analytics-mobile server and supplies read-only analytics."
+              title="One Roblox authorization"
+              body="Roblox OAuth handles identity and read-only analytics in one consent flow. Delegated tokens stay encrypted on the roblox-analytics-mobile server."
               tone="green"
             />
             <SettingSection title="Identity connection">
@@ -360,7 +360,7 @@ export default function SettingsScreen() {
                   <Badge label="Connected" tone="green" />
                 </View>
                 <Divider />
-                <KeyValueRow label="Purpose" value="Identity only" />
+                <KeyValueRow label="Purpose" value="Identity + analytics" />
                 <KeyValueRow label="Session renewed" value="Today, 8:42 AM" />
               </Card>
             </SettingSection>
@@ -368,16 +368,15 @@ export default function SettingsScreen() {
               <Card>
                 <View style={styles.connectionTop}>
                   <View style={[styles.connectionLogo, { backgroundColor: colors.greenSoft }]}><Ionicons name="cloud-done" size={21} color={colors.green} /></View>
-                  <View style={styles.flex}><StudioText weight="bold" size={16}>Open Cloud relay</StudioText><StudioText tone="muted" size={11}>Server-side connection</StudioText></View>
+                  <View style={styles.flex}><StudioText weight="bold" size={16}>OAuth analytics relay</StudioText><StudioText tone="muted" size={11}>Server-side delegated access</StudioText></View>
                   <Badge label="Healthy" tone="green" />
                 </View>
                 <Divider />
                 <KeyValueRow label="Scope" value="universe.analytics:read" valueTone="blue" />
-                <KeyValueRow label="Key location" value="Encrypted server vault" valueTone="green" />
-                <KeyValueRow label="Key fingerprint" value="…7A4C" />
+                <KeyValueRow label="Token location" value="Encrypted server vault" valueTone="green" />
                 <KeyValueRow label="Protected universes" value="5" />
                 <KeyValueRow label="Official refresh" value="4 min ago" valueTone="green" />
-                <KeyValueRow label="Last rotation" value="July 28, 2026" />
+                <KeyValueRow label="Renewal" value="Automatic" />
               </Card>
               <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>
                 The fingerprint identifies which key is active; it is not the secret key and cannot be used to access Roblox data.
@@ -435,7 +434,7 @@ export default function SettingsScreen() {
             </Card>
             <SettingSection title="Key controls">
               <Card>
-                <CheckRow>Dedicated Open Cloud key; not shared with Roblox OAuth.</CheckRow>
+                <CheckRow>Analytics access is delegated through Roblox OAuth.</CheckRow>
                 <Divider />
                 <CheckRow>Only the universe.analytics:read scope is enabled.</CheckRow>
                 <Divider />
@@ -511,7 +510,7 @@ export default function SettingsScreen() {
                 <ListRow icon="laptop-outline" title="Safari on Mac" subtitle="Chicago, IL · 2 hours ago" value="Trusted" showChevron={false} />
               </Card>
             </SettingSection>
-            <InfoBanner title="Session safety" body="OAuth sessions can be revoked without rotating the separate Open Cloud analytics key." />
+            <InfoBanner title="Session safety" body="Signing out everywhere revokes the delegated Roblox authorization and invalidates app sessions." />
           </>
         );
 
@@ -558,14 +557,14 @@ export default function SettingsScreen() {
             </SettingSection>
             <SettingSection title="What never belongs on the phone">
               <Card>
-                <ListRow icon="key-outline" title="Open Cloud secret" subtitle="Encrypted server-side only" value="Not stored" showChevron={false} />
+                <ListRow icon="key-outline" title="Delegated OAuth tokens" subtitle="KMS-encrypted server-side only" value="Not on phone" showChevron={false} />
                 <Divider />
                 <ListRow icon="warning-outline" title=".ROBLOSECURITY cookie" subtitle="Never requested or accepted" value="Never" showChevron={false} />
                 <Divider />
                 <ListRow icon="person-remove-outline" title="Player identity" subtitle="Not included in live sale events" value="Excluded" showChevron={false} />
               </Card>
             </SettingSection>
-            <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>{appEnvironment.dataMode === 'aws_dev' ? 'Connected mode · OAuth identifies the creator, while the Open Cloud key remains encrypted on the backend.' : 'Sample mode · This build does not connect to a production service.'}</StudioText>
+            <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>{appEnvironment.dataMode === 'aws_dev' ? 'Connected mode · Roblox OAuth delegates identity and read-only analytics; tokens stay encrypted on the backend.' : 'Sample mode · This build does not connect to a production service.'}</StudioText>
           </>
         );
 
@@ -826,14 +825,14 @@ function ConnectionsFigmaScreen() {
   return (
     <Screen contentContainerStyle={styles.figmaScreen} footer={<PersistentTabBar active="more" />}>
       <CompactHeader title="Roblox connections" subtitle="Identity, analytics, and live event access" />
-      <ConnectionCard title="Roblox identity" subtitle="OAuth PKCE · openid, profile" badge={connection ? 'CONNECTED' : 'NOT VERIFIED'} tone={connection ? 'green' : 'yellow'}><CompactRow label="Creator" value={connection?.identity.username ?? '—'} /><CompactRow label="Status" value={connectionError ?? (connection ? 'Verified' : 'Checking…')} tone={connection ? 'green' : 'muted'} /></ConnectionCard>
+      <ConnectionCard title="Roblox identity + analytics" subtitle="OAuth PKCE · profile + read-only analytics" badge={connection ? 'CONNECTED' : 'NOT VERIFIED'} tone={connection ? 'green' : 'yellow'}><CompactRow label="Creator" value={connection?.identity.username ?? '—'} /><CompactRow label="Status" value={connectionError ?? (connection ? 'Verified' : 'Checking…')} tone={connection ? 'green' : 'muted'} /></ConnectionCard>
       {!connection ? <SettingButton label={connecting ? 'Connecting…' : 'Sign in with Roblox'} icon="log-in-outline" onPress={() => void connect()} /> : null}
-      <ConnectionCard title="Open Cloud analytics" subtitle="1 allow-listed universe · server-side" badge={analyticsBadge} tone={analyticsTone}><CompactRow label="Last official sync" value={updated} /><CompactRow label="Scope" value="universe.analytics:read" tone="blue" /></ConnectionCard>
+      <ConnectionCard title="Delegated analytics" subtitle="1 approved universe · server-side" badge={analyticsBadge} tone={analyticsTone}><CompactRow label="Last official sync" value={updated} /><CompactRow label="Scope" value="universe.analytics:read" tone="blue" /></ConnectionCard>
       <ConnectionCard title="Signed live events" subtitle="Optional real-time sales instrumentation" badge="NOT SET UP" tone="yellow"><CompactRow label="Enabled" value="No experiences" tone="muted" /><CompactRow label="Signing" value="Unavailable" /></ConnectionCard>
       <CompactSection title="PERMISSIONS"><Card style={styles.compactGroup}><CompactRow label="Creator identity" value={connection ? 'READ' : 'UNVERIFIED'} tone={connection ? 'green' : 'yellow'} /><CompactRow label="Aggregated analytics" value={analyticsStatus === 'active' ? 'READ' : 'WAITING'} tone={analyticsStatus === 'active' ? 'green' : 'yellow'} /><CompactRow label="Signed live events" value="DISABLED" tone="muted" /><CompactRow label="Game edits & Robux spend" value="BLOCKED" tone="red" /></Card></CompactSection>
       <CompactSection title="EXPERIENCE COVERAGE"><Card style={styles.compactGroup}><CompactRow label="Most Words Win!" value={analyticsStatus === 'active' ? 'OFFICIAL ANALYTICS' : 'AWAITING SYNC'} tone={analyticsStatus === 'active' ? 'green' : 'blue'} /></Card></CompactSection>
       <CompactSection title="CONNECTION ACTIVITY"><Card style={styles.compactGroup}><CompactRow label="Analytics refresh" value={updated} tone={analyticsStatus === 'active' ? 'green' : 'muted'} /><CompactRow label="Live delivery" value="Not configured" tone="muted" /></Card></CompactSection>
-      <Card style={styles.securityTruth}><StudioText tone="muted" weight="medium" size={8}>SECURITY</StudioText><StudioText weight="semibold" size={12}>Keys stay backend-only</StudioText><StudioText tone="muted" size={9}>.ROBLOSECURITY is never requested or stored · OAuth PKCE · read-only analytics</StudioText></Card>
+      <Card style={styles.securityTruth}><StudioText tone="muted" weight="medium" size={8}>SECURITY</StudioText><StudioText weight="semibold" size={12}>OAuth tokens stay backend-only</StudioText><StudioText tone="muted" size={9}>.ROBLOSECURITY is never requested or stored · OAuth PKCE · read-only analytics</StudioText></Card>
     </Screen>
   );
 }

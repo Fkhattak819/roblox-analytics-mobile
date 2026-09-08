@@ -36,14 +36,15 @@ test('revocation while acquiring a sync gate prevents enqueue', async () => {
 });
 
 test('DynamoDB membership is read consistently and missing or disabled grants deny access', async () => {
-  let enabled = false;
+  let authorized = false;
   const authorizer = new DynamoAnalyticsAuthorizer({ send: async command => {
     assert.equal(command.input.ConsistentRead, true);
-    assert.deepEqual(unmarshall(command.input.Key), { PK: 'ACCESS#1', SK: 'UNIVERSE#100' });
-    return { Item: marshall({ type: 'analytics-access', enabled }) };
+    assert.deepEqual(unmarshall(command.input.Key), { PK: 'AUTH#OAUTH#6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b', SK: 'AUTH' });
+    return { Item: marshall({ type: 'roblox-oauth-authorization', refreshExpiresAt: Date.now() + 60_000,
+      universeIds: authorized ? ['100'] : [] }) };
   } }, 'test');
   await assert.rejects(authorizer.requireAccess('1', '100'), AnalyticsAccessDenied);
-  enabled = true;
+  authorized = true;
   await authorizer.requireAccess('1', '100');
 });
 
@@ -51,9 +52,12 @@ test('snapshot publication checks the grant in the same transaction as its write
   const store = new DynamoDbAnalyticsSnapshotStore({ send: async command => {
     assert.equal(command.constructor.name, 'TransactWriteItemsCommand');
     const [check, write] = command.input.TransactItems;
-    assert.deepEqual(unmarshall(check.ConditionCheck.Key), { PK: 'ACCESS#1', SK: 'UNIVERSE#100' });
-    assert.equal(check.ConditionCheck.ConditionExpression, '#type = :type AND #enabled = :enabled');
-    assert.deepEqual(unmarshall(check.ConditionCheck.ExpressionAttributeValues), { ':type': 'analytics-access', ':enabled': true });
+    assert.deepEqual(unmarshall(check.ConditionCheck.Key), { PK: 'AUTH#OAUTH#6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b', SK: 'AUTH' });
+    assert.equal(check.ConditionCheck.ConditionExpression, '#type = :type AND refreshExpiresAt > :now AND contains(universeIds, :universe)');
+    const values = unmarshall(check.ConditionCheck.ExpressionAttributeValues);
+    assert.equal(values[':type'], 'roblox-oauth-authorization');
+    assert.equal(values[':universe'], '100');
+    assert.ok(values[':now'] <= Date.now());
     assert.equal(unmarshall(write.Put.Item).PK, 'TENANT#1');
     throw Object.assign(new Error('synthetic revoked grant'), { name: 'TransactionCanceledException' });
   } }, 'test');

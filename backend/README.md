@@ -1,6 +1,6 @@
 # roblox-analytics-mobile backend
 
-This backend runs locally and through an AWS Lambda adapter. Its Roblox identity flow is implemented, while the separate Open Cloud analytics-key flow remains disabled:
+This backend runs locally and through an AWS Lambda adapter. One Roblox OAuth consent provides identity and delegated read-only analytics access:
 
 - `GET /v1/health` — service health
 - `GET /v1/sample/home` — deterministic sample payload for the Expo app
@@ -21,6 +21,6 @@ npm test
 npm start
 ```
 
-Local OAuth development requires `ROBLOX_OAUTH_CLIENT_ID` and `ROBLOX_OAUTH_CLIENT_SECRET` in an untracked environment file. AWS reads both fields from the `roblox-analytics-mobile/dev/roblox-oauth` Secrets Manager JSON object. The callback exchanges the Roblox code, reads the stable `sub` profile ID, then revokes the returned Roblox refresh token; Roblox access and refresh tokens are not stored.
+Local OAuth development requires `ROBLOX_OAUTH_CLIENT_ID` and `ROBLOX_OAUTH_CLIENT_SECRET` in an untracked environment file. AWS reads both fields from the `roblox-analytics-mobile/dev/roblox-oauth` Secrets Manager JSON object. The callback exchanges the Roblox code, reads the stable `sub` profile ID and concrete authorized universe resources, and stores access/refresh tokens only as KMS ciphertext. Mobile receives only an opaque app-session token and authorized universe IDs.
 
-The analytics API-key route remains disabled until KMS encryption, outbound-network restrictions, and its remaining security gates are complete. Never put a Roblox secret, Roblox API key, `.ROBLOSECURITY` cookie, or AWS access key in this directory or the Expo bundle.
+The legacy analytics API-key validation route remains disabled and is not used by the runtime. Never put a Roblox OAuth token, client secret, Roblox API key, `.ROBLOSECURITY` cookie, or AWS access key in this directory or the Expo bundle.

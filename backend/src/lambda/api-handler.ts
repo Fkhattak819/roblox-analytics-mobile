@@ -98,7 +98,7 @@ export async function handler(event: HttpApiEvent, context?: { getRemainingTimeI
 }
 
 function getAuthService(config: ReturnType<typeof loadConfig>): AuthService | undefined {
-  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}\0${config.sessionEpoch}`;
+  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}\0${config.robloxOAuthTokenKeyArn ?? ""}\0${config.sessionEpoch}`;
   if (key !== cachedAuthConfigKey) {
     cachedAuthConfigKey = key;
     cachedAuthService = createAwsAuthService(config);

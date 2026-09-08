@@ -3,12 +3,23 @@ import type { RobloxOAuthCredentials } from "./oauth-credentials.js";
 
 const TOKEN_ENDPOINT = "https://apis.roblox.com/oauth/v1/token";
 const USERINFO_ENDPOINT = "https://apis.roblox.com/oauth/v1/userinfo";
+const RESOURCES_ENDPOINT = "https://apis.roblox.com/oauth/v1/token/resources";
 const REVOKE_ENDPOINT = "https://apis.roblox.com/oauth/v1/token/revoke";
+const ANALYTICS_SCOPE = "universe.analytics:read";
+const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60_000;
 
-type TokenResponse = {
+export type RobloxOAuthAuthorization = Readonly<{
+  user: RobloxUserProfile;
   accessToken: string;
   refreshToken: string;
-};
+  accessExpiresAt: number;
+  refreshExpiresAt: number;
+  universeIds: string[];
+}>;
+
+export type RefreshedRobloxOAuthAuthorization = Omit<RobloxOAuthAuthorization, "user">;
+
+type TokenResponse = Omit<RefreshedRobloxOAuthAuthorization, "universeIds">;
 
 export class RobloxOAuthApi {
   constructor(
@@ -16,27 +27,67 @@ export class RobloxOAuthApi {
     private readonly budget = { workMs: 6_000, cleanupMs: 2_000 },
   ) {}
 
-  async exchangeCodeForProfile(input: {
+  async exchangeCodeForAuthorization(input: {
     code: string;
     codeVerifier: string;
     redirectUri: string;
     credentials: RobloxOAuthCredentials;
     remainingTimeMs?: () => number;
-  }): Promise<RobloxUserProfile> {
+  }): Promise<RobloxOAuthAuthorization> {
     const available = Math.min(this.budget.workMs + this.budget.cleanupMs,
       (input.remainingTimeMs?.() ?? 10_000) - 1_000);
     const workMs = available - this.budget.cleanupMs;
     if (workMs <= 0) throw new RobloxOAuthUpstreamError("deadline_exceeded");
     const deadline = performance.now() + workMs;
-    const tokens = await this.bounded(deadline, (signal) => this.exchangeCode(input, signal));
-    let profile: RobloxUserProfile;
+    let tokens: TokenResponse | undefined;
     try {
-      profile = await this.bounded(deadline, (signal) => this.getUserInfo(tokens.accessToken, signal));
-    } finally {
-      await this.bounded(performance.now() + this.budget.cleanupMs,
-        (signal) => this.revoke(tokens.refreshToken, input.credentials, signal));
+      tokens = await this.bounded(deadline, (signal) => this.exchangeCode(input, signal));
+      const exchangedTokens = tokens;
+      const user = await this.bounded(deadline, (signal) => this.getUserInfo(exchangedTokens.accessToken, signal));
+      const universeIds = await this.bounded(deadline,
+        (signal) => this.getAuthorizedUniverseIds(exchangedTokens.accessToken, input.credentials, signal));
+      return { user, ...exchangedTokens, universeIds };
+    } catch (error) {
+      if (tokens) {
+        const refreshToken = tokens.refreshToken;
+        await this.bounded(performance.now() + this.budget.cleanupMs,
+          (signal) => this.revoke(refreshToken, input.credentials, signal));
+      }
+      throw error;
     }
-    return profile;
+  }
+
+  async refreshAuthorization(input: {
+    refreshToken: string;
+    credentials: RobloxOAuthCredentials;
+    remainingTimeMs?: () => number;
+  }): Promise<RefreshedRobloxOAuthAuthorization> {
+    const available = Math.min(this.budget.workMs + this.budget.cleanupMs,
+      (input.remainingTimeMs?.() ?? 10_000) - 1_000);
+    const workMs = available - this.budget.cleanupMs;
+    if (workMs <= 0) throw new RobloxOAuthUpstreamError("deadline_exceeded");
+    const deadline = performance.now() + workMs;
+    let tokens: TokenResponse | undefined;
+    try {
+      tokens = await this.bounded(deadline,
+        (signal) => this.exchangeRefreshToken(input.refreshToken, input.credentials, signal));
+      const refreshedTokens = tokens;
+      const universeIds = await this.bounded(deadline,
+        (signal) => this.getAuthorizedUniverseIds(refreshedTokens.accessToken, input.credentials, signal));
+      return { ...refreshedTokens, universeIds };
+    } catch (error) {
+      if (tokens) {
+        const refreshToken = tokens.refreshToken;
+        await this.bounded(performance.now() + this.budget.cleanupMs,
+          (signal) => this.revoke(refreshToken, input.credentials, signal));
+      }
+      throw error;
+    }
+  }
+
+  async revokeRefreshToken(refreshToken: string, credentials: RobloxOAuthCredentials): Promise<void> {
+    await this.bounded(performance.now() + this.budget.cleanupMs,
+      (signal) => this.revoke(refreshToken, credentials, signal));
   }
 
   private async exchangeCode(input: {
@@ -65,7 +116,28 @@ export class RobloxOAuthApi {
 
     const payload: unknown = await readJson(response);
     if (!isTokenResponse(payload)) throw new RobloxOAuthUpstreamError("invalid_token_response");
-    return { accessToken: payload.access_token, refreshToken: payload.refresh_token };
+    return tokenResponse(payload);
+  }
+
+  private async exchangeRefreshToken(
+    refreshToken: string,
+    credentials: RobloxOAuthCredentials,
+    signal: AbortSignal,
+  ): Promise<TokenResponse> {
+    const response = await this.request(TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: basicAuthorization(credentials),
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+      signal,
+    });
+    if (!response.ok) throw new RobloxOAuthUpstreamError("token_refresh_failed");
+    const payload: unknown = await readJson(response);
+    if (!isTokenResponse(payload)) throw new RobloxOAuthUpstreamError("invalid_token_response");
+    return tokenResponse(payload);
   }
 
   private async getUserInfo(accessToken: string, signal: AbortSignal): Promise<RobloxUserProfile> {
@@ -88,6 +160,26 @@ export class RobloxOAuthApi {
       profileUrl: optionalHttpsUrl(payload.profile),
       pictureUrl: optionalHttpsUrl(payload.picture),
     };
+  }
+
+  private async getAuthorizedUniverseIds(
+    accessToken: string,
+    credentials: RobloxOAuthCredentials,
+    signal: AbortSignal,
+  ): Promise<string[]> {
+    const response = await this.request(RESOURCES_ENDPOINT, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: basicAuthorization(credentials),
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ token: accessToken }),
+      signal,
+    });
+    if (!response.ok) throw new RobloxOAuthUpstreamError("token_resources_failed");
+    const payload: unknown = await readJson(response);
+    return parseUniverseIds(payload);
   }
 
   private async revoke(
@@ -147,10 +239,57 @@ function basicAuthorization(credentials: RobloxOAuthCredentials): string {
   return `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")}`;
 }
 
-function isTokenResponse(value: unknown): value is { access_token: string; refresh_token: string } {
+function isTokenResponse(value: unknown): value is {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  scope: string;
+} {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.access_token === "string" && typeof candidate.refresh_token === "string";
+  return typeof candidate.access_token === "string" && candidate.access_token.length <= 8_192
+    && typeof candidate.refresh_token === "string" && candidate.refresh_token.length <= 8_192
+    && typeof candidate.expires_in === "number" && Number.isFinite(candidate.expires_in)
+    && candidate.expires_in > 0 && candidate.expires_in <= 86_400
+    && typeof candidate.scope === "string"
+    && candidate.scope.split(/\s+/).includes(ANALYTICS_SCOPE);
+}
+
+function tokenResponse(payload: {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  scope: string;
+}): TokenResponse {
+  const now = Date.now();
+  return {
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token,
+    accessExpiresAt: now + payload.expires_in * 1_000,
+    refreshExpiresAt: now + REFRESH_TOKEN_TTL_MS,
+  };
+}
+
+function parseUniverseIds(value: unknown): string[] {
+  if (!value || typeof value !== "object") throw new RobloxOAuthUpstreamError("invalid_resources_response");
+  const infos = (value as Record<string, unknown>).resource_infos;
+  if (!Array.isArray(infos) || infos.length > 1_000) throw new RobloxOAuthUpstreamError("invalid_resources_response");
+  const ids = new Set<string>();
+  for (const info of infos) {
+    if (!info || typeof info !== "object") throw new RobloxOAuthUpstreamError("invalid_resources_response");
+    const resources = (info as Record<string, unknown>).resources;
+    if (!resources || typeof resources !== "object") continue;
+    const universe = (resources as Record<string, unknown>).universe;
+    if (!universe || typeof universe !== "object") continue;
+    const universeIds = (universe as Record<string, unknown>).ids;
+    if (!Array.isArray(universeIds)) throw new RobloxOAuthUpstreamError("invalid_resources_response");
+    for (const id of universeIds) {
+      // Roblox uses "U" for an unrestricted creator grant. This app fails closed
+      // until a concrete universe ID is returned and never expands that wildcard.
+      if (typeof id === "string" && /^\d{1,20}$/.test(id)) ids.add(id);
+    }
+  }
+  return [...ids].sort();
 }
 
 async function readJson(response: Response): Promise<unknown> {

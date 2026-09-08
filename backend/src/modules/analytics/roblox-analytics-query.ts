@@ -63,6 +63,11 @@ export type AnalyticsOperation<T = unknown> = Readonly<{
   error?: { code?: string | number; message?: string };
 }>;
 
+export type RobloxAnalyticsCredential = string | Readonly<{
+  type: 'oauth';
+  accessToken: string;
+}>;
+
 export class RobloxAnalyticsQueryError extends Error {
   constructor(
     message: string,
@@ -101,16 +106,16 @@ export class RobloxAnalyticsQueryClient {
     this.signal = options.signal;
   }
 
-  queryMetric(apiKey: string, universeId: string, query: MetricQuery) {
-    return this.run<Readonly<{ values: AnalyticsSeries[] }>>(apiKey, universeId, "metrics", query);
+  queryMetric(credential: RobloxAnalyticsCredential, universeId: string, query: MetricQuery) {
+    return this.run<Readonly<{ values: AnalyticsSeries[] }>>(credential, universeId, "metrics", query);
   }
 
-  queryDimensionValues(apiKey: string, universeId: string, query: DimensionValuesQuery) {
-    return this.run<Readonly<{ values: AnalyticsDimensionValues[] }>>(apiKey, universeId, "dimension-values", query);
+  queryDimensionValues(credential: RobloxAnalyticsCredential, universeId: string, query: DimensionValuesQuery) {
+    return this.run<Readonly<{ values: AnalyticsDimensionValues[] }>>(credential, universeId, "dimension-values", query);
   }
 
   private async run<T>(
-    apiKey: string,
+    credential: RobloxAnalyticsCredential,
     universeId: string,
     kind: "metrics" | "dimension-values",
     body: MetricQuery | DimensionValuesQuery,
@@ -119,22 +124,22 @@ export class RobloxAnalyticsQueryClient {
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const signal = this.signal ? AbortSignal.any([this.signal, controller.signal]) : controller.signal;
-      return await this.runWithinDeadline<T>(apiKey, universeId, kind, body, signal);
+      return await this.runWithinDeadline<T>(credential, universeId, kind, body, signal);
     } finally {
       clearTimeout(timer);
     }
   }
 
   private async runWithinDeadline<T>(
-    apiKey: string, universeId: string, kind: "metrics" | "dimension-values",
+    credential: RobloxAnalyticsCredential, universeId: string, kind: "metrics" | "dimension-values",
     body: MetricQuery | DimensionValuesQuery, signal: AbortSignal,
   ): Promise<T> {
-    assertCredential(apiKey);
+    assertCredential(credential);
     assertUniverseId(universeId);
     assertDateWindow(body.startTime, body.endTime);
 
     const endpoint = `${this.baseUrl}/v1/universes/${universeId}/${kind}`;
-    let operation = await this.request<T>(endpoint, apiKey, {
+    let operation = await this.request<T>(endpoint, credential, {
       method: "POST",
       body: JSON.stringify(body),
     }, signal);
@@ -142,7 +147,7 @@ export class RobloxAnalyticsQueryClient {
     for (let poll = 0; !operation.done && poll < this.maxPolls; poll += 1) {
       const operationUrl = this.operationUrl(operation.path, universeId, kind);
       await bounded(() => this.sleep(Math.min(5_000, 250 * 2 ** poll)), signal);
-      operation = await this.request<T>(operationUrl, apiKey, { method: "GET" }, signal);
+      operation = await this.request<T>(operationUrl, credential, { method: "GET" }, signal);
     }
 
     if (!operation.done) {
@@ -159,7 +164,7 @@ export class RobloxAnalyticsQueryClient {
 
   private async request<T>(
     url: string,
-    apiKey: string,
+    credential: RobloxAnalyticsCredential,
     init: { method: "GET" | "POST"; body?: string },
     signal: AbortSignal,
   ): Promise<AnalyticsOperation<T>> {
@@ -170,7 +175,9 @@ export class RobloxAnalyticsQueryClient {
       headers: {
         accept: "application/json",
         "content-type": "application/json",
-        "x-api-key": apiKey,
+        ...(typeof credential === 'string'
+          ? { 'x-api-key': credential }
+          : { authorization: `Bearer ${credential.accessToken}` }),
       },
     }), signal);
 
@@ -211,8 +218,9 @@ function bounded<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-function assertCredential(apiKey: string) {
-  if (apiKey.trim().length < 10) throw new Error("A Roblox analytics API key is required");
+function assertCredential(credential: RobloxAnalyticsCredential) {
+  const value = typeof credential === 'string' ? credential : credential.accessToken;
+  if (value.trim().length < 10) throw new Error("A Roblox analytics credential is required");
 }
 
 function assertUniverseId(universeId: string) {

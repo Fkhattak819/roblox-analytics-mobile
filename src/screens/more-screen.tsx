@@ -90,7 +90,7 @@ export default function MoreScreen() {
     ? `Analytics refreshed ${new Date(connection.analytics.lastSyncedAt).toLocaleString()}`
     : identityConnected
       ? 'Official analytics will sync on demand'
-      : 'OAuth identifies your creator account';
+      : 'OAuth approves identity and read-only analytics';
 
   return (
     <Screen contentContainerStyle={styles.screenContent}>

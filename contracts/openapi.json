@@ -834,7 +834,8 @@
         "additionalProperties": false,
         "required": [
           "expiresAt",
-          "user"
+          "user",
+          "authorizedUniverseIds"
         ],
         "properties": {
           "expiresAt": {
@@ -843,6 +844,12 @@
           },
           "user": {
             "$ref": "#/components/schemas/RobloxUserProfile"
+          },
+          "authorizedUniverseIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[0-9]{1,20}$" }
           }
         }
       },
@@ -852,7 +859,8 @@
         "required": [
           "token",
           "expiresAt",
-          "user"
+          "user",
+          "authorizedUniverseIds"
         ],
         "properties": {
           "token": {
@@ -866,6 +874,12 @@
           },
           "user": {
             "$ref": "#/components/schemas/RobloxUserProfile"
+          },
+          "authorizedUniverseIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[0-9]{1,20}$" }
           }
         }
       },

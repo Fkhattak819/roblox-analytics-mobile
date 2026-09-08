@@ -14,11 +14,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
 
-import { loadConnectionStatus } from '@/services/connections-api';
 import { appEnvironment } from '@/services/backend-api';
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
-import { getStoredSessionToken, sessionController, signInWithRoblox } from '@/services/roblox-auth';
+import { sessionController, signInWithRoblox } from '@/services/roblox-auth';
 import { useSession } from '@/src/state/session-context';
 import { colors } from '@/src/theme/tokens';
 
@@ -45,7 +44,7 @@ const CONTENT_WIDTH = 340;
 const WELCOME_PATH_LENGTH = 321.257;
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-type OnboardingStep = 0 | 1 | 2 | 3 | 4;
+type OnboardingStep = 0 | 1 | 2 | 3;
 
 export default function OnboardingScreen() {
   const session = useSession();
@@ -82,7 +81,7 @@ export default function OnboardingScreen() {
   };
 
   const goForward = () => {
-    setStep((current) => Math.min(current + 1, 4) as OnboardingStep);
+    setStep((current) => Math.min(current + 1, 3) as OnboardingStep);
   };
 
   const goBack = () => {
@@ -103,7 +102,7 @@ export default function OnboardingScreen() {
       <View style={styles.canvas}>
         {Platform.OS === 'web' ? <WebSystemChrome /> : null}
         <Progress step={step} />
-        {step > 0 && step < 4 ? <BackButton onPress={goBack} /> : null}
+        {step > 0 && step < 3 ? <BackButton onPress={goBack} /> : null}
 
         {step === 0 ? (
           <WelcomeStep
@@ -122,13 +121,6 @@ export default function OnboardingScreen() {
           />
         ) : null}
         {step === 2 ? (
-          <AnalyticsAccessStep
-            onPrimary={goForward}
-            onSample={() => void exploreSample()}
-            sampleMode={sampleMode}
-          />
-        ) : null}
-        {step === 3 ? (
           <ChooseExperiencesStep
             selectedIds={selectedIds}
             onContinue={goForward}
@@ -136,7 +128,7 @@ export default function OnboardingScreen() {
             onToggle={toggleExperience}
           />
         ) : null}
-        {step === 4 ? (
+        {step === 3 ? (
           <ReadyStep
             selectedCount={selectedIds.size}
             username={creatorUsername}
@@ -163,8 +155,8 @@ function WebSystemChrome() {
 
 function Progress({ step }: { step: OnboardingStep }) {
   return (
-    <View accessibilityLabel={`Onboarding step ${step + 1} of 5`} style={styles.progress}>
-      {[0, 1, 2, 3, 4].map((index) => (
+    <View accessibilityLabel={`Onboarding step ${step + 1} of 4`} style={styles.progress}>
+      {[0, 1, 2, 3].map((index) => (
         <View
           key={index}
           style={[styles.progressSegment, index <= step ? styles.progressSegmentActive : null]}
@@ -392,19 +384,19 @@ function IdentityStep({
       <RobloxMark top={112} />
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 202 }]}>SECURE ROBLOX SIGN-IN</StudioText>
       <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 226 }]}>Connect your Roblox{`\n`}identity</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 302 }]}>Sign in through Roblox to identify your account.{`\n`}Experience access comes from your analytics{`\n`}key.</StudioText>
+      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 302 }]}>Sign in once through Roblox to connect your{`\n`}identity and approve read-only analytics for{`\n`}the experiences you choose.</StudioText>
 
       <View style={styles.permissionsCard}>
         <StudioText weight="semibold" size={14} lineHeight={19} style={styles.permissionsTitle}>What roblox-analytics-mobile receives</StudioText>
         <PermissionLine symbol="✓" title="Roblox profile" top={51} value="openid + profile" />
-        <PermissionLine symbol="✓" title="Account identity" top={91} value="user ID + public profile" />
+        <PermissionLine symbol="✓" title="Experience analytics" top={91} value="read-only aggregate metrics" />
         <PermissionLine muted symbol="—" title="Never requested" top={131} value=".ROBLOSECURITY cookie" />
       </View>
 
       <StatusRow
         badge={connected ? 'CONNECTED' : 'READY'}
         badgeTone={connected ? 'success' : 'accent'}
-        detail="OAuth + PKCE · profile only"
+        detail="OAuth + PKCE · read-only analytics"
         dotColor={connected ? palette.success : palette.accentText}
         title="Roblox identity"
         top={580}
@@ -440,87 +432,6 @@ function PermissionLine({
   );
 }
 
-function AnalyticsAccessStep({
-  onPrimary,
-  onSample,
-  sampleMode,
-}: {
-  onPrimary: () => void;
-  onSample: () => void;
-  sampleMode: boolean;
-}) {
-  const [checking, setChecking] = useState(false);
-
-  const verify = async () => {
-    if (checking) return;
-    setChecking(true);
-    try {
-      const token = await getStoredSessionToken();
-      if (!token) throw new Error('Sign in with Roblox before verifying analytics.');
-      await loadConnectionStatus({ universeId: '10009166512', sessionToken: token });
-      onPrimary();
-    } catch (error) {
-      Alert.alert('Couldn’t verify analytics', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  return (
-    <>
-      <SecureAnalyticsVisual />
-      <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 256 }]}>ROBLOX OPEN CLOUD</StudioText>
-      <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 280 }]}>Analytics is ready</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 328 }]}>Your Most Words Win! key is encrypted in AWS.{`\n`}The app receives aggregate analytics only—never{`\n`}the credential itself.</StudioText>
-
-      <StatusRow
-        badge="SERVER READY"
-        badgeTone="accent"
-        detail="universe.analytics:read"
-        dotColor={palette.accentText}
-        title="Analytics access"
-        top={420}
-      />
-
-      <View style={styles.boundariesCard}>
-        <BoundaryLine symbol="✓" text="Read-only aggregate metrics" top={17} />
-        <BoundaryLine symbol="✓" text="Only universes selected for this key" top={57} />
-        <BoundaryLine muted symbol="—" text="No raw per-player event store" top={97} />
-      </View>
-
-      <Actions
-        disabled={!sampleMode && checking}
-        onPrimary={sampleMode ? onSample : () => void verify()}
-        primaryLabel={sampleMode ? 'Explore sample data' : checking ? 'Verifying…' : 'Verify and continue'}
-      />
-    </>
-  );
-}
-
-function SecureAnalyticsVisual() {
-  return (
-    <View style={styles.secureVisual}>
-      {[30, 55, 80].map((top) => <View key={top} style={[styles.secureGrid, { top }]} />)}
-      <Svg height={86} width={210} style={styles.secureLine} viewBox="0 0 210 86">
-        <Path d="M2 73C26 69 31 57 54 61C78 65 84 42 108 47C131 51 142 29 164 34C185 39 194 18 208 13" fill="none" stroke={palette.accentText} strokeLinecap="round" strokeWidth={3} />
-      </Svg>
-      <View style={styles.encryptedKey}>
-        <StudioText weight="bold" size={20} lineHeight={27} style={styles.encryptedDots}>•••</StudioText>
-        <StudioText weight="semibold" size={9} lineHeight={12} style={styles.encryptedRead}>READ</StudioText>
-      </View>
-    </View>
-  );
-}
-
-function BoundaryLine({ symbol, text, top, muted = false }: { symbol: string; text: string; top: number; muted?: boolean }) {
-  return (
-    <>
-      <StudioText weight="semibold" size={14} lineHeight={19} style={[styles.boundarySymbol, { top, color: muted ? palette.secondary : palette.success }]}>{symbol}</StudioText>
-      <StudioText size={13} lineHeight={18} style={[styles.boundaryText, { top }]}>{text}</StudioText>
-    </>
-  );
-}
-
 function ChooseExperiencesStep({
   selectedIds,
   onContinue,
@@ -534,9 +445,9 @@ function ChooseExperiencesStep({
 }) {
   return (
     <>
-      <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 118 }]}>AUTHORIZED BY YOUR KEY</StudioText>
+      <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 118 }]}>AUTHORIZED THROUGH ROBLOX</StudioText>
       <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 142 }]}>Choose experiences</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 190 }]}>Select from the experiences authorized by your{`\n`}analytics key. You can change this later.</StudioText>
+      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 190 }]}>Select from the experiences approved during{`\n`}Roblox sign-in. You can reconnect later.</StudioText>
 
       <View style={styles.eligiblePill}>
         <StudioText weight="semibold" size={11} lineHeight={15} style={styles.eligibleText}>1 authorized experience</StudioText>

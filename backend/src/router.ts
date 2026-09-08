@@ -121,6 +121,7 @@ export async function routeRequest(
         token: result.token,
         expiresAt: new Date(result.session.expiresAt).toISOString(),
         user: result.session.user,
+        authorizedUniverseIds: result.session.authorizedUniverseIds,
       });
     });
   }
@@ -131,6 +132,7 @@ export async function routeRequest(
       return response(200, {
         expiresAt: new Date(session.expiresAt).toISOString(),
         user: session.user,
+        authorizedUniverseIds: session.authorizedUniverseIds,
       });
     });
   }

@@ -14,7 +14,7 @@ function setup() {
   const calls = [];
   const deps = {
     authorizer: { requireAccess: async (owner, universe) => { if (!grants.has(`${owner}:${universe}`)) throw new AnalyticsAccessDenied(); } },
-    apiKeyProvider: { getApiKey: async () => { calls.push('credential'); return 'synthetic'; } },
+    accessTokenProvider: { getAccessToken: async () => { calls.push('credential'); return 'synthetic'; } },
     syncService: { sync: async input => { calls.push(`sync:${input.ownerSub}:${input.universeId}`); return { asOf: new Date().toISOString() }; } },
     statusStore: { get: async () => null, put: async () => { calls.push('status'); } },
   };
@@ -29,7 +29,7 @@ test('worker rejects forged cross-account jobs before retrieving credentials', a
 });
 test('revocation during credential lookup prevents the analytics query', async () => {
   const { grants, calls, deps } = setup();
-  deps.apiKeyProvider.getApiKey = async () => { grants.clear(); return 'synthetic'; };
+  deps.accessTokenProvider.getAccessToken = async () => { grants.clear(); return 'synthetic'; };
   await assert.rejects(processAnalyticsMessage(message(), config, deps), AnalyticsAccessDenied);
   assert.deepEqual(calls, []);
 });

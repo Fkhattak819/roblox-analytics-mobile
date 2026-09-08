@@ -17,7 +17,7 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
   template.resourceCountIs("AWS::SQS::Queue", 2);
   template.resourceCountIs("AWS::S3::Bucket", 1);
   template.resourceCountIs("AWS::SecretsManager::Secret", 2);
-  template.resourceCountIs("AWS::KMS::Key", 0);
+  template.resourceCountIs("AWS::KMS::Key", 1);
   template.resourceCountIs("AWS::IAM::Policy", 2);
   template.resourceCountIs('AWS::Lambda::EventSourceMapping', 1);
   template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
@@ -64,7 +64,8 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
       Variables: Match.objectLike({
         APP_ENV: "dev",
         APP_OAUTH_CALLBACK_URI: "robloxanalyticsmobile://oauth/callback",
-        ROBLOX_OAUTH_SCOPES: "openid profile",
+        ROBLOX_OAUTH_SCOPES: "openid profile universe.analytics:read",
+        ROBLOX_OAUTH_TOKEN_KEY_ARN: Match.anyValue(),
       }),
     },
   });
@@ -120,11 +121,14 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
   const resources = template.toJSON().Resources;
   const worker = Object.values(resources).find((resource: any) =>
     resource.Type === 'AWS::Lambda::Function' && resource.Properties.FunctionName.endsWith('-analytics-worker')) as any;
+  assert.ok(worker.Properties.Environment.Variables.ROBLOX_OAUTH_SECRET_ARN);
+  assert.ok(worker.Properties.Environment.Variables.ROBLOX_OAUTH_TOKEN_KEY_ARN);
+  assert.equal(worker.Properties.Environment.Variables.ROBLOX_ANALYTICS_SECRET_ARN, undefined);
   const queue = Object.values(resources).find((resource: any) =>
     resource.Type === 'AWS::SQS::Queue' && resource.Properties.QueueName.endsWith('-sync')) as any;
   assert.ok(queue.Properties.VisibilityTimeout >= 6 * worker.Properties.Timeout);
   for (const resource of Object.values(resources) as any[]) {
-    if (['AWS::DynamoDB::Table', 'AWS::S3::Bucket', 'AWS::SecretsManager::Secret'].includes(resource.Type)) {
+    if (['AWS::DynamoDB::Table', 'AWS::S3::Bucket', 'AWS::SecretsManager::Secret', 'AWS::KMS::Key'].includes(resource.Type)) {
       assert.equal(resource.DeletionPolicy, 'Retain');
       assert.equal(resource.UpdateReplacePolicy, 'Retain');
     }

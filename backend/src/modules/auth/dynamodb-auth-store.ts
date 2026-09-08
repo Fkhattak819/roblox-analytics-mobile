@@ -24,6 +24,7 @@ type StoredRecord = {
   clientChallenge?: string;
   clientState?: string;
   user?: RobloxUserProfile;
+  authorizedUniverseIds?: string[];
   authGeneration?: string;
   sessionEpoch?: string;
 };
@@ -79,6 +80,7 @@ export class DynamoDbAuthStore implements AuthStore {
       sessionEpoch: record.sessionEpoch,
       expiresAt: record.expiresAt,
       user: record.user,
+      authorizedUniverseIds: record.authorizedUniverseIds,
     });
   }
 
@@ -94,9 +96,11 @@ export class DynamoDbAuthStore implements AuthStore {
         ReturnValues: "ALL_OLD",
       }));
       const record = result.Attributes ? unmarshall(result.Attributes) as StoredRecord : null;
-      if (record?.type !== "oauth-exchange" || !record.user || record.clientChallenge !== clientChallenge
+      if (record?.type !== "oauth-exchange" || !record.user || !validUniverseIds(record.authorizedUniverseIds)
+        || record.clientChallenge !== clientChallenge
         || !record.authGeneration || !record.sessionEpoch) return null;
-      return isCurrent({ user: record.user, clientChallenge, authGeneration: record.authGeneration,
+      return isCurrent({ user: record.user, authorizedUniverseIds: record.authorizedUniverseIds,
+        clientChallenge, authGeneration: record.authGeneration,
         sessionEpoch: record.sessionEpoch, expiresAt: record.expiresAt });
     } catch (error) {
       if (error instanceof Error && error.name === "ConditionalCheckFailedException") return null;
@@ -111,6 +115,7 @@ export class DynamoDbAuthStore implements AuthStore {
       sessionEpoch: record.sessionEpoch,
       expiresAt: record.expiresAt,
       user: record.user,
+      authorizedUniverseIds: record.authorizedUniverseIds,
     });
   }
 
@@ -122,8 +127,10 @@ export class DynamoDbAuthStore implements AuthStore {
     }));
     if (!result.Item) return null;
     const record = unmarshall(result.Item) as StoredRecord;
-    if (record.type !== "app-session" || !record.user || !record.authGeneration || !record.sessionEpoch) return null;
-    return isCurrent({ user: record.user, authGeneration: record.authGeneration,
+    if (record.type !== "app-session" || !record.user || !validUniverseIds(record.authorizedUniverseIds)
+      || !record.authGeneration || !record.sessionEpoch) return null;
+    return isCurrent({ user: record.user, authorizedUniverseIds: record.authorizedUniverseIds,
+      authGeneration: record.authGeneration,
       sessionEpoch: record.sessionEpoch, expiresAt: record.expiresAt });
   }
 
@@ -174,3 +181,7 @@ function isCurrent<T extends { expiresAt: number }>(record: T): T | null {
   return Number.isFinite(record.expiresAt) && record.expiresAt > Date.now() ? record : null;
 }
 
+function validUniverseIds(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length <= 1_000
+    && value.every((id) => typeof id === 'string' && /^\d{1,20}$/.test(id));
+}

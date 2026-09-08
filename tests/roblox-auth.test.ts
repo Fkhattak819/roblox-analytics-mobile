@@ -80,7 +80,7 @@ test('expired mobile response is rejected after a valid correlated callback', as
     apiBaseUrl: API_BASE_URL, appCallbackUri: CALLBACK_URI, createProof,
     fetchImpl: async () => ++requests === 1
       ? Response.json({ authorizationUrl: 'https://apis.roblox.com/oauth/v1/authorize?state=backend' })
-      : Response.json({ token: SESSION_TOKEN, expiresAt: '2000-01-01T00:00:00Z', user: { sub: '123' } }),
+      : Response.json({ token: SESSION_TOKEN, expiresAt: '2000-01-01T00:00:00Z', user: { sub: '123' }, authorizedUniverseIds: ['10009166512'] }),
     openAuthSession: async () => ({ type: 'success', url: `${CALLBACK_URI}?code=${EXCHANGE_CODE}&state=${CLIENT_STATE}` }),
     saveSessionToken: async () => assert.fail('expired token stored'),
   }), /Invalid session response/);
@@ -105,6 +105,7 @@ test('Roblox identity flow exchanges the callback once and stores only the app s
         token: SESSION_TOKEN,
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
         user: { sub: '123456', preferredUsername: 'creator_name' },
+        authorizedUniverseIds: ['10009166512'],
       });
     },
     openAuthSession: async (authorizationUrl, callbackUri) => {
@@ -118,6 +119,7 @@ test('Roblox identity flow exchanges the callback once and stores only the app s
   });
 
   assert.equal(session.user.sub, '123456');
+  assert.deepEqual(session.authorizedUniverseIds, ['10009166512']);
   assert.equal(storedToken, SESSION_TOKEN);
   assert.equal(requests.length, 2);
   const startUrl = new URL(requests[0]!.url);
@@ -171,4 +173,3 @@ test('Roblox identity cancellation never creates or stores an app session', asyn
   assert.equal(requestCount, 1);
   assert.equal(stored, false);
 });
-

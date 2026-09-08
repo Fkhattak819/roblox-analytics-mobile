@@ -13,6 +13,7 @@ export type AppSession = Readonly<{
   token: string;
   expiresAt: string;
   user: RobloxProfile;
+  authorizedUniverseIds: string[];
 }>;
 
 export type SessionMetadata = Omit<AppSession, 'token'>;
@@ -155,6 +156,7 @@ function parseSession(value: unknown): AppSession {
     token: candidate.token,
     expiresAt: candidate.expiresAt,
     user,
+    authorizedUniverseIds: parseUniverseIds(candidate.authorizedUniverseIds),
   };
 }
 
@@ -163,7 +165,16 @@ export function parseSessionMetadata(value: unknown): SessionMetadata {
   const candidate = value as Record<string, unknown>;
   if (typeof candidate.expiresAt !== 'string' || !Number.isFinite(Date.parse(candidate.expiresAt))
     || Date.parse(candidate.expiresAt) <= Date.now()) throw new Error('Invalid session response');
-  return { expiresAt: candidate.expiresAt, user: parseRobloxProfile(candidate.user) };
+  return { expiresAt: candidate.expiresAt, user: parseRobloxProfile(candidate.user),
+    authorizedUniverseIds: parseUniverseIds(candidate.authorizedUniverseIds) };
+}
+
+function parseUniverseIds(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 1_000
+    || value.some((id) => typeof id !== 'string' || !/^\d{1,20}$/.test(id))) {
+    throw new Error('Invalid session response');
+  }
+  return [...new Set(value)];
 }
 
 function parseRobloxProfile(value: unknown): RobloxProfile {
