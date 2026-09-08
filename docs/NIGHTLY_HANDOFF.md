@@ -1,5 +1,14 @@
 # roblox-analytics-mobile handoff
 
+## Live push, deployment, and access provisioning — September 7
+
+- Integrated the newly advanced remote `master`, retained the tested security/Expo implementations during duplicate-history conflict resolution, accepted the remote OAuth-state TTL increase from 10 to 30 minutes, and reran TypeScript, lint, 55 app tests, 55 backend tests, and the infrastructure test. Pushed commit `9b882f9` to `origin/master`.
+- Deployed that source to `roblox-analytics-mobile-dev` in account 896979073148/us-east-2. CloudFormation reports `UPDATE_COMPLETE`; both Node.js 22 ARM64 Lambdas are Active with Successful update status. Live probes return health 200, secure v2 OAuth start 200, anonymous session/analytics 401, and retired v1 OAuth start 410.
+- Added one TLS-only SNS topic as the action for both application alarms. Both alarms report `OK` and each has one action. The approved email subscription is `PendingConfirmation`; the recipient must click the AWS confirmation email before alarm mail can be delivered. These are StudioPulse authentication/runtime alarms, not blanket monitoring for every AWS service or application in the account.
+- Provisioned the operator-managed grant for Roblox user `2992201638` and universe `10009166512` with `type=analytics-access`, `enabled=true`, and verified group ownership metadata for group `737917380`. A consistent exact-key read confirmed the record. No other application records were read.
+- Verified without printing values that both Roblox OAuth credential fields are configured in Secrets Manager. Creator Hub shows the matching private group-owned OAuth application and exact deployed callback. The private app remains limited to its approved test users; public publishing was not requested or performed.
+- Installed CocoaPods and attempted an AWS-connected native iOS build. The app reached Xcode but ExpoModulesJSI cannot compile with this Mac's Xcode 26.0.1 / Swift 6.2. Expo requires Xcode 26.4+ / Swift 6.3 for this syntax, and Apple requires macOS Tahoe 26.2+ for that Xcode. The Mac is on Sequoia and the App Store offers only `Open`, not an Xcode update. A major macOS upgrade/restart was not performed. The tracked Expo prebuild edits were reverted; the ignored generated `ios/` directory remains available for the next build.
+
 ## Offline onboarding fallback fixed — September 7
 
 - Fixed the no-backend onboarding path shown in the simulator: sample mode no longer presents a Roblox OAuth action that can fail with `The backend URL is not configured`.
