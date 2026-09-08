@@ -1,4 +1,5 @@
-import { DynamoDBClient, GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from "@aws-sdk/client-dynamodb";
+import { accessCondition, DynamoAnalyticsAuthorizer } from './authorization.js';
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import type { AnalyticsSectionId } from "../../../../contracts/src/analytics.js";
 
@@ -22,12 +23,15 @@ export class DynamoDbAnalyticsConnectionStatusStore implements AnalyticsConnecti
   ) {}
 
   async get(ownerSub: string, universeId: string): Promise<AnalyticsConnectionStatus | null> {
+    const access = new DynamoAnalyticsAuthorizer(this.client, this.tableName);
+    await access.requireAccess(ownerSub, universeId);
     const result = await this.client.send(new GetItemCommand({
       TableName: this.tableName,
       Key: marshall(key(ownerSub, universeId)),
       ConsistentRead: true,
     }));
     if (!result.Item) return null;
+    await access.requireAccess(ownerSub, universeId);
     const record = unmarshall(result.Item) as Record<string, unknown>;
     if (record.type !== "analytics-connection-status") return null;
     return {
@@ -40,14 +44,17 @@ export class DynamoDbAnalyticsConnectionStatusStore implements AnalyticsConnecti
   }
 
   async put(ownerSub: string, status: AnalyticsConnectionStatus): Promise<void> {
-    await this.client.send(new PutItemCommand({
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { ConditionCheck: accessCondition(this.tableName, ownerSub, status.universeId) },
+      { Put: {
       TableName: this.tableName,
       Item: marshall({
         ...key(ownerSub, status.universeId),
         type: "analytics-connection-status",
         ...status,
       }, { removeUndefinedValues: true }),
-    }));
+      } },
+    ] }));
   }
 }
 

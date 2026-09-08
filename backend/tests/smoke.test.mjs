@@ -1,4 +1,7 @@
 import test from "node:test";
+import { createHash } from "node:crypto";
+const clientVerifier = "v".repeat(64);
+const clientProof = { clientChallenge: createHash("sha256").update(clientVerifier).digest("base64url"), clientState: "s".repeat(64) };
 import assert from "node:assert/strict";
 import { parseHomeSnapshot } from "../dist/contracts/src/home.js";
 import { fingerprintSecret, validateConnectionInput } from "../dist/backend/src/modules/analytics/connection.js";
@@ -12,10 +15,13 @@ import { routeRequest } from "../dist/backend/src/router.js";
 import { InMemoryAnalyticsSnapshotStore } from "../dist/backend/src/modules/analytics/snapshot-store.js";
 import { AnalyticsSnapshotSyncService } from "../dist/backend/src/modules/analytics/snapshot-sync.js";
 import { AnalyticsSyncJobService } from "../dist/backend/src/modules/analytics/sync-jobs.js";
+import { AnalyticsAccessDenied } from "../dist/backend/src/modules/analytics/authorization.js";
 import {
   AnalyticsConfigurationError,
   StaticAnalyticsApiKeyProvider,
 } from "../dist/backend/src/modules/analytics/analytics-credentials.js";
+
+const allowAllAnalytics = { requireAccess: async () => undefined };
 
 test("validates an analytics connection and supports safe fingerprinting", () => {
   const result = validateConnectionInput({ apiKey: "secret-key-value", universeIds: ["123"] });
@@ -68,7 +74,7 @@ test("AWS scaffold rejects Roblox credentials before inspecting them", async () 
 test("OAuth start persists PKCE state and exposes only the authorization URL", async () => {
   const { authService } = testAuthService();
   const response = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     loadConfig({}),
     "local",
     { authService },
@@ -91,7 +97,7 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const dependencies = { authService };
 
   const start = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     config,
     "local",
     dependencies,
@@ -123,8 +129,8 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const exchange = await routeRequest(
     {
       method: "POST",
-      path: "/v1/auth/session/exchange",
-      body: { code: exchangeCode },
+      path: "/v2/auth/session/exchange",
+      body: { code: exchangeCode, clientVerifier },
     },
     config,
     "local",
@@ -137,8 +143,8 @@ test("OAuth callback creates a one-time app exchange and revocable session", asy
   const replayedExchange = await routeRequest(
     {
       method: "POST",
-      path: "/v1/auth/session/exchange",
-      body: { code: exchangeCode },
+      path: "/v2/auth/session/exchange",
+      body: { code: exchangeCode, clientVerifier },
     },
     config,
     "local",
@@ -178,7 +184,7 @@ test("OAuth state is consumed before the authorization code can be replayed", as
   const config = loadConfig({});
   const dependencies = { authService };
   const start = await routeRequest(
-    { method: "GET", path: "/v1/auth/roblox/start" },
+    { method: "GET", path: "/v2/auth/roblox/start", query: clientProof },
     config,
     "local",
     dependencies,
@@ -202,6 +208,8 @@ test("analytics snapshot route requires a session and reads only the session ten
   const sessionToken = "s".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authGeneration: "initial",
+    sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
   });
   const authService = new AuthService(
@@ -239,7 +247,7 @@ test("analytics snapshot route requires a session and reads only the session ten
     { method: "GET", path, query },
     config,
     "local",
-    { authService, analyticsSnapshotStore },
+    { authService, analyticsSnapshotStore, analyticsAuthorizer: allowAllAnalytics },
   );
   assert.equal(unauthorized.statusCode, 401);
 
@@ -247,7 +255,7 @@ test("analytics snapshot route requires a session and reads only the session ten
     { method: "GET", path, query, headers: { authorization: `Bearer ${sessionToken}` } },
     config,
     "local",
-    { authService, analyticsSnapshotStore },
+    { authService, analyticsSnapshotStore, analyticsAuthorizer: allowAllAnalytics },
   );
   assert.equal(authorized.statusCode, 200);
   assert.equal(authorized.body.source, "roblox_open_cloud");
@@ -255,13 +263,15 @@ test("analytics snapshot route requires a session and reads only the session ten
   const otherTenantToken = "t".repeat(32);
   await authStore.putSession(otherTenantToken, {
     user: { sub: "999999" },
+    authGeneration: "initial",
+    sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
   });
   const isolated = await routeRequest(
     { method: "GET", path, query, headers: { authorization: `Bearer ${otherTenantToken}` } },
     config,
     "local",
-    { authService, analyticsSnapshotStore },
+    { authService, analyticsSnapshotStore, analyticsAuthorizer: allowAllAnalytics },
   );
   assert.equal(isolated.statusCode, 404);
 });
@@ -272,6 +282,8 @@ test("analytics sync jobs derive the tenant from the authenticated session", asy
   const sessionToken = "q".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authGeneration: "initial",
+    sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
   });
   const authService = new AuthService(
@@ -303,7 +315,7 @@ test("analytics sync jobs derive the tenant from the authenticated session", asy
     },
     config,
     "local",
-    { authService, analyticsSyncJobService },
+    { authService, analyticsSyncJobService, analyticsAuthorizer: allowAllAnalytics },
   );
   assert.equal(response.statusCode, 202);
   assert.equal(response.headers["retry-after"], "60");
@@ -319,7 +331,11 @@ test("analytics sync jobs derive the tenant from the authenticated session", asy
     },
     config,
     "local",
-    { authService, analyticsSyncJobService },
+    { authService, analyticsSyncJobService, analyticsAuthorizer: {
+      requireAccess: async (_ownerSub, universeId) => {
+        if (universeId !== "10009166512") throw new AnalyticsAccessDenied();
+      },
+    } },
   );
   assert.equal(denied.statusCode, 403);
 });
@@ -330,6 +346,8 @@ test("connection status exposes backend metadata without secret material", async
   const sessionToken = "c".repeat(32);
   await authStore.putSession(sessionToken, {
     user: { sub: "123456", preferredUsername: "creator_name" },
+    authGeneration: "initial",
+    sessionEpoch: config.sessionEpoch,
     expiresAt: Date.now() + 60_000,
   });
   const authService = new AuthService(
@@ -357,7 +375,7 @@ test("connection status exposes backend metadata without secret material", async
     },
     config,
     "local",
-    { authService, analyticsConnectionStatusStore },
+    { authService, analyticsConnectionStatusStore, analyticsAuthorizer: allowAllAnalytics },
   );
   assert.equal(result.statusCode, 200);
   assert.equal(result.body.identity.username, "creator_name");
@@ -371,6 +389,7 @@ test("analytics sync jobs are cooldown-gated before queueing", async () => {
   const service = new AnalyticsSyncJobService(
     { async tryAcquire() { return acquired; } },
     { async enqueue(message) { queued.push(message); } },
+    allowAllAnalytics,
     () => new Date("2026-09-02T20:00:00Z"),
   );
   const request = {

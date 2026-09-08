@@ -4,6 +4,10 @@ This is the audit trail between the live Figma file and the Expo / React Native 
 
 ## Source
 
+September 6 security pass: authenticated live design context and exact screenshots were retrieved for `210:471` (identity), `140:109` (More), `140:211` (profile), `140:313` (connections), `210:500` (analytics access), and `210:588` (ready). Exact returned assets are preserved under `assets/figma/security-2026-09-06/`. No motion was reported for these reads. Views now use verified session facts and explicitly disabled analytics access; these intentional text changes supersede demonstration security claims. Obsolete sessions/security routes reuse reviewed account/connections views.
+
+Native screenshots and overlays remain pending. Most references are 393 x 852; connections is 393 x 1343. Live frames mix Geist and Builder Sans; current typography has not been approved as matching all frames. No new font was bundled in this security pass. See `docs/MAC_SECURITY_VALIDATION.md` for the required device evidence. Older status rows below describe earlier checkpoints.
+
 - Figma file key: `WCcDt0bYdwuoypf03dYcCg`
 - Figma file: [StudioPulse — Roblox Analytics Wireframes](https://www.figma.com/design/WCcDt0bYdwuoypf03dYcCg/StudioPulse-%E2%80%94-Roblox-Analytics-Wireframes)
 - Dark-mode page: `0:1`, `01 — Mobile Overview`

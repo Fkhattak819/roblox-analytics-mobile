@@ -1,9 +1,10 @@
 import {
   DynamoDBClient,
   GetItemCommand,
-  PutItemCommand,
+  TransactWriteItemsCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { accessCondition, DynamoAnalyticsAuthorizer } from './authorization.js';
 import type { AnalyticsSnapshot } from '../../../../contracts/src/analytics.js';
 import {
   type AnalyticsSnapshotKey,
@@ -28,12 +29,15 @@ export class DynamoDbAnalyticsSnapshotStore implements AnalyticsSnapshotStore {
 
   async getSnapshot(key: AnalyticsSnapshotKey): Promise<AnalyticsSnapshot | null> {
     validateSnapshotKey(key);
+    const access = new DynamoAnalyticsAuthorizer(this.client, this.tableName);
+    await access.requireAccess(key.ownerSub, key.universeId);
     const result = await this.client.send(new GetItemCommand({
       TableName: this.tableName,
       Key: marshall(dynamoKey(key)),
       ConsistentRead: true,
     }));
     if (!result.Item) return null;
+    await access.requireAccess(key.ownerSub, key.universeId);
     const record = unmarshall(result.Item) as StoredSnapshot;
     if (record.type !== 'analytics-snapshot') return null;
     return validateSnapshotMatchesKey(key, record.snapshot);
@@ -47,7 +51,9 @@ export class DynamoDbAnalyticsSnapshotStore implements AnalyticsSnapshotStore {
       updatedAt: new Date().toISOString(),
       snapshot: parsed,
     };
-    await this.client.send(new PutItemCommand({
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { ConditionCheck: accessCondition(this.tableName, key.ownerSub, key.universeId) },
+      { Put: {
       TableName: this.tableName,
       Item: marshall(record, { removeUndefinedValues: true }),
       ConditionExpression: 'attribute_not_exists(PK) OR #snapshot.#asOf <= :asOf',
@@ -56,7 +62,8 @@ export class DynamoDbAnalyticsSnapshotStore implements AnalyticsSnapshotStore {
         '#asOf': 'asOf',
       },
       ExpressionAttributeValues: marshall({ ':asOf': parsed.asOf ?? record.updatedAt }),
-    }));
+      } },
+    ] }));
   }
 }
 

@@ -8,6 +8,7 @@ import {
 } from '@/services/analytics-api';
 import { appEnvironment } from '@/services/backend-api';
 import { getStoredSessionToken } from '@/services/roblox-auth';
+import { useSession } from '@/src/state/session-context';
 
 type AnalyticsSnapshotState = Readonly<{
   snapshot?: AnalyticsSnapshot;
@@ -29,6 +30,7 @@ export function useAnalyticsSnapshot({
   sampleSnapshot: AnalyticsSnapshot;
   enabled?: boolean;
 }): AnalyticsSnapshotState {
+  const session = useSession();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | undefined>(
     appEnvironment.dataMode === 'sample' ? sampleSnapshot : undefined,
   );
@@ -41,6 +43,15 @@ export function useAnalyticsSnapshot({
     const controller = new AbortController();
     let active = true;
     if (!enabled) {
+      return () => controller.abort();
+    }
+    if (appEnvironment.dataMode === 'aws_dev' && session.status !== 'authenticated') {
+      void Promise.resolve().then(() => {
+        if (controller.signal.aborted) return;
+        setSnapshot(undefined);
+        setLoading(false);
+        setError(session.status === 'checking' ? undefined : 'Connect Roblox to load official analytics.');
+      });
       return () => controller.abort();
     }
     void (async () => {
@@ -96,7 +107,7 @@ export function useAnalyticsSnapshot({
       active = false;
       controller.abort();
     };
-  }, [attempt, enabled, range, sampleSnapshot, section, universeId]);
+  }, [attempt, enabled, range, sampleSnapshot, section, session.revision, session.status, universeId]);
 
   return {
     snapshot: enabled ? snapshot : undefined,

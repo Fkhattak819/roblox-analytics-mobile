@@ -18,7 +18,8 @@ import { loadConnectionStatus } from '@/services/connections-api';
 import { appEnvironment } from '@/services/backend-api';
 import { StudioText } from '@/src/components/ui';
 import { markOnboardingComplete } from '@/src/state/onboarding-storage';
-import { getStoredSessionToken, signInWithRoblox } from '@/services/roblox-auth';
+import { getStoredSessionToken, sessionController, signInWithRoblox } from '@/services/roblox-auth';
+import { useSession } from '@/src/state/session-context';
 import { colors } from '@/src/theme/tokens';
 
 const palette = {
@@ -47,34 +48,35 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 export default function OnboardingScreen() {
+  const session = useSession();
   const [step, setStep] = useState<OnboardingStep>(0);
   const [selectedIds, setSelectedIds] = useState(() => new Set(['most-words-win']));
   const [creatorUsername, setCreatorUsername] = useState('Roblox creator');
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const token = await getStoredSessionToken();
-        if (!token) return;
-        const connection = await loadConnectionStatus({ universeId: '10009166512', sessionToken: token });
-        if (!active) return;
-        setCreatorUsername(connection.identity.username);
-        setStep(2);
-      } catch {
-        // An invalid or expired session falls back to the normal sign-in steps.
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (session.status !== 'authenticated' || !session.session) return;
+    const { user } = session.session;
+    const task = setTimeout(() => {
+      setCreatorUsername(user.preferredUsername ?? user.nickname ?? user.name ?? user.sub);
+      setStep((current) => current < 2 ? 2 : current);
+    }, 0);
+    return () => clearTimeout(task);
+  }, [session]);
 
   const finish = async () => {
     try {
       await markOnboardingComplete();
     } finally {
       router.replace('/(tabs)/analytics');
+    }
+  };
+
+  const exploreSample = async () => {
+    try {
+      await sessionController.useSample();
+      await finish();
+    } catch {
+      Alert.alert('Couldn’t clear sign-in', 'Please try again before opening sample data.');
     }
   };
 
@@ -103,7 +105,7 @@ export default function OnboardingScreen() {
         {step > 0 && step < 4 ? <BackButton onPress={goBack} /> : null}
 
         {step === 0 ? (
-          <WelcomeStep onPrimary={goForward} onSample={() => void finish()} />
+          <WelcomeStep onPrimary={goForward} onSample={() => void exploreSample()} />
         ) : null}
         {step === 1 ? (
           <IdentityStep
@@ -111,11 +113,11 @@ export default function OnboardingScreen() {
               setCreatorUsername(username);
               goForward();
             }}
-            onSample={() => void finish()}
+            onSample={() => void exploreSample()}
           />
         ) : null}
         {step === 2 ? (
-          <AnalyticsAccessStep onPrimary={goForward} onSample={() => void finish()} />
+          <AnalyticsAccessStep onPrimary={goForward} onSample={() => void exploreSample()} />
         ) : null}
         {step === 3 ? (
           <ChooseExperiencesStep
@@ -352,6 +354,8 @@ function AnimatedTrendChart() {
 }
 
 function IdentityStep({ onPrimary, onSample }: { onPrimary: (username: string) => void; onSample: () => void }) {
+  const session = useSession();
+  const connected = session.status === 'authenticated';
   const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
@@ -383,10 +387,10 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: (username: string) =
       </View>
 
       <StatusRow
-        badge="READY"
-        badgeTone="accent"
+        badge={connected ? 'CONNECTED' : 'READY'}
+        badgeTone={connected ? 'success' : 'accent'}
         detail="OAuth + PKCE · profile only"
-        dotColor={palette.success}
+        dotColor={connected ? palette.success : palette.accentText}
         title="Roblox identity"
         top={580}
       />
@@ -594,6 +598,8 @@ function ExperienceArt() {
 }
 
 function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCount: number; username: string; onOpen: () => void; onReview: () => void }) {
+  const session = useSession();
+  const connected = session.status === 'authenticated';
   return (
     <>
       <RobloxMark top={104} />
@@ -602,7 +608,7 @@ function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCoun
       <StudioText weight="bold" size={24} lineHeight={30} style={[styles.heading, { top: 214 }]}>Your creator analytics are ready</StudioText>
       <StudioText size={14} lineHeight={20} style={[styles.bodyCopy, { top: 280 }]}>Review your connections, then open your analytics workspace.</StudioText>
 
-      <StatusRow badge="CONNECTED" badgeTone="success" detail={`${username} · connected`} dotColor={palette.success} title="Roblox identity" top={326} />
+      <StatusRow badge={connected ? 'CONNECTED' : 'NOT CONNECTED'} badgeTone={connected ? 'success' : 'warning'} detail={connected ? `${username} · connected` : 'Sample workspace'} dotColor={connected ? palette.success : palette.warning} title="Roblox identity" top={326} />
       <StatusRow badge="READ ONLY" badgeTone="accent" detail={`${selectedCount} ${selectedCount === 1 ? 'universe' : 'universes'} · read only`} dotColor={palette.accentText} title="Analytics access" top={410} />
       <StatusRow badge="OPTIONAL" badgeTone="warning" detail="Available in Sales · optional" dotColor={palette.warning} title="Live sale alerts" top={494} />
 

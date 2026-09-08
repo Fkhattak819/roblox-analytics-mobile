@@ -20,11 +20,12 @@ import type { AnalyticsSnapshot } from '@/domain/analytics';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 import { appEnvironment } from '@/services/backend-api';
 import { loadConnectionStatus, type ConnectionStatus } from '@/services/connections-api';
-import { getStoredSessionToken, signInWithRoblox, signOutOfRoblox } from '@/services/roblox-auth';
+import { getStoredSessionToken, sessionController } from '@/services/roblox-auth';
 import { resetOnboarding } from '@/src/state/onboarding-storage';
 import { appearanceLabel, useAppearancePreference, type AppearancePreference } from '@/src/state/appearance-context';
 import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
+import { useSession } from '@/src/state/session-context';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -648,6 +649,7 @@ function CompactRow({ label, value, tone = 'primary', chevron = false }: { label
 }
 
 function ProfileFigmaScreen() {
+  const session = useSession();
   const { preference } = useAppearancePreference();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionError, setConnectionError] = useState<string>();
@@ -656,7 +658,12 @@ function ProfileFigmaScreen() {
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setConnection(undefined);
+      setConnectionError(undefined);
       try {
+        if (session.status !== 'authenticated') throw new Error('Sign in with Roblox to verify your profile.');
         const token = await getStoredSessionToken();
         if (!token) throw new Error('Sign in with Roblox to verify your profile.');
         setConnection(await loadConnectionStatus({ universeId: '10009166512', sessionToken: token, signal: controller.signal }));
@@ -665,19 +672,26 @@ function ProfileFigmaScreen() {
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [session.revision, session.status]);
 
-  const username = connection?.identity.username ?? 'Roblox creator';
-  const connected = Boolean(connection);
+  const username = connection?.identity.username
+    ?? session.session?.user.preferredUsername
+    ?? session.session?.user.nickname
+    ?? session.session?.user.name
+    ?? 'Roblox creator';
+  const connected = session.status === 'authenticated';
   const analyticsActive = connection?.analytics.status === 'active';
 
   const completeSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await signOutOfRoblox();
+      const result = await sessionController.signOut();
       await resetOnboarding();
       router.replace('/onboarding');
+      if (result === 'local_only') {
+        Alert.alert('Signed out on this device', 'Server revocation was not confirmed. Sign in again before retrying account-wide sign-out.');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Your session could not be cleared from this device.';
       Alert.alert('Couldn’t sign out', message);
@@ -756,6 +770,7 @@ function ConnectionCard({ title, subtitle, badge, tone, children }: React.PropsW
 }
 
 function ConnectionsFigmaScreen() {
+  const session = useSession();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionError, setConnectionError] = useState<string>();
   const [connecting, setConnecting] = useState(false);
@@ -764,7 +779,12 @@ function ConnectionsFigmaScreen() {
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setConnection(undefined);
+      setConnectionError(undefined);
       try {
+        if (session.status !== 'authenticated') throw new Error('Sign in with Roblox to verify these connections.');
         const token = await getStoredSessionToken();
         if (!token) throw new Error('Sign in with Roblox to verify these connections.');
         setConnection(await loadConnectionStatus({
@@ -779,14 +799,14 @@ function ConnectionsFigmaScreen() {
       }
     })();
     return () => controller.abort();
-  }, [refreshAttempt]);
+  }, [refreshAttempt, session.revision, session.status]);
 
   const connect = async () => {
     if (connecting) return;
     setConnecting(true);
     setConnectionError(undefined);
     try {
-      await signInWithRoblox();
+      await sessionController.signIn();
       setRefreshAttempt((value) => value + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';

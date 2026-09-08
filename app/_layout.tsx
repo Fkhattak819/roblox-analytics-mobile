@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import { AppProvider } from '@/src/state/app-context';
 import { AppearanceProvider, useAppearancePreference } from '@/src/state/appearance-context';
 import { hasCompletedOnboarding } from '@/src/state/onboarding-storage';
+import { SessionLifecycle } from '@/src/state/session-context';
 import { colors, fonts } from '@/src/theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
@@ -84,21 +85,23 @@ function RootNavigation() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navigationTheme}>
-        <AppProvider>
-          <Stack
-            initialRouteName="onboarding"
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-              animation: 'slide_from_right',
-            }}>
-            <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="live-sales-setup" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="experience-picker" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-          </Stack>
-        </AppProvider>
+        <SessionLifecycle>
+          <AppProvider>
+            <Stack
+              initialRouteName="onboarding"
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+                animation: 'slide_from_right',
+              }}>
+              <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="live-sales-setup" options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="experience-picker" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+            </Stack>
+          </AppProvider>
+        </SessionLifecycle>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </SafeAreaProvider>

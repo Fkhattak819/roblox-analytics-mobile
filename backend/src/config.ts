@@ -12,6 +12,7 @@ export type Config = {
   appOAuthCallbackUri: string;
   appBaseUrl: string;
   sessionTtlSeconds: number;
+  sessionEpoch: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -25,12 +26,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error("SESSION_TTL_SECONDS must be an integer of at least 300");
   }
 
-  const analyticsUniverseIds = (env.ANALYTICS_UNIVERSE_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (analyticsUniverseIds.some((value) => !/^\d+$/.test(value))) {
-    throw new Error("ANALYTICS_UNIVERSE_IDS must be a comma-separated list of numeric universe IDs");
+  const sessionEpoch = env.SESSION_EPOCH ?? "1";
+  const analyticsUniverseIds: string[] = (env.ANALYTICS_UNIVERSE_IDS ?? '').split(',').map((value: string) => value.trim()).filter(Boolean);
+  if (analyticsUniverseIds.some((value: string) => !/^\d+$/.test(value))) throw new Error('Invalid analytics universe allowlist');
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(sessionEpoch)) {
+    throw new Error("SESSION_EPOCH must be a nonempty deployment identifier");
   }
 
   return {
@@ -49,5 +49,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       env.APP_OAUTH_CALLBACK_URI ?? "robloxanalyticsmobile://oauth/callback",
     appBaseUrl: env.APP_BASE_URL ?? `http://localhost:${port}`,
     sessionTtlSeconds,
+    sessionEpoch,
   };
 }

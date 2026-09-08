@@ -1,15 +1,14 @@
+import { securityEvent } from '../modules/auth/security-event.js';
 import { loadConfig } from "../config.js";
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoLoginLimiter } from '../modules/auth/login-limiter.js';
+import { publicHttpError, RequestBodyTooLargeError } from "../http.js";
 import { createAwsAuthService } from "../modules/auth/auth-runtime.js";
 import type { AuthService } from "../modules/auth/auth-service.js";
-import {
-  createAwsAnalyticsConnectionStatusStore,
-  createAwsAnalyticsSnapshotStore,
-} from "../modules/analytics/snapshot-runtime.js";
-import type { AnalyticsConnectionStatusStore } from "../modules/analytics/connection-status-store.js";
-import type { AnalyticsSnapshotStore } from "../modules/analytics/snapshot-store.js";
-import { createAwsAnalyticsSyncJobService } from "../modules/analytics/sync-runtime.js";
-import type { AnalyticsSyncJobService } from "../modules/analytics/sync-jobs.js";
 import { routeRequest } from "../router.js";
+import { DynamoAnalyticsAuthorizer } from '../modules/analytics/authorization.js';
+import { createAwsAnalyticsSnapshotStore, createAwsAnalyticsConnectionStatusStore } from '../modules/analytics/snapshot-runtime.js';
+import { createAwsAnalyticsSyncJobService } from '../modules/analytics/sync-runtime.js';
 
 type HttpApiEvent = {
   rawPath?: string;
@@ -21,6 +20,7 @@ type HttpApiEvent = {
   requestContext?: {
     http?: {
       method?: string;
+      sourceIp?: string;
     };
   };
   httpMethod?: string;
@@ -36,9 +36,7 @@ type HttpApiResponse = {
 const MAX_BODY_BYTES = 64 * 1024;
 let cachedAuthService: AuthService | undefined;
 let cachedAuthConfigKey: string | undefined;
-let cachedAnalyticsSnapshotStore: AnalyticsSnapshotStore | undefined;
-let cachedAnalyticsSyncJobService: AnalyticsSyncJobService | undefined;
-let cachedAnalyticsConnectionStatusStore: AnalyticsConnectionStatusStore | undefined;
+const limiterClient = new DynamoDBClient({ maxAttempts: 1 });
 
 function parseBody(event: HttpApiEvent): unknown {
   if (!event.body) return undefined;
@@ -48,19 +46,16 @@ function parseBody(event: HttpApiEvent): unknown {
     : event.body;
 
   if (Buffer.byteLength(raw) > MAX_BODY_BYTES) {
-    throw new Error("Request body too large");
+    throw new RequestBodyTooLargeError();
   }
 
   return JSON.parse(raw);
 }
 
-export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
+export async function handler(event: HttpApiEvent, context?: { getRemainingTimeInMillis: () => number }): Promise<HttpApiResponse> {
   try {
     const config = loadConfig();
     const authService = getAuthService(config);
-    const analyticsSnapshotStore = getAnalyticsSnapshotStore(config);
-    const analyticsSyncJobService = getAnalyticsSyncJobService(config);
-    const analyticsConnectionStatusStore = getAnalyticsConnectionStatusStore(config);
     const result = await routeRequest(
       {
         method: event.requestContext?.http?.method ?? event.httpMethod ?? "GET",
@@ -72,56 +67,38 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
       config,
       "aws",
       {
-        authService,
-        analyticsSnapshotStore,
-        analyticsSyncJobService,
-        analyticsConnectionStatusStore,
+        authService, remainingTimeMs: context ? () => context.getRemainingTimeInMillis() : undefined,
+        loginLimiter: config.tableName ? new DynamoLoginLimiter(limiterClient, config.tableName) : undefined,
+        sourceAddress: event.requestContext?.http?.sourceIp,
+        analyticsAuthorizer: config.tableName ? new DynamoAnalyticsAuthorizer(limiterClient, config.tableName) : undefined,
+        analyticsSnapshotStore: createAwsAnalyticsSnapshotStore(config),
+        analyticsConnectionStatusStore: createAwsAnalyticsConnectionStatusStore(config),
+        analyticsSyncJobService: createAwsAnalyticsSyncJobService(config),
       },
     );
 
     return {
       statusCode: result.statusCode,
       headers: result.headers,
-      body: JSON.stringify(result.body),
+      body: auditedBody(event, result.statusCode, result.body),
       isBase64Encoded: false,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unexpected error";
+    const result = publicHttpError(error);
     return {
-      statusCode: message === "Request body too large" ? 413 : 400,
+      statusCode: result.statusCode,
       headers: {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
       },
-      body: JSON.stringify({ error: message }),
+      body: auditedBody(event, result.statusCode, result.body),
       isBase64Encoded: false,
     };
   }
 }
 
-function getAnalyticsConnectionStatusStore(config: ReturnType<typeof loadConfig>) {
-  if (!cachedAnalyticsConnectionStatusStore) {
-    cachedAnalyticsConnectionStatusStore = createAwsAnalyticsConnectionStatusStore(config);
-  }
-  return cachedAnalyticsConnectionStatusStore;
-}
-
-function getAnalyticsSyncJobService(config: ReturnType<typeof loadConfig>): AnalyticsSyncJobService | undefined {
-  if (!cachedAnalyticsSyncJobService) {
-    cachedAnalyticsSyncJobService = createAwsAnalyticsSyncJobService(config);
-  }
-  return cachedAnalyticsSyncJobService;
-}
-
-function getAnalyticsSnapshotStore(config: ReturnType<typeof loadConfig>): AnalyticsSnapshotStore | undefined {
-  if (!cachedAnalyticsSnapshotStore) {
-    cachedAnalyticsSnapshotStore = createAwsAnalyticsSnapshotStore(config);
-  }
-  return cachedAnalyticsSnapshotStore;
-}
-
 function getAuthService(config: ReturnType<typeof loadConfig>): AuthService | undefined {
-  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}`;
+  const key = `${config.tableName ?? ""}\0${config.robloxOAuthSecretArn ?? ""}\0${config.sessionEpoch}`;
   if (key !== cachedAuthConfigKey) {
     cachedAuthConfigKey = key;
     cachedAuthService = createAwsAuthService(config);
@@ -136,4 +113,10 @@ function lowerCaseHeaders(
   return Object.fromEntries(
     Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
   );
+}
+
+function auditedBody(event: HttpApiEvent, status: number, body: unknown): string {
+  const audit = securityEvent(event.requestContext?.http?.method ?? event.httpMethod ?? 'GET', event.rawPath ?? event.path ?? '/', status);
+  if (audit) console.info(audit);
+  return JSON.stringify(body);
 }

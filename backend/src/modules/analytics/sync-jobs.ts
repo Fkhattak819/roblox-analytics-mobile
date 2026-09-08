@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { AnalyticsAuthorizer } from './authorization.js';
 import {
   analyticsSectionIds,
   type AnalyticsDateRange,
@@ -32,11 +33,13 @@ export class AnalyticsSyncJobService {
   constructor(
     private readonly gate: AnalyticsSyncGate,
     private readonly queue: AnalyticsSyncQueue,
+    private readonly authorizer: AnalyticsAuthorizer,
     private readonly now: () => Date = () => new Date(),
     private readonly cooldownSeconds = 60,
   ) {}
 
   async request(input: AnalyticsSyncRequest) {
+    await this.authorizer.requireAccess(input.ownerSub, input.universeId);
     const requestedAt = this.now();
     const message: AnalyticsSyncMessage = {
       version: 1,
@@ -48,6 +51,7 @@ export class AnalyticsSyncJobService {
     if (!acquired) {
       return { status: "already_queued" as const, retryAfterSeconds: this.cooldownSeconds };
     }
+    await this.authorizer.requireAccess(input.ownerSub, input.universeId);
     await this.queue.enqueue(message);
     return {
       status: "queued" as const,

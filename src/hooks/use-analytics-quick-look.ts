@@ -4,6 +4,7 @@ import type { AnalyticsDateRange, AnalyticsSectionId, AnalyticsSnapshot } from '
 import { AnalyticsApiError, loadAnalyticsSnapshot } from '@/services/analytics-api';
 import { appEnvironment } from '@/services/backend-api';
 import { getStoredSessionToken } from '@/services/roblox-auth';
+import { useSession } from '@/src/state/session-context';
 
 export type AnalyticsQuickLookSection = Extract<
   AnalyticsSectionId,
@@ -32,7 +33,11 @@ export function useAnalyticsQuickLook({
   universeId: string;
   enabled?: boolean;
 }) {
-  const canLoad = enabled && appEnvironment.dataMode === 'aws_dev' && /^\d+$/.test(universeId);
+  const session = useSession();
+  const canLoad = enabled
+    && appEnvironment.dataMode === 'aws_dev'
+    && session.status === 'authenticated'
+    && /^\d+$/.test(universeId);
   const [snapshots, setSnapshots] = useState<AnalyticsQuickLookSnapshots>({});
   const [loading, setLoading] = useState(canLoad);
   const [attempt, setAttempt] = useState(0);
@@ -75,7 +80,7 @@ export function useAnalyticsQuickLook({
       active = false;
       controller.abort();
     };
-  }, [attempt, canLoad, universeId]);
+  }, [attempt, canLoad, session.revision, universeId]);
 
   return {
     snapshots: canLoad ? snapshots : {},

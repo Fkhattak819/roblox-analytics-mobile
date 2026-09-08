@@ -10,6 +10,10 @@ import {
   isSyncableAnalyticsSection,
 } from "../modules/analytics/snapshot-sync.js";
 import { parseAnalyticsSyncMessage } from "../modules/analytics/sync-jobs.js";
+import { DynamoAnalyticsAuthorizer } from '../modules/analytics/authorization.js';
+import type { AnalyticsAuthorizer } from '../modules/analytics/authorization.js';
+import type { AnalyticsConnectionStatusStore } from '../modules/analytics/connection-status-store.js';
+import { WorkBudget, budgetClient } from '../modules/analytics/work-budget.js';
 
 type SqsEvent = Readonly<{
   Records?: Array<Readonly<{ messageId?: string; body?: string }>>;
@@ -19,14 +23,22 @@ type SqsBatchResponse = Readonly<{
   batchItemFailures: Array<Readonly<{ itemIdentifier: string }>>;
 }>;
 
-let runtime: ReturnType<typeof createRuntime> | undefined;
+const dynamoClient = new DynamoDBClient({ maxAttempts: 1 });
+const secretsClient = new SecretsManagerClient({ maxAttempts: 1 });
 
-export async function handler(event: SqsEvent): Promise<SqsBatchResponse> {
+export async function handler(event: SqsEvent, context?: { getRemainingTimeInMillis(): number }): Promise<SqsBatchResponse> {
+  const budget = new WorkBudget(Math.min(110_000, (context?.getRemainingTimeInMillis() ?? 120_000) - 2_000));
+  try {
+    return await processBatch(event, budget);
+  } finally { budget.close(); }
+}
+
+async function processBatch(event: SqsEvent, budget: WorkBudget): Promise<SqsBatchResponse> {
   const failures: Array<{ itemIdentifier: string }> = [];
   for (const record of event.Records ?? []) {
     const itemIdentifier = record.messageId ?? "unknown";
     try {
-      await processRecord(record.body);
+      await budget.run(() => processRecord(record.body, budget));
     } catch {
       failures.push({ itemIdentifier });
     }
@@ -34,8 +46,19 @@ export async function handler(event: SqsEvent): Promise<SqsBatchResponse> {
   return { batchItemFailures: failures };
 }
 
-async function processRecord(body: string | undefined): Promise<void> {
+async function processRecord(body: string | undefined, budget: WorkBudget): Promise<void> {
   const config = loadConfig();
+  await processAnalyticsMessage(body, config, createRuntime(config, budget));
+}
+
+export type WorkerDependencies = {
+  authorizer: AnalyticsAuthorizer;
+  apiKeyProvider: Pick<SecretsManagerAnalyticsApiKeyProvider, 'getApiKey'>;
+  syncService: Pick<AnalyticsSnapshotSyncService, 'sync'>;
+  statusStore: AnalyticsConnectionStatusStore;
+};
+
+export async function processAnalyticsMessage(body: string | undefined, config: ReturnType<typeof loadConfig>, dependencies: WorkerDependencies): Promise<void> {
   const message = parseAnalyticsSyncMessage(JSON.parse(body ?? ""));
   if (!config.analyticsUniverseIds.includes(message.universeId)) {
     throw new Error("Analytics universe is not allowed");
@@ -43,10 +66,11 @@ async function processRecord(body: string | undefined): Promise<void> {
   if (!isSyncableAnalyticsSection(message.section)) {
     throw new Error("Analytics section is not syncable");
   }
-  const dependencies = runtime ??= createRuntime(config);
+  await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
   const attemptedAt = new Date().toISOString();
   try {
     const apiKey = await dependencies.apiKeyProvider.getApiKey();
+    await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
     const snapshot = await dependencies.syncService.sync({
       apiKey,
       ownerSub: message.ownerSub,
@@ -54,6 +78,7 @@ async function processRecord(body: string | undefined): Promise<void> {
       section: message.section,
       range: message.range,
     });
+    await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
     await dependencies.statusStore.put(message.ownerSub, {
       status: "active",
       universeId: message.universeId,
@@ -62,6 +87,7 @@ async function processRecord(body: string | undefined): Promise<void> {
       lastSection: message.section,
     });
   } catch (error) {
+    await dependencies.authorizer.requireAccess(message.ownerSub, message.universeId);
     await dependencies.statusStore.put(message.ownerSub, {
       status: "error",
       universeId: message.universeId,
@@ -72,19 +98,21 @@ async function processRecord(body: string | undefined): Promise<void> {
   }
 }
 
-function createRuntime(config: ReturnType<typeof loadConfig>) {
+function createRuntime(config: ReturnType<typeof loadConfig>, budget: WorkBudget) {
   if (!config.tableName || !config.robloxAnalyticsSecretArn) {
     throw new Error("Analytics worker is not configured");
   }
-  const store = new DynamoDbAnalyticsSnapshotStore(new DynamoDBClient({}), config.tableName);
-  const statusStore = new DynamoDbAnalyticsConnectionStatusStore(new DynamoDBClient({}), config.tableName);
+  const client = budgetClient(dynamoClient, budget);
+  const store = new DynamoDbAnalyticsSnapshotStore(client, config.tableName);
+  const statusStore = new DynamoDbAnalyticsConnectionStatusStore(client, config.tableName);
   return {
+    authorizer: new DynamoAnalyticsAuthorizer(client, config.tableName),
     apiKeyProvider: new SecretsManagerAnalyticsApiKeyProvider(
-      new SecretsManagerClient({}),
+      budgetClient(secretsClient, budget),
       config.robloxAnalyticsSecretArn,
     ),
     syncService: new AnalyticsSnapshotSyncService(
-      new RobloxAnalyticsQueryClient(),
+      new RobloxAnalyticsQueryClient({ signal: budget.signal }),
       store,
     ),
     statusStore,

@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { loadConnectionStatus, type ConnectionStatus } from '@/services/connections-api';
 import { getStoredSessionToken } from '@/services/roblox-auth';
 import { Card, Screen, StudioText } from '@/src/components/ui';
+import { useSession } from '@/src/state/session-context';
 import { colors, radii } from '@/src/theme/tokens';
 
 type SettingsRowProps = {
@@ -39,13 +40,19 @@ function SettingsGroup({ title, children }: React.PropsWithChildren<{ title: str
 }
 
 export default function MoreScreen() {
+  const session = useSession();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionChecked, setConnectionChecked] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setConnection(undefined);
+      setConnectionChecked(false);
       try {
+        if (session.status !== 'authenticated') return;
         const token = await getStoredSessionToken();
         if (!token) return;
         setConnection(await loadConnectionStatus({
@@ -60,12 +67,16 @@ export default function MoreScreen() {
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [session.revision, session.status]);
 
-  const identityConnected = Boolean(connection);
+  const identityConnected = session.status === 'authenticated';
   const analyticsActive = connection?.analytics.status === 'active';
-  const creatorName = connection?.identity.username ?? 'Roblox creator';
-  const connectionLabel = !connectionChecked
+  const creatorName = connection?.identity.username
+    ?? session.session?.user.preferredUsername
+    ?? session.session?.user.nickname
+    ?? session.session?.user.name
+    ?? 'Roblox creator';
+  const connectionLabel = session.status === 'checking' || (identityConnected && !connectionChecked)
     ? 'Checking'
     : identityConnected
       ? 'Connected'

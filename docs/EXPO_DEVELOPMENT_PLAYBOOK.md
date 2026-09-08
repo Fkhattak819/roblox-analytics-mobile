@@ -33,7 +33,7 @@ The client stack is:
 | Language | TypeScript with strict checking |
 | Routing | Expo Router when the project is initialized with it |
 | Networking | `fetch` behind typed repository/client modules |
-| Authentication | Cognito sessions and Roblox OAuth Authorization Code + PKCE later |
+| Authentication | Opaque app sessions and Roblox OAuth Authorization Code + PKCE |
 | Secure storage | `expo-secure-store` for StudioPulse tokens |
 | Local sample data | Deterministic fixtures with no network requirement |
 | Build and distribution | Expo CLI, EAS CLI, preview builds, production builds |
@@ -224,9 +224,9 @@ GET /v1/experiences/{universeId}/sync-status
 
 The mobile client does not call Roblox Open Cloud directly. AWS workers call Roblox asynchronously, and the app reads cached StudioPulse snapshots.
 
-Store StudioPulse access and refresh tokens with `expo-secure-store`. Do not store a Roblox Open Cloud API key, OAuth client secret, or `.ROBLOSECURITY` value in the app.
+Store the opaque StudioPulse app-session token with `expo-secure-store`. Do not store a Roblox Open Cloud API key, OAuth client secret, or `.ROBLOSECURITY` value in the app.
 
-Use Cognito for the first product-authentication path. Add Roblox as an external OIDC provider only after testing Authorization Code + PKCE, redirect handling, token refresh, logout, and account-linking behavior. Roblox identity and Open Cloud analytics authorization remain separate connections.
+The current source and API contract use opaque backend app sessions, not Cognito/JWT. Roblox identity uses server-side Authorization Code + PKCE and a separate mobile S256 handoff described in `docs/API_CONTRACT.md`. The pending verifier and callback state stay in memory; only the resulting app session goes into secure storage. Session restoration, logout UI, and account-wide revocation are implemented locally with regression tests; native simulator validation remains pending. Roblox identity and Open Cloud analytics authorization remain separate connections.
 
 Use public Expo configuration only for values such as:
 
@@ -305,7 +305,7 @@ These commands generate native directories when needed. Treat generated `android
 
 The Expo app is the client. The AWS backend owns:
 
-- Cognito JWT validation.
+- Opaque app-session validation and revocation.
 - Workspace and universe authorization.
 - Roblox Open Cloud credentials.
 - Analytics Query API requests and `202` polling.

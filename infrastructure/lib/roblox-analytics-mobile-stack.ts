@@ -1,3 +1,4 @@
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as cdk from "aws-cdk-lib";
@@ -5,11 +6,11 @@ import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as ce from "aws-cdk-lib/aws-ce";
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
-import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
@@ -113,6 +114,11 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       writeCapacity: 1,
       encryption: dynamodb.TableEncryption.DEFAULT,
       timeToLiveAttribute: "ttl",
+      deletionProtection: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+        recoveryPeriodInDays: 35,
+      },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
@@ -159,7 +165,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       queueName: `${resourcePrefix}-sync`,
       encryption: sqs.QueueEncryption.SQS_MANAGED,
       retentionPeriod: cdk.Duration.days(4),
-      visibilityTimeout: cdk.Duration.seconds(300),
+      visibilityTimeout: cdk.Duration.seconds(720),
       deadLetterQueue: {
         queue: deadLetterQueue,
         maxReceiveCount: 3,
@@ -172,18 +178,23 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      versioned: false,
+      versioned: true,
       lifecycleRules: [
         {
           id: "expire-dev-history",
           enabled: true,
           expiration: cdk.Duration.days(30),
+          noncurrentVersionExpiration: cdk.Duration.days(30),
         },
       ],
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     const functionName = `${resourcePrefix}-api`;
+    const sessionEpoch = new cdk.CfnParameter(this, "SessionEpoch", {
+      type: "String", default: "1", allowedPattern: "^[A-Za-z0-9_-]{1,128}$",
+      description: "Change to a never-used value before serving restored auth data, invalidating all old sessions and exchanges",
+    });
     const apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
       logGroupName: `/aws/lambda/${functionName}`,
       retention: logs.RetentionDays.ONE_WEEK,
@@ -206,22 +217,46 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       logGroup: apiLogGroup,
       environment: {
         APP_ENV: "dev",
+        SESSION_EPOCH: sessionEpoch.valueAsString,
         APP_OAUTH_CALLBACK_URI: "robloxanalyticsmobile://oauth/callback",
         ROBLOX_OAUTH_REDIRECT_URI: oauthRedirectUri.valueAsString,
         ROBLOX_OAUTH_SCOPES: "openid profile",
         ROBLOX_OAUTH_SECRET_ARN: oauthCredentials.secretArn,
         TABLE_NAME: applicationTable.tableName,
         SYNC_QUEUE_URL: syncQueue.queueUrl,
-        ANALYTICS_UNIVERSE_IDS: "10009166512",
+        ANALYTICS_UNIVERSE_IDS: '10009166512',
         HISTORY_BUCKET_NAME: historyBucket.bucketName,
       },
     });
     apiFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],
       resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['AUTH#*', 'TENANT#*'] } },
     }));
     oauthCredentials.grantRead(apiFunction);
     syncQueue.grantSendMessages(apiFunction);
+    const failureFilter = new logs.MetricFilter(this, 'AuthFailureMetric', {
+      logGroup: apiLogGroup,
+      filterPattern: logs.FilterPattern.all(
+        logs.FilterPattern.stringValue('$.event', '=', 'auth_result'),
+        logs.FilterPattern.stringValue('$.outcome', '=', 'failure'),
+      ),
+      metricNamespace: 'StudioPulse/Security', metricName: 'AuthFailures',
+      metricValue: '1', defaultValue: 0,
+    });
+    new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
+      metric: failureFilter.metric({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
+      threshold: 5, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, 'ApiRuntimeFailureAlarm', {
+      metric: apiFunction.metricErrors({ statistic: 'Sum', period: cdk.Duration.minutes(5) }),
+      threshold: 3, evaluationPeriods: 1, treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    apiFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:UpdateItem'],
+      resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['LIMIT#*'] } },
+    }));
 
     const workerName = `${resourcePrefix}-analytics-worker`;
     const workerLogGroup = new logs.LogGroup(this, "AnalyticsWorkerLogGroup", {
@@ -258,6 +293,23 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
     analyticsWorker.addToRolePolicy(new iam.PolicyStatement({
       actions: ["dynamodb:PutItem"],
       resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['TENANT#*'] } },
+    }));
+    for (const fn of [apiFunction, analyticsWorker]) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem'], resources: [applicationTable.tableArn],
+        conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
+      }));
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.DENY,
+        actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem', 'dynamodb:BatchWriteItem'],
+        resources: [applicationTable.tableArn],
+        conditions: { 'ForAnyValue:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
+      }));
+    }
+    analyticsWorker.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:ConditionCheckItem'], resources: [applicationTable.tableArn],
+      conditions: { 'ForAllValues:StringLike': { 'dynamodb:LeadingKeys': ['ACCESS#*'] } },
     }));
     analyticsCredentials.grantRead(analyticsWorker);
 
@@ -293,11 +345,11 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
     new cdk.CfnOutput(this, "RobloxOAuthSecretName", {
       value: oauthCredentials.secretName,
     });
-    new cdk.CfnOutput(this, "RobloxAnalyticsSecretName", {
-      value: analyticsCredentials.secretName,
-    });
     new cdk.CfnOutput(this, "SyncQueueUrl", {
       value: syncQueue.queueUrl,
+    });
+    new cdk.CfnOutput(this, "RobloxAnalyticsSecretName", {
+      value: analyticsCredentials.secretName,
     });
     new cdk.CfnOutput(this, "HistoryBucketName", {
       value: historyBucket.bucketName,

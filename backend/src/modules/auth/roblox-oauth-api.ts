@@ -11,20 +11,30 @@ type TokenResponse = {
 };
 
 export class RobloxOAuthApi {
-  constructor(private readonly fetchImpl: typeof fetch = fetch) {}
+  constructor(
+    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly budget = { workMs: 6_000, cleanupMs: 2_000 },
+  ) {}
 
   async exchangeCodeForProfile(input: {
     code: string;
     codeVerifier: string;
     redirectUri: string;
     credentials: RobloxOAuthCredentials;
+    remainingTimeMs?: () => number;
   }): Promise<RobloxUserProfile> {
-    const tokens = await this.exchangeCode(input);
+    const available = Math.min(this.budget.workMs + this.budget.cleanupMs,
+      (input.remainingTimeMs?.() ?? 10_000) - 1_000);
+    const workMs = available - this.budget.cleanupMs;
+    if (workMs <= 0) throw new RobloxOAuthUpstreamError("deadline_exceeded");
+    const deadline = performance.now() + workMs;
+    const tokens = await this.bounded(deadline, (signal) => this.exchangeCode(input, signal));
     let profile: RobloxUserProfile;
     try {
-      profile = await this.getUserInfo(tokens.accessToken);
+      profile = await this.bounded(deadline, (signal) => this.getUserInfo(tokens.accessToken, signal));
     } finally {
-      await this.revoke(tokens.refreshToken, input.credentials);
+      await this.bounded(performance.now() + this.budget.cleanupMs,
+        (signal) => this.revoke(tokens.refreshToken, input.credentials, signal));
     }
     return profile;
   }
@@ -34,7 +44,7 @@ export class RobloxOAuthApi {
     codeVerifier: string;
     redirectUri: string;
     credentials: RobloxOAuthCredentials;
-  }): Promise<TokenResponse> {
+  }, signal: AbortSignal): Promise<TokenResponse> {
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       code: input.code,
@@ -49,7 +59,7 @@ export class RobloxOAuthApi {
         "content-type": "application/x-www-form-urlencoded",
       },
       body,
-      signal: AbortSignal.timeout(8_000),
+      signal,
     });
     if (!response.ok) throw new RobloxOAuthUpstreamError("token_exchange_failed");
 
@@ -58,13 +68,13 @@ export class RobloxOAuthApi {
     return { accessToken: payload.access_token, refreshToken: payload.refresh_token };
   }
 
-  private async getUserInfo(accessToken: string): Promise<RobloxUserProfile> {
+  private async getUserInfo(accessToken: string, signal: AbortSignal): Promise<RobloxUserProfile> {
     const response = await this.request(USERINFO_ENDPOINT, {
       headers: {
         accept: "application/json",
         authorization: `Bearer ${accessToken}`,
       },
-      signal: AbortSignal.timeout(8_000),
+      signal,
     });
     if (!response.ok) throw new RobloxOAuthUpstreamError("userinfo_failed");
 
@@ -83,6 +93,7 @@ export class RobloxOAuthApi {
   private async revoke(
     refreshToken: string,
     credentials: RobloxOAuthCredentials,
+    signal: AbortSignal,
   ): Promise<void> {
     const response = await this.request(REVOKE_ENDPOINT, {
       method: "POST",
@@ -91,16 +102,36 @@ export class RobloxOAuthApi {
         "content-type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({ token: refreshToken }),
-      signal: AbortSignal.timeout(8_000),
+      signal,
     });
     if (!response.ok) throw new RobloxOAuthUpstreamError("token_revoke_failed");
   }
 
   private async request(url: string, init: RequestInit): Promise<Response> {
     try {
-      return await this.fetchImpl(url, init);
+      return await this.fetchImpl(url, { ...init, redirect: "error" });
     } catch {
       throw new RobloxOAuthUpstreamError("network_failed");
+    }
+  }
+
+  private async bounded<T>(deadline: number, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw new RobloxOAuthUpstreamError("deadline_exceeded");
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new RobloxOAuthUpstreamError("deadline_exceeded"));
+        controller.abort();
+      }, remaining);
+    });
+    try {
+      // Include body consumption, not just response headers, in the deadline.
+      return await Promise.race([work(controller.signal), timeout]);
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
     }
   }
 }

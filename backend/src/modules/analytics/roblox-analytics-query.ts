@@ -78,6 +78,8 @@ type QueryClientOptions = Readonly<{
   sleep?: (milliseconds: number) => Promise<void>;
   maxPolls?: number;
   baseUrl?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
 }>;
 
 const DEFAULT_BASE_URL = "https://apis.roblox.com/analytics-query-api";
@@ -87,12 +89,16 @@ export class RobloxAnalyticsQueryClient {
   private readonly sleep: (milliseconds: number) => Promise<void>;
   private readonly maxPolls: number;
   private readonly baseUrl: string;
+  private readonly timeoutMs: number;
+  private readonly signal?: AbortSignal;
 
   constructor(options: QueryClientOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
     this.maxPolls = options.maxPolls ?? 8;
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
+    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.signal = options.signal;
   }
 
   queryMetric(apiKey: string, universeId: string, query: MetricQuery) {
@@ -109,6 +115,20 @@ export class RobloxAnalyticsQueryClient {
     kind: "metrics" | "dimension-values",
     body: MetricQuery | DimensionValuesQuery,
   ): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const signal = this.signal ? AbortSignal.any([this.signal, controller.signal]) : controller.signal;
+      return await this.runWithinDeadline<T>(apiKey, universeId, kind, body, signal);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async runWithinDeadline<T>(
+    apiKey: string, universeId: string, kind: "metrics" | "dimension-values",
+    body: MetricQuery | DimensionValuesQuery, signal: AbortSignal,
+  ): Promise<T> {
     assertCredential(apiKey);
     assertUniverseId(universeId);
     assertDateWindow(body.startTime, body.endTime);
@@ -117,19 +137,19 @@ export class RobloxAnalyticsQueryClient {
     let operation = await this.request<T>(endpoint, apiKey, {
       method: "POST",
       body: JSON.stringify(body),
-    });
+    }, signal);
 
     for (let poll = 0; !operation.done && poll < this.maxPolls; poll += 1) {
       const operationUrl = this.operationUrl(operation.path, universeId, kind);
-      await this.sleep(Math.min(5_000, 250 * 2 ** poll));
-      operation = await this.request<T>(operationUrl, apiKey, { method: "GET" });
+      await bounded(() => this.sleep(Math.min(5_000, 250 * 2 ** poll)), signal);
+      operation = await this.request<T>(operationUrl, apiKey, { method: "GET" }, signal);
     }
 
     if (!operation.done) {
       throw new RobloxAnalyticsQueryError("Roblox analytics operation did not complete in time", 202, true);
     }
     if (operation.error) {
-      throw new RobloxAnalyticsQueryError(operation.error.message ?? "Roblox analytics operation failed", 502, false);
+      throw new RobloxAnalyticsQueryError("Roblox analytics operation failed", 502, false);
     }
     if (operation.response === undefined) {
       throw new RobloxAnalyticsQueryError("Roblox analytics response was missing", 502, false);
@@ -141,15 +161,18 @@ export class RobloxAnalyticsQueryClient {
     url: string,
     apiKey: string,
     init: { method: "GET" | "POST"; body?: string },
+    signal: AbortSignal,
   ): Promise<AnalyticsOperation<T>> {
-    const response = await this.fetchImpl(url, {
+    const response = await bounded(() => this.fetchImpl(url, {
       ...init,
+      signal,
+      redirect: "error",
       headers: {
         accept: "application/json",
         "content-type": "application/json",
         "x-api-key": apiKey,
       },
-    });
+    }), signal);
 
     if (!response.ok && response.status !== 202) {
       throw new RobloxAnalyticsQueryError(
@@ -159,7 +182,7 @@ export class RobloxAnalyticsQueryClient {
       );
     }
 
-    const payload: unknown = await response.json();
+    const payload: unknown = await bounded(() => response.json(), signal);
     if (!payload || typeof payload !== "object") {
       throw new RobloxAnalyticsQueryError("Roblox analytics returned malformed JSON", 502, false);
     }
@@ -168,11 +191,24 @@ export class RobloxAnalyticsQueryClient {
 
   private operationUrl(path: string, universeId: string, kind: "metrics" | "dimension-values") {
     const expectedPrefix = `v1/universes/${universeId}/operations/${kind}/`;
-    if (!path.startsWith(expectedPrefix) || path.includes("..")) {
+    if (typeof path !== 'string' || !path.startsWith(expectedPrefix) ||
+        !/^[A-Za-z0-9_-]+$/.test(path.slice(expectedPrefix.length))) {
       throw new RobloxAnalyticsQueryError("Roblox returned an unexpected operation path", 502, false);
     }
     return `${this.baseUrl}/${path}`;
   }
+}
+
+function bounded<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new RobloxAnalyticsQueryError('Roblox analytics deadline exceeded', 504, false));
+    if (signal.aborted) { abort(); return; }
+    signal.addEventListener('abort', abort, { once: true });
+    Promise.resolve().then(() => {
+      if (signal.aborted) throw new RobloxAnalyticsQueryError('Roblox analytics deadline exceeded', 504, false);
+      return work();
+    }).then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
 }
 
 function assertCredential(apiKey: string) {

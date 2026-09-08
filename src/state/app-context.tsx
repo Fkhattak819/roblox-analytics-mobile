@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 
 import type { AnalyticsDateRange } from '@/domain/analytics';
 import { experiences } from '@/src/data/sample-data';
+import { useSession } from '@/src/state/session-context';
 
 type NotificationMode = 'Every sale' | 'Smart' | 'Milestones' | 'Digest';
 
@@ -22,6 +23,11 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: React.PropsWithChildren) {
+  const { revision } = useSession();
+  return <AppStateProvider key={revision}>{children}</AppStateProvider>;
+}
+
+function AppStateProvider({ children }: React.PropsWithChildren) {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<AnalyticsDateRange>('28D');
   const [comparePrevious, setComparePrevious] = useState(true);
