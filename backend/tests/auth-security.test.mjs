@@ -14,20 +14,40 @@ const verifier = 'v'.repeat(64);
 const challenge = createHash('sha256').update(verifier).digest('base64url');
 const clientState = 's'.repeat(64);
 const code = 'c'.repeat(43);
-function setup() {
+function setup({ env = { ANALYTICS_UNIVERSE_IDS: '10009166512' }, universeIds = ['10009166512'] } = {}) {
   const store = new InMemoryAuthStore();
-  const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: '10009166512' });
+  const config = loadConfig(env);
   let upstreamCalls = 0;
   const authService = new AuthService(config, store,
     { getCredentials: async () => ({ clientId: 'test-client', clientSecret: 'synthetic' }) },
     { exchangeCodeForAuthorization: async () => { upstreamCalls++; return {
       user: { sub: '123' }, accessToken: 'access', refreshToken: 'refresh',
       accessExpiresAt: Date.now() + 60_000, refreshExpiresAt: Date.now() + 90 * 86400_000,
-      universeIds: ['10009166512'],
+      universeIds,
     }; }, revokeRefreshToken: async () => undefined });
   return { store, authService, calls: () => upstreamCalls,
     route: (request) => routeRequest(request, config, 'local', { authService }) };
 }
+
+test('OAuth-resources mode accepts each creator\'s concrete universe IDs while allowlist mode stays fail closed', async () => {
+  const dynamic = setup({
+    env: { ANALYTICS_UNIVERSE_ACCESS_MODE: 'oauth_resources' },
+    universeIds: ['7001', '7002', '7001'],
+  });
+  const start = await dynamic.authService.startRobloxOAuth({ clientChallenge: challenge, clientState });
+  const state = new URL(start.authorizationUrl).searchParams.get('state');
+  const callback = new URL(await dynamic.authService.completeRobloxOAuth({ state, code: 'creator-code' }));
+  const issued = await dynamic.authService.exchangeAppSession(callback.searchParams.get('code'), verifier);
+  assert.deepEqual(issued.session.authorizedUniverseIds, ['7001', '7002']);
+
+  const restricted = setup({ env: { ANALYTICS_UNIVERSE_IDS: '10009166512' }, universeIds: ['7001'] });
+  const restrictedStart = await restricted.authService.startRobloxOAuth({ clientChallenge: challenge, clientState });
+  const restrictedState = new URL(restrictedStart.authorizationUrl).searchParams.get('state');
+  await assert.rejects(
+    restricted.authService.completeRobloxOAuth({ state: restrictedState, code: 'creator-code' }),
+    { code: 'analytics_permission_required' },
+  );
+});
 
 test('S256 handoff survives wrong proof, creates one session, and prevents replay', async () => {
   const { authService, route } = setup();

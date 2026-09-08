@@ -105,7 +105,7 @@ test('Roblox identity flow exchanges the callback once and stores only the app s
         token: SESSION_TOKEN,
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
         user: { sub: '123456', preferredUsername: 'creator_name' },
-        authorizedUniverseIds: ['10009166512'],
+        authorizedUniverseIds: ['7001', '7002', '7003', '7004', '7005'],
       });
     },
     openAuthSession: async (authorizationUrl, callbackUri) => {
@@ -119,7 +119,7 @@ test('Roblox identity flow exchanges the callback once and stores only the app s
   });
 
   assert.equal(session.user.sub, '123456');
-  assert.deepEqual(session.authorizedUniverseIds, ['10009166512']);
+  assert.deepEqual(session.authorizedUniverseIds, ['7001', '7002', '7003', '7004', '7005']);
   assert.equal(storedToken, SESSION_TOKEN);
   assert.equal(requests.length, 2);
   const startUrl = new URL(requests[0]!.url);

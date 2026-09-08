@@ -46,7 +46,7 @@ The app uses `expo-crypto` asynchronous native random generation for two indepen
 
 `GET /v2/auth/roblox/start?clientChallenge=...&clientState=...` accepts the challenge and state, never the verifier. Server-side state stores them alongside the separate server-to-Roblox PKCE verifier. The existing registered `/v1/auth/roblox/callback` path remains in use; the app redirect now includes the stored mobile `state` with either `code` or `error`. The mobile parser rejects mismatched or duplicate state/code parameters and a changed callback destination before exchange.
 
-`POST /v2/auth/session/exchange` accepts `{ code, clientVerifier }`. The backend derives the S256 challenge and checks it, expiry, and record type inside a conditional DynamoDB delete with returned old values. Wrong proof cannot consume the code. Legacy persisted states lacking proof fail closed. Session responses include `authorizedUniverseIds`, containing only concrete numeric resources approved by Roblox and intersected with the deployment allowlist.
+`POST /v2/auth/session/exchange` accepts `{ code, clientVerifier }`. The backend derives the S256 challenge and checks it, expiry, and record type inside a conditional DynamoDB delete with returned old values. Wrong proof cannot consume the code. Legacy persisted states lacking proof fail closed. Session responses include `authorizedUniverseIds`, containing only concrete numeric resources approved by that Roblox user. Deployments default to the fail-closed static allowlist policy; the private creator beta explicitly uses `oauth_resources`, where the encrypted per-user OAuth grant is the universe boundary.
 
 The v1 start/exchange endpoints return 410, including requests from older clients. Deploy backend support before shipping the updated client; do not reactivate the insecure v1 flow for compatibility. Authentication URLs require HTTPS; the native development wrapper explicitly permits loopback HTTP only. Production rejects HTTP, including loopback. API calls have 15-second client timeouts and disallow redirects. Verifiers, codes, tokens, request bodies, and authorization headers must not be logged.
 
@@ -70,7 +70,7 @@ OAuth upstream work shares a six-second monotonic deadline across token exchange
 - Authenticate every non-sample route and derive tenant identity from the session, never from a client-provided tenant ID.
 - Persist access and refresh tokens only as KMS ciphertext with a subject-bound encryption context; never request `.ROBLOSECURITY` or return delegated tokens to mobile.
 - Refresh tokens rotate under a conditional lease. Logout-all deletes the encrypted grant and attempts Roblox revocation.
-- Keep the deployment universe allowlist as a second boundary even when Roblox returns additional resources.
+- Keep universe admission explicit: `allowlist` is the default and rollback policy; `oauth_resources` accepts only concrete universe IDs returned by Roblox for that user. In both modes, every API read, queue request, credential lookup, worker query, and snapshot write rechecks the tenant-scoped encrypted authorization.
 
 ## Contract rules
 

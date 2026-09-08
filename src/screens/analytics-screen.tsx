@@ -18,7 +18,6 @@ import { AnalyticsQuickLookGrid, buildAnalyticsQuickLookItems } from '@/src/comp
 import { Card, Screen, StudioText } from '@/src/components/ui';
 import type { AnalyticsDateRange, AnalyticsSnapshot } from '@/domain/analytics';
 import { appEnvironment } from '@/services/backend-api';
-import { experiences } from '@/src/data/sample-data';
 import { mostWordsWinBenchmarks } from '@/src/data/roblox-benchmarks';
 import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
@@ -36,7 +35,6 @@ const dateLabels: Record<AnalyticsDateRange, string> = {
   '56D': 'Last 56 days',
   '90D': 'Last 90 days',
 };
-const MOST_WORDS_WIN_UNIVERSE_ID = '10009166512';
 const overviewTimes = [
   '2026-08-26T00:00:00Z',
   '2026-08-27T00:00:00Z',
@@ -131,11 +129,11 @@ function BenchmarkCard({ title, value, percentile }: { title: string; value: str
 }
 
 export default function AnalyticsScreen() {
-  const { selectedExperience, dateRange, setDateRange, comparePrevious, setComparePrevious } = useApp();
+  const { selectedWorkspaceExperience, dateRange, setDateRange, comparePrevious, setComparePrevious } = useApp();
   const [trendMetric, setTrendMetric] = useState<string>('Day 1 retention');
-  const displayExperience = selectedExperience ?? experiences[0];
-  const displayExperienceName = displayExperience.id === 'most-words-win' ? 'Most Words Win!' : displayExperience.name;
-  const universeId = displayExperience.id === 'most-words-win' ? MOST_WORDS_WIN_UNIVERSE_ID : '0';
+  const displayExperience = selectedWorkspaceExperience;
+  const displayExperienceName = displayExperience.name;
+  const universeId = displayExperience.universeId;
   const sampleSnapshot = useMemo(() => createOverviewSampleSnapshot(dateRange, universeId), [dateRange, universeId]);
   const { snapshot, loading, error, reload } = useAnalyticsSnapshot({
     universeId,

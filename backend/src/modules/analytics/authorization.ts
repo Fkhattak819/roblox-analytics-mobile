@@ -16,8 +16,8 @@ export function accessKey(ownerSub: string, universeId: string) {
   if (!/^\d{1,20}$/.test(ownerSub) || !/^\d{1,20}$/.test(universeId)) throw new AnalyticsAccessDenied();
   return oauthAuthorizationKey(ownerSub);
 }
-// Roblox's OAuth resource grant is the authorization source of truth. The
-// deployment allowlist still limits which universes this app is willing to serve.
+// Roblox's concrete OAuth resource grant is the tenant authorization source of
+// truth. Config independently chooses static-allowlist or OAuth-resource admission.
 export class DynamoAnalyticsAuthorizer implements AnalyticsAuthorizer {
   constructor(private readonly client: Pick<DynamoDBClient, 'send'>, private readonly table: string) {}
   async requireAccess(ownerSub: string, universeId: string) {

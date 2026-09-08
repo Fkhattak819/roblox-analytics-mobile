@@ -4,6 +4,7 @@ export type Config = {
   syncQueueUrl?: string;
   robloxAnalyticsSecretArn?: string;
   analyticsUniverseIds: string[];
+  analyticsUniverseAccessMode: 'allowlist' | 'oauth_resources';
   robloxOAuthSecretArn?: string;
   robloxOAuthTokenKeyArn?: string;
   robloxOAuthClientId?: string;
@@ -30,6 +31,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const sessionEpoch = env.SESSION_EPOCH ?? "1";
   const analyticsUniverseIds: string[] = (env.ANALYTICS_UNIVERSE_IDS ?? '').split(',').map((value: string) => value.trim()).filter(Boolean);
   if (analyticsUniverseIds.some((value: string) => !/^\d+$/.test(value))) throw new Error('Invalid analytics universe allowlist');
+  const analyticsUniverseAccessMode = env.ANALYTICS_UNIVERSE_ACCESS_MODE ?? 'allowlist';
+  if (analyticsUniverseAccessMode !== 'allowlist' && analyticsUniverseAccessMode !== 'oauth_resources') {
+    throw new Error('ANALYTICS_UNIVERSE_ACCESS_MODE must be allowlist or oauth_resources');
+  }
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(sessionEpoch)) {
     throw new Error("SESSION_EPOCH must be a nonempty deployment identifier");
   }
@@ -40,6 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     syncQueueUrl: env.SYNC_QUEUE_URL || undefined,
     robloxAnalyticsSecretArn: env.ROBLOX_ANALYTICS_SECRET_ARN || undefined,
     analyticsUniverseIds,
+    analyticsUniverseAccessMode,
     robloxOAuthSecretArn: env.ROBLOX_OAUTH_SECRET_ARN || undefined,
     robloxOAuthTokenKeyArn: env.ROBLOX_OAUTH_TOKEN_KEY_ARN || undefined,
     robloxOAuthClientId: env.ROBLOX_OAUTH_CLIENT_ID || undefined,
@@ -53,4 +59,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionTtlSeconds,
     sessionEpoch,
   };
+}
+
+export function isAnalyticsUniverseAllowed(config: Config, universeId: string): boolean {
+  return config.analyticsUniverseAccessMode === 'oauth_resources'
+    || config.analyticsUniverseIds.includes(universeId);
 }

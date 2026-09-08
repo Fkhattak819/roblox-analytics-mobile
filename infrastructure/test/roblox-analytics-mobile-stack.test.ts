@@ -66,6 +66,7 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
         APP_OAUTH_CALLBACK_URI: "robloxanalyticsmobile://oauth/callback",
         ROBLOX_OAUTH_SCOPES: "openid profile universe.analytics:read",
         ROBLOX_OAUTH_TOKEN_KEY_ARN: Match.anyValue(),
+        ANALYTICS_UNIVERSE_ACCESS_MODE: 'oauth_resources',
       }),
     },
   });
@@ -123,6 +124,7 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
     resource.Type === 'AWS::Lambda::Function' && resource.Properties.FunctionName.endsWith('-analytics-worker')) as any;
   assert.ok(worker.Properties.Environment.Variables.ROBLOX_OAUTH_SECRET_ARN);
   assert.ok(worker.Properties.Environment.Variables.ROBLOX_OAUTH_TOKEN_KEY_ARN);
+  assert.equal(worker.Properties.Environment.Variables.ANALYTICS_UNIVERSE_ACCESS_MODE, 'oauth_resources');
   assert.equal(worker.Properties.Environment.Variables.ROBLOX_ANALYTICS_SECRET_ARN, undefined);
   const queue = Object.values(resources).find((resource: any) =>
     resource.Type === 'AWS::SQS::Queue' && resource.Properties.QueueName.endsWith('-sync')) as any;

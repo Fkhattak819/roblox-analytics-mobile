@@ -12,16 +12,17 @@ import { useApp } from '@/src/state/app-context';
 import { colors, fonts } from '@/src/theme/tokens';
 
 export default function ExperiencePickerScreen() {
-  const { setSelectedExperienceId } = useApp();
+  const { selectedWorkspaceExperience, setSelectedExperienceId, workspaceExperiences } = useApp();
   const [query, setQuery] = useState('');
   const [wideArtworkFailed, setWideArtworkFailed] = useState(false);
   const normalized = query.trim().toLowerCase();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
   const choices = useMemo(
-    () => (isConnectedMode ? experiences.slice(0, 1) : experiences.slice(0, 2))
+    () => (isConnectedMode ? workspaceExperiences : workspaceExperiences.slice(0, 2))
       .filter((item) => item.name.toLowerCase().includes(normalized)),
-    [isConnectedMode, normalized],
+    [isConnectedMode, normalized, workspaceExperiences],
   );
+  const selectedChoice = selectedWorkspaceExperience;
 
   const choose = (id: string | null) => {
     setSelectedExperienceId(id);
@@ -44,46 +45,46 @@ export default function ExperiencePickerScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {(!normalized || choices.some((item) => item.id === 'most-words-win')) ? (
+        {(!normalized || choices.some((item) => item.id === selectedChoice.id)) ? (
           <>
             <SectionLabel>SELECTED EXPERIENCE</SectionLabel>
-            <Pressable onPress={() => choose('most-words-win')} style={({ pressed }) => [styles.selectedCard, pressed && styles.pressed]}>
+            <Pressable onPress={() => choose(selectedChoice.id)} style={({ pressed }) => [styles.selectedCard, pressed && styles.pressed]}>
               <Image
-                accessibilityLabel="Most Words Win game thumbnail"
-                source={wideArtworkFailed ? experiences[0].image : experienceArtwork.mostWordsWinWide}
+                accessibilityLabel={`${selectedChoice.name} artwork`}
+                source={isConnectedMode ? selectedChoice.image : wideArtworkFailed ? experiences[0].image : experienceArtwork.mostWordsWinWide}
                 cachePolicy="memory-disk"
-                contentFit="cover"
+                contentFit={isConnectedMode && selectedChoice.universeId !== '10009166512' ? 'contain' : 'cover'}
                 contentPosition="center"
                 onError={() => setWideArtworkFailed(true)}
-                recyclingKey="most-words-win-wide"
+                recyclingKey={`selected-${selectedChoice.id}`}
                 transition={0}
                 style={styles.heroArtwork}
               />
               <View style={styles.selectedInfo}>
-                <Image source={experiences[0].image} cachePolicy="memory-disk" contentFit="cover" transition={0} style={styles.selectedIcon} />
+                <Image source={selectedChoice.image} cachePolicy="memory-disk" contentFit="contain" transition={0} style={styles.selectedIcon} />
                 <View style={styles.flex}>
-                  <StudioText weight="semibold" size={16}>Most Words Win!</StudioText>
+                  <StudioText weight="semibold" size={16}>{selectedChoice.name}</StudioText>
                   <StudioText tone="muted" size={11} numberOfLines={1}>
-                    {isConnectedMode ? 'Universe 10009166512 · Authorized' : 'BrainNourish · Public · 1,041 CCU'}
+                    {isConnectedMode ? `Universe ${selectedChoice.universeId} · Authorized` : 'BrainNourish · Public · 1,041 CCU'}
                   </StudioText>
                 </View>
                 <View style={styles.checkCircle}><Ionicons name="checkmark" size={19} color={colors.white} /></View>
               </View>
             </Pressable>
-            {!isConnectedMode ? <SectionLabel style={styles.yourLabel}>YOUR EXPERIENCES</SectionLabel> : null}
+            <SectionLabel style={styles.yourLabel}>YOUR EXPERIENCES</SectionLabel>
           </>
         ) : null}
 
-        {!isConnectedMode ? choices.filter((item) => item.id !== 'most-words-win').map((item) => (
+        {choices.filter((item) => item.id !== selectedChoice.id).map((item) => (
           <Pressable key={item.id} onPress={() => choose(item.id)} style={({ pressed }) => [styles.choiceCard, pressed && styles.pressed]}>
-            <View style={styles.initialTile}><StudioText weight="semibold" size={12}>FS</StudioText></View>
+            <View style={styles.initialTile}><StudioText weight="semibold" size={12}>{item.name.slice(0, 2).toUpperCase()}</StudioText></View>
             <View style={styles.flex}>
-              <StudioText weight="semibold" size={15}>Fling Squishies</StudioText>
-              <StudioText tone="muted" size={11}>BrainNourish group · 243 CCU</StudioText>
+              <StudioText weight="semibold" size={15}>{item.name}</StudioText>
+              <StudioText tone="muted" size={11}>{isConnectedMode ? `Universe ${item.universeId} · Authorized` : `${item.creator} · Sample`}</StudioText>
             </View>
-            <StudioText tone="green" weight="medium" size={11}>Healthy</StudioText>
+            <StudioText tone="green" weight="medium" size={11}>{isConnectedMode ? 'OAuth' : 'Healthy'}</StudioText>
           </Pressable>
-        )) : null}
+        ))}
 
         {!isConnectedMode && !normalized ? (
           <Pressable onPress={() => choose(null)} style={({ pressed }) => [styles.choiceCard, pressed && styles.pressed]}>

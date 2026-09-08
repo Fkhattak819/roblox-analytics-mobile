@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View, type ImageSourcePropType } from 'react-native';
 
 import type { AnalyticsSnapshot } from '@/domain/analytics';
 import { appEnvironment } from '@/services/backend-api';
 import { Badge, Screen, StudioText } from '@/src/components/ui';
 import { experiences, groups, type Experience } from '@/src/data/sample-data';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
-import { useApp } from '@/src/state/app-context';
+import { useApp, type WorkspaceExperience } from '@/src/state/app-context';
 import { colors, fonts, radii, spacing } from '@/src/theme/tokens';
 import { metricTrendColor } from '@/src/utils/metric-trend';
 
@@ -113,6 +113,90 @@ function detailFor(experience: Experience) {
 }
 
 export default function ExperiencesScreen() {
+  return appEnvironment.dataMode === 'aws_dev' ? <ConnectedExperiencesScreen /> : <SampleExperiencesScreen />;
+}
+
+function ConnectedExperiencesScreen() {
+  const { selectedWorkspaceExperience, setSelectedExperienceId, workspaceExperiences } = useApp();
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const sampleSnapshot = useMemo(
+    () => createExperienceSampleSnapshot(selectedWorkspaceExperience.universeId),
+    [selectedWorkspaceExperience.universeId],
+  );
+  const { snapshot } = useAnalyticsSnapshot({
+    universeId: selectedWorkspaceExperience.universeId,
+    section: 'overview',
+    range: '28D',
+    sampleSnapshot,
+  });
+  const selectedPresentation = useMemo(
+    () => presentationFromSnapshot(snapshot, selectedWorkspaceExperience.name),
+    [selectedWorkspaceExperience.name, snapshot],
+  );
+  const filtered = useMemo(() => workspaceExperiences.filter((experience) =>
+    !normalizedQuery || `${experience.name} ${experience.universeId}`.toLocaleLowerCase().includes(normalizedQuery)),
+  [normalizedQuery, workspaceExperiences]);
+
+  const choose = (experience: WorkspaceExperience) => {
+    setSelectedExperienceId(experience.id);
+    router.push('/(tabs)/analytics');
+  };
+
+  return (
+    <Screen contentContainerStyle={styles.screenContent}>
+      <PortfolioSwitcher title={selectedWorkspaceExperience.name} image={selectedWorkspaceExperience.image} onPress={() => router.push('/experience-picker')} />
+      <View style={styles.titleBlock}>
+        <StudioText size={28} lineHeight={34} weight="bold">Experiences</StudioText>
+        <StudioText tone="muted" size={13}>{workspaceExperiences.length} authorized {workspaceExperiences.length === 1 ? 'experience' : 'experiences'} · Roblox OAuth</StudioText>
+      </View>
+      <View style={styles.searchField}>
+        <Ionicons name="search-outline" size={17} color={colors.textSecondary} />
+        <TextInput accessibilityLabel="Search authorized experiences" autoCapitalize="none" autoCorrect={false}
+          onChangeText={setQuery} placeholder="Search universes" placeholderTextColor={colors.textMuted}
+          returnKeyType="search" style={styles.searchInput} value={query} />
+        {query ? <Pressable accessibilityLabel="Clear search" hitSlop={9} onPress={() => setQuery('')}><Ionicons name="close-circle" size={17} color={colors.textMuted} /></Pressable> : null}
+      </View>
+      {filtered.length ? <View style={styles.section}>
+        <SectionHeading title="Authorized experiences" detail="Read-only analytics" staticDetail />
+        {filtered.map((experience) => {
+          const selected = experience.id === selectedWorkspaceExperience.id;
+          const presentation = selected ? selectedPresentation : {
+            name: experience.name, access: 'Private' as const, ccu: '—', ccuDelta: '—', dau: '—', dauDelta: '—',
+            retention: '—', retentionDelta: '—', revenue: '—', revenueDelta: '—',
+          };
+          return <ConnectedExperienceCard key={experience.id} experience={experience} presentation={presentation} selected={selected} onPress={() => choose(experience)} />;
+        })}
+      </View> : <View style={styles.emptyState}><StudioText weight="semibold">No authorized universe found</StudioText><StudioText tone="muted" size={13}>Try the numeric universe ID shown during Roblox consent.</StudioText></View>}
+      <Pressable accessibilityRole="button" onPress={() => router.push('/settings/connections')} style={({ pressed }) => [styles.manageRow, pressed && styles.pressed]}>
+        <StudioText tone="secondary" size={13}>Reconnect or change Roblox access</StudioText><Ionicons name="chevron-forward" size={17} color={colors.textMuted} />
+      </Pressable>
+    </Screen>
+  );
+}
+
+function ConnectedExperienceCard({ experience, presentation, selected, onPress }: {
+  experience: WorkspaceExperience; presentation: ExperiencePresentation; selected: boolean; onPress: () => void;
+}) {
+  return <Pressable accessibilityLabel={`Open analytics for ${experience.name}`} accessibilityRole="button" onPress={onPress}
+    style={({ pressed }) => [styles.experienceCard, selected && { borderColor: colors.blue }, pressed && styles.cardPressed]}>
+    <View style={styles.cardHeader}>
+      <Image source={experience.image} style={styles.largeGameImage} contentFit="contain" />
+      <View style={styles.cardTitleBlock}>
+        <StudioText weight="semibold" size={16} numberOfLines={1}>{experience.name}</StudioText>
+        <StudioText tone="muted" size={10}>Universe {experience.universeId}</StudioText>
+        <Badge label={selected ? 'Selected · OAuth' : 'Authorized'} tone={selected ? 'green' : 'neutral'} />
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </View>
+    <View style={styles.expandedStats}>
+      <View style={styles.statsRow}><Stat label="Daily active users" value={presentation.dau} delta={presentation.dauDelta} /><Stat label="D1 retention" value={presentation.retention} delta={presentation.retentionDelta} /></View>
+      <View style={styles.statsRow}><Stat label="Daily revenue" value={presentation.revenue} delta={presentation.revenueDelta} /><Stat label="Access" value="Read only" delta="—" /></View>
+    </View>
+  </Pressable>;
+}
+
+function SampleExperiencesScreen() {
   const { selectedExperience } = useApp();
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -222,7 +306,7 @@ export default function ExperiencesScreen() {
   );
 }
 
-function PortfolioSwitcher({ title, image, onPress }: { title: string; image?: Experience['image']; onPress: () => void }) {
+function PortfolioSwitcher({ title, image, onPress }: { title: string; image?: ImageSourcePropType; onPress: () => void }) {
   return (
     <View style={styles.portfolioRow}>
       <Pressable onPress={onPress} style={({ pressed }) => [styles.portfolioButton, pressed && styles.pressed]}>
@@ -339,12 +423,12 @@ function Stat({ label, value, delta }: { label: string; value: string; delta: st
   );
 }
 
-function createExperienceSampleSnapshot(): AnalyticsSnapshot {
+function createExperienceSampleSnapshot(universeId = '10009166512'): AnalyticsSnapshot {
   return {
     mode: 'sample',
     source: 'sample_data',
     freshness: 'fixture',
-    universeId: '10009166512',
+    universeId,
     section: 'overview',
     range: '28D',
     metrics: [],
@@ -354,13 +438,13 @@ function createExperienceSampleSnapshot(): AnalyticsSnapshot {
   };
 }
 
-function presentationFromSnapshot(snapshot: AnalyticsSnapshot | undefined): ExperiencePresentation {
+function presentationFromSnapshot(snapshot: AnalyticsSnapshot | undefined, name = 'Most Words Win!'): ExperiencePresentation {
   const metric = (id: string) => snapshot?.metrics.find((item) => item.id === id);
   const dau = metric('daily-active-users');
   const retention = metric('forward-d1-retention');
   const revenue = metric('daily-revenue');
   return {
-    name: 'Most Words Win!',
+    name,
     access: 'Public',
     ccu: '—',
     ccuDelta: '—',

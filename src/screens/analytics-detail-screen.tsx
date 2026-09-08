@@ -15,7 +15,6 @@ import {
 } from '@/src/components/analytics';
 import { HorizontalBars } from '@/src/components/charts';
 import { Badge, Card, Divider, ExperienceHeader, ListRow, PageHeader, Screen, StudioText } from '@/src/components/ui';
-import { experiences } from '@/src/data/sample-data';
 import { analyticsSectionIds, type AnalyticsDateRange, type AnalyticsSectionId, type AnalyticsSnapshot } from '@/domain/analytics';
 import { appEnvironment } from '@/services/backend-api';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
@@ -58,7 +57,6 @@ const sampleTimes = [
   '2026-08-27T00:00:00Z',
   '2026-09-01T00:00:00Z',
 ] as const;
-const MOST_WORDS_WIN_UNIVERSE_ID = '10009166512';
 const officialSyncableSections = new Set<AnalyticsSectionId>([
   'overview',
   'engagement',
@@ -274,13 +272,12 @@ const additionalSections = [
 ] as const;
 
 function AllAnalyticsScreen() {
-  const { selectedExperience } = useApp();
-  const experience = selectedExperience ?? experiences[0];
+  const { selectedWorkspaceExperience: experience } = useApp();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
   return (
     <Screen contentContainerStyle={styles.screen}>
       <PageHeader title="All analytics" subtitle="Official Roblox surfaces" back />
-      <ExperienceHeader image={experience.image} name={experience.name === 'Most Words Win' ? 'Most Words Win!' : experience.name} creator={isConnectedMode ? `Universe ${MOST_WORDS_WIN_UNIVERSE_ID}` : experience.creator} />
+      <ExperienceHeader image={experience.image} name={experience.name} creator={isConnectedMode ? `Universe ${experience.universeId}` : experience.creator} />
       <AnalyticsSectionHeader title="Analytics catalog" detail="12 surfaces" />
       <Card style={styles.catalogCard}>
         {additionalSections.map((section, index) => (
@@ -297,12 +294,11 @@ function AllAnalyticsScreen() {
 
 function InvalidSection({ sectionId }: { sectionId: string }) {
   const section = additionalSections.find((item) => item.id === sectionId);
-  const { selectedExperience } = useApp();
-  const experience = selectedExperience ?? experiences[0];
+  const { selectedWorkspaceExperience: experience } = useApp();
   return (
     <Screen contentContainerStyle={styles.screen}>
       <PageHeader title={section?.title ?? 'Analytics'} subtitle={section?.subtitle ?? 'Roblox analytics'} back />
-      <ExperienceHeader image={experience.image} name={experience.name === 'Most Words Win' ? 'Most Words Win!' : experience.name} creator={appEnvironment.dataMode === 'aws_dev' ? `Universe ${MOST_WORDS_WIN_UNIVERSE_ID}` : experience.creator} />
+      <ExperienceHeader image={experience.image} name={experience.name} creator={appEnvironment.dataMode === 'aws_dev' ? `Universe ${experience.universeId}` : experience.creator} />
       <AnalyticsEmptyState
         icon={section?.icon ?? 'analytics-outline'}
         title="Unsupported analytics section"
@@ -346,12 +342,11 @@ function ConfiguredAnalyticsDetail({
   sectionId: AnalyticsSectionId;
   config: SectionConfig;
 }) {
-  const { selectedExperience, comparePrevious, setComparePrevious } = useApp();
+  const { selectedWorkspaceExperience: experience, comparePrevious, setComparePrevious } = useApp();
   const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => defaultRangeFor(sectionId));
   const [filter, setFilter] = useState<'All users' | 'Phone'>('All users');
   const [breakdown, setBreakdown] = useState<'None' | 'Platform'>('None');
-  const experience = selectedExperience ?? experiences[0];
-  const universeId = experience.id === 'most-words-win' ? MOST_WORDS_WIN_UNIVERSE_ID : '0';
+  const universeId = experience.universeId;
   const unavailableInConnectedMode = appEnvironment.dataMode === 'aws_dev' && !officialSyncableSections.has(sectionId);
   const sampleSnapshot = useMemo(
     () => createSampleSnapshot(sectionId, config, dateRange, universeId),
@@ -394,7 +389,7 @@ function ConfiguredAnalyticsDetail({
           tone={hasLocalPreviewControls || unavailableInConnectedMode ? 'yellow' : 'green'}
         />}
       />
-      <ExperienceHeader image={experience.image} name={experience.name === 'Most Words Win' ? 'Most Words Win!' : experience.name} creator={appEnvironment.dataMode === 'aws_dev' ? `Universe ${MOST_WORDS_WIN_UNIVERSE_ID}` : experience.creator} />
+      <ExperienceHeader image={experience.image} name={experience.name} creator={appEnvironment.dataMode === 'aws_dev' ? `Universe ${experience.universeId}` : experience.creator} />
 
       <AnalyticsFilterBar
         dateLabel={activeDateLabel}

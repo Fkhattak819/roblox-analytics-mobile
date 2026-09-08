@@ -6,11 +6,12 @@ import { AnalyticsAccessDenied } from '../dist/backend/src/modules/analytics/aut
 import { loadConfig } from '../dist/backend/src/config.js';
 
 const config = loadConfig({ ANALYTICS_UNIVERSE_IDS: '100,200' });
+const oauthResourcesConfig = loadConfig({ ANALYTICS_UNIVERSE_ACCESS_MODE: 'oauth_resources' });
 const message = (ownerSub = '1', universeId = '100') => JSON.stringify({
   version: 1, jobId: randomUUID(), ownerSub, universeId, section: 'engagement', range: '7D', requestedAt: new Date().toISOString(),
 });
 function setup() {
-  const grants = new Set(['1:100', '2:200']);
+  const grants = new Set(['1:100', '2:200', '3:300', '4:400', '5:500']);
   const calls = [];
   const deps = {
     authorizer: { requireAccess: async (owner, universe) => { if (!grants.has(`${owner}:${universe}`)) throw new AnalyticsAccessDenied(); } },
@@ -40,9 +41,15 @@ test('revocation during synchronization prevents connection status publication',
   assert.deepEqual(calls, ['credential']);
 });
 test('authorized independent workers retain their own account and universe', async () => {
-  for (const [owner, universe] of [['1', '100'], ['2', '200']]) {
+  for (const [owner, universe] of [['1', '100'], ['2', '200'], ['3', '300'], ['4', '400'], ['5', '500']]) {
     const { deps, calls } = setup();
-    await processAnalyticsMessage(message(owner, universe), config, deps);
+    await processAnalyticsMessage(message(owner, universe), oauthResourcesConfig, deps);
     assert.deepEqual(calls, ['credential', `sync:${owner}:${universe}`, 'status']);
   }
+});
+test('OAuth-resources mode accepts a creator universe outside the deployment rollback allowlist', async () => {
+  const { grants, calls, deps } = setup();
+  grants.add('6:600');
+  await processAnalyticsMessage(message('6', '600'), oauthResourcesConfig, deps);
+  assert.deepEqual(calls, ['credential', 'sync:6:600', 'status']);
 });

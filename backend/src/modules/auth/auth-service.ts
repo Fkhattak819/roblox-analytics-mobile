@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { Config } from "../../config.js";
+import { isAnalyticsUniverseAllowed, type Config } from "../../config.js";
 import type { AppSessionRecord, AuthStore } from "./auth-store.js";
 import { OAuthConfigurationError, type RobloxOAuthCredentialsProvider } from "./oauth-credentials.js";
 import { createOAuthStart } from "./roblox-oauth.js";
@@ -72,8 +72,8 @@ export class AuthService {
         credentials,
         remainingTimeMs: input.remainingTimeMs,
       });
-      const authorizedUniverseIds = authorization.universeIds.filter((universeId) =>
-        this.config.analyticsUniverseIds.includes(universeId));
+      const authorizedUniverseIds = [...new Set(authorization.universeIds)]
+        .filter((universeId) => isAnalyticsUniverseAllowed(this.config, universeId));
       if (!authorizedUniverseIds.length) {
         await this.robloxApi.revokeRefreshToken(authorization.refreshToken, credentials);
         throw new AuthServiceError(403, 'analytics_permission_required',

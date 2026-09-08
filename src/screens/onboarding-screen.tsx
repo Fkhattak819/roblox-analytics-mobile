@@ -58,6 +58,7 @@ export default function OnboardingScreen() {
     const { user } = session.session;
     const task = setTimeout(() => {
       setCreatorUsername(user.preferredUsername ?? user.nickname ?? user.name ?? user.sub);
+      setSelectedIds(new Set(session.session!.authorizedUniverseIds));
       setStep((current) => current < 2 ? 2 : current);
     }, 0);
     return () => clearTimeout(task);
@@ -122,9 +123,10 @@ export default function OnboardingScreen() {
         ) : null}
         {step === 2 ? (
           <ChooseExperiencesStep
+            authorizedUniverseIds={session.session?.authorizedUniverseIds ?? ['most-words-win']}
             selectedIds={selectedIds}
             onContinue={goForward}
-            onSelectAll={() => setSelectedIds(new Set(['most-words-win']))}
+            onSelectAll={() => setSelectedIds(new Set(session.session?.authorizedUniverseIds ?? ['most-words-win']))}
             onToggle={toggleExperience}
           />
         ) : null}
@@ -433,32 +435,37 @@ function PermissionLine({
 }
 
 function ChooseExperiencesStep({
+  authorizedUniverseIds,
   selectedIds,
   onContinue,
   onSelectAll,
   onToggle,
 }: {
+  authorizedUniverseIds: string[];
   selectedIds: Set<string>;
   onContinue: () => void;
   onSelectAll: () => void;
   onToggle: (id: string) => void;
 }) {
+  const count = authorizedUniverseIds.length;
+  const firstId = authorizedUniverseIds[0] ?? 'unavailable';
+  const allSelected = count > 0 && authorizedUniverseIds.every((id) => selectedIds.has(id));
   return (
     <>
       <StudioText weight="semibold" size={11} lineHeight={15} style={[styles.eyebrow, { top: 118 }]}>AUTHORIZED THROUGH ROBLOX</StudioText>
-      <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 142 }]}>Choose experiences</StudioText>
-      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 190 }]}>Select from the experiences approved during{`\n`}Roblox sign-in. You can reconnect later.</StudioText>
+      <StudioText weight="bold" size={29} lineHeight={35} style={[styles.heading, { top: 142 }]}>Authorized experiences</StudioText>
+      <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 190 }]}>Roblox approved these experiences for read-only{`\n`}analytics. You can reconnect later.</StudioText>
 
       <View style={styles.eligiblePill}>
-        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.eligibleText}>1 authorized experience</StudioText>
+        <StudioText weight="semibold" size={11} lineHeight={15} style={styles.eligibleText}>{count} authorized {count === 1 ? 'experience' : 'experiences'}</StudioText>
       </View>
 
       <ExperienceCard
-        id="most-words-win"
-        meta="Universe 10009166512 · Authorized"
-        name="Most Words Win!"
-        onToggle={onToggle}
-        selected={selectedIds.has('most-words-win')}
+        id={firstId}
+        meta={count === 1 ? `Universe ${firstId} · Authorized` : 'Approved by Roblox OAuth'}
+        name={count === 1 && firstId === '10009166512' ? 'Most Words Win!' : count === 1 ? `Universe ${firstId}` : `${count} Roblox experiences`}
+        onToggle={() => allSelected ? authorizedUniverseIds.forEach(onToggle) : onSelectAll()}
+        selected={allSelected}
         top={296}
       />
       <View style={styles.portfolioNote}>
@@ -519,9 +526,9 @@ function ExperienceCard({
 function ExperienceArt() {
   return (
     <Image
-      accessibilityLabel="Most Words Win game thumbnail"
-      contentFit="cover"
-      source={require('@/assets/experiences/most_words_win_official.png')}
+      accessibilityLabel="Roblox analytics"
+      contentFit="contain"
+      source={require('@/assets/images/roblox-analytics-logo-transparent.png')}
       style={styles.experienceArt}
     />
   );
@@ -544,7 +551,7 @@ function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCoun
 
       <View style={[styles.workspacePreview, styles.readyWorkspacePreview]}>
         <StudioText weight="semibold" size={11} lineHeight={15} style={styles.workspacePreviewTitle}>OFFICIAL ANALYTICS WORKSPACE</StudioText>
-        <PreviewMetric label="EXPERIENCE" left={13} value="1" />
+        <PreviewMetric label="EXPERIENCE" left={13} value={String(selectedCount)} />
         <PreviewMetric label="SOURCE" left={118} value="Roblox" />
         <PreviewMetric label="ACCESS" left={223} value="Read" />
       </View>

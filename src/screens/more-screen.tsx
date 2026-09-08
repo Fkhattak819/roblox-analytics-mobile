@@ -7,6 +7,7 @@ import { loadConnectionStatus, type ConnectionStatus } from '@/services/connecti
 import { getStoredSessionToken } from '@/services/roblox-auth';
 import { Card, Screen, StudioText } from '@/src/components/ui';
 import { useSession } from '@/src/state/session-context';
+import { useApp } from '@/src/state/app-context';
 import { colors, radii } from '@/src/theme/tokens';
 
 type SettingsRowProps = {
@@ -41,6 +42,7 @@ function SettingsGroup({ title, children }: React.PropsWithChildren<{ title: str
 
 export default function MoreScreen() {
   const session = useSession();
+  const { selectedWorkspaceExperience, workspaceExperiences } = useApp();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionChecked, setConnectionChecked] = useState(false);
 
@@ -56,7 +58,7 @@ export default function MoreScreen() {
         const token = await getStoredSessionToken();
         if (!token) return;
         setConnection(await loadConnectionStatus({
-          universeId: '10009166512',
+          universeId: selectedWorkspaceExperience.universeId,
           sessionToken: token,
           signal: controller.signal,
         }));
@@ -67,7 +69,7 @@ export default function MoreScreen() {
       }
     })();
     return () => controller.abort();
-  }, [session.revision, session.status]);
+  }, [selectedWorkspaceExperience.universeId, session.revision, session.status]);
 
   const identityConnected = session.status === 'authenticated';
   const analyticsActive = connection?.analytics.status === 'active';
@@ -121,11 +123,11 @@ export default function MoreScreen() {
         </View>
       </Card>
 
-      <Card style={styles.workspaceCard} onPress={() => router.push('/settings/account')} accessibilityLabel="Open Most Words Win workspace">
+      <Card style={styles.workspaceCard} onPress={() => router.push('/experience-picker')} accessibilityLabel={`Open ${selectedWorkspaceExperience.name} workspace`}>
         <View style={styles.workspaceCopy}>
           <StudioText tone="muted" weight="medium" size={8}>WORKSPACE</StudioText>
-          <StudioText weight="semibold" size={13}>Most Words Win!</StudioText>
-          <StudioText tone="muted" size={10}>1 experience · {analyticsActive ? 'analytics active' : 'analytics awaiting sync'}</StudioText>
+          <StudioText weight="semibold" size={13}>{selectedWorkspaceExperience.name}</StudioText>
+          <StudioText tone="muted" size={10}>{workspaceExperiences.length} {workspaceExperiences.length === 1 ? 'experience' : 'experiences'} · {analyticsActive ? 'analytics active' : 'analytics awaiting sync'}</StudioText>
         </View>
         <View style={styles.workspaceAction}>
           <View style={styles.switchRow}>

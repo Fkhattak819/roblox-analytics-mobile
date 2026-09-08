@@ -19,9 +19,9 @@ import {
   StudioText,
   uiStyles,
 } from '@/src/components/ui';
-import { experiences, liveSales, products, revenueTrend, type Sale } from '@/src/data/sample-data';
+import { liveSales, products, revenueTrend, type Sale } from '@/src/data/sample-data';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
-import { useApp } from '@/src/state/app-context';
+import { useApp, type WorkspaceExperience } from '@/src/state/app-context';
 import { colors, radii, spacing } from '@/src/theme/tokens';
 import { metricTrendColor } from '@/src/utils/metric-trend';
 
@@ -329,15 +329,15 @@ function ConnectedSalesUnavailable({ section }: { section: Exclude<SalesSection,
   );
 }
 
-function createSalesFallbackSnapshot(): AnalyticsSnapshot {
+function createSalesFallbackSnapshot(universeId = '10009166512'): AnalyticsSnapshot {
   return {
-    mode: 'sample', source: 'sample_data', freshness: 'fixture', universeId: '10009166512', section: 'monetization', range: '7D',
+    mode: 'sample', source: 'sample_data', freshness: 'fixture', universeId, section: 'monetization', range: '7D',
     metrics: [], charts: [], breakdowns: [], message: 'Sample sales summary',
   };
 }
 
-function SalesExperienceSelector({ experience }: { experience: (typeof experiences)[number] }) {
-  const displayName = experience.id === 'most-words-win' ? 'Most Words Win!' : experience.name;
+function SalesExperienceSelector({ experience }: { experience: WorkspaceExperience }) {
+  const displayName = experience.name;
 
   return (
     <Pressable
@@ -382,15 +382,14 @@ function SalesSegments({ value, onChange }: { value: SalesSection; onChange: (se
 export default function SalesScreen() {
   const [section, setSection] = useState<SalesSection>('Overview');
   const [salesDateRange, setSalesDateRange] = useState<SalesDateRange>('7D');
-  const { selectedExperience } = useApp();
+  const { selectedWorkspaceExperience: displayExperience } = useApp();
   const isConnectedMode = appEnvironment.dataMode === 'aws_dev';
-  const displayExperience = selectedExperience ?? experiences[0];
   const nextRange = salesRangeOptions[(salesRangeOptions.indexOf(salesDateRange) + 1) % salesRangeOptions.length];
   const selectSection = (nextSection: SalesSection) => setSection(nextSection);
   const analyticsRange: AnalyticsDateRange = salesDateRange === '30D' ? '28D' : salesDateRange;
-  const sampleSnapshot = useMemo(() => createSalesFallbackSnapshot(), []);
+  const sampleSnapshot = useMemo(() => createSalesFallbackSnapshot(displayExperience.universeId), [displayExperience.universeId]);
   const analytics = useAnalyticsSnapshot({
-    universeId: '10009166512',
+    universeId: displayExperience.universeId,
     section: 'monetization',
     range: analyticsRange,
     sampleSnapshot,

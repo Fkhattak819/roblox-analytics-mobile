@@ -520,7 +520,7 @@
           "Analytics"
         ],
         "summary": "Queue an official analytics synchronization",
-        "description": "Derives the tenant from the authenticated app session, enforces a universe allow-list and cooldown, and queues server-side Roblox Open Cloud work. It never accepts a Roblox credential or tenant identifier.",
+        "description": "Derives the tenant from the authenticated app session, enforces membership in that user's delegated Roblox OAuth universe resources and a cooldown, and queues server-side Roblox Open Cloud work. It never accepts a Roblox credential or tenant identifier.",
         "security": [
           {
             "bearerAuth": []
@@ -576,7 +576,7 @@
             }
           },
           "403": {
-            "description": "The universe is not allow-listed",
+            "description": "The universe is not authorized for this app session",
             "content": {
               "application/json": {
                 "schema": {
@@ -644,7 +644,7 @@
             }
           },
           "403": {
-            "description": "The universe is not allow-listed",
+            "description": "The universe is not authorized for this app session",
             "content": {
               "application/json": {
                 "schema": {

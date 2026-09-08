@@ -255,6 +255,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
         ROBLOX_OAUTH_TOKEN_KEY_ARN: oauthTokenKey.keyArn,
         TABLE_NAME: applicationTable.tableName,
         SYNC_QUEUE_URL: syncQueue.queueUrl,
+        ANALYTICS_UNIVERSE_ACCESS_MODE: 'oauth_resources',
         ANALYTICS_UNIVERSE_IDS: '10009166512',
         HISTORY_BUCKET_NAME: historyBucket.bucketName,
       },
@@ -323,6 +324,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
         TABLE_NAME: applicationTable.tableName,
         ROBLOX_OAUTH_SECRET_ARN: oauthCredentials.secretArn,
         ROBLOX_OAUTH_TOKEN_KEY_ARN: oauthTokenKey.keyArn,
+        ANALYTICS_UNIVERSE_ACCESS_MODE: 'oauth_resources',
         ANALYTICS_UNIVERSE_IDS: "10009166512",
       },
     });

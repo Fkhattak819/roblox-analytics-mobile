@@ -11,14 +11,13 @@ import {
   AnalyticsErrorState,
   AnalyticsLoadingSkeleton,
 } from '@/src/components/analytics';
-import { AnalyticsBenchmarkCarousel } from '@/src/components/analytics-benchmarks';
 import { AnalyticsQuickLookGrid, buildAnalyticsQuickLookItems } from '@/src/components/analytics-quick-look';
 import { LineChart, Sparkline } from '@/src/components/charts';
 import { Card, ProgressBar, Screen, StudioText } from '@/src/components/ui';
-import { mostWordsWinBenchmarks } from '@/src/data/roblox-benchmarks';
-import { experiences, playersTrend, portfolioTrend, revenueTrend } from '@/src/data/sample-data';
+import { playersTrend, portfolioTrend, revenueTrend } from '@/src/data/sample-data';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
+import { useApp } from '@/src/state/app-context';
 import { colors, spacing } from '@/src/theme/tokens';
 import { metricTrendColor } from '@/src/utils/metric-trend';
 
@@ -411,26 +410,28 @@ export default function HomeScreen() {
 }
 
 function ConnectedHomeScreen() {
+  const { selectedWorkspaceExperience: experience } = useApp();
+  const universeId = experience.universeId;
   const [range, setRange] = useState<AnalyticsDateRange>('28D');
   const sampleSnapshot = useMemo<AnalyticsSnapshot>(() => ({
     mode: 'sample',
     source: 'sample_data',
     freshness: 'fixture',
-    universeId: '10009166512',
+    universeId,
     section: 'overview',
     range,
     metrics: [],
     charts: [],
     breakdowns: [],
     message: 'No official analytics snapshot is available yet.',
-  }), [range]);
+  }), [range, universeId]);
   const { snapshot, loading, error, reload } = useAnalyticsSnapshot({
-    universeId: '10009166512',
+    universeId,
     section: 'overview',
     range,
     sampleSnapshot,
   });
-  const quickLook = useAnalyticsQuickLook({ universeId: '10009166512' });
+  const quickLook = useAnalyticsQuickLook({ universeId });
   const quickLookItems = useMemo(() => buildAnalyticsQuickLookItems({
     overview: snapshot,
     snapshots: quickLook.snapshots,
@@ -509,8 +510,8 @@ function ConnectedHomeScreen() {
       refreshControl={<RefreshControl refreshing={loading || quickLook.loading} onRefresh={() => { reload(); quickLook.reload(); }} tintColor={colors.blue} />}>
       <View style={styles.creatorHeader}>
         <Pressable accessibilityLabel="Choose experience" onPress={() => router.push('/experience-picker')} style={({ pressed }) => [styles.creatorIdentity, pressed && styles.pressed]}>
-          <Image source={experiences[0].image} contentFit="cover" style={styles.experienceAvatar} />
-          <View><UpperLabel>EXPERIENCE ANALYTICS</UpperLabel><View style={styles.portfolioName}><StudioText weight="semibold" size={16}>Most Words Win!</StudioText><Ionicons name="caret-down" size={10} color={colors.textSecondary} /></View></View>
+          <Image source={experience.image} contentFit="contain" style={styles.experienceAvatar} />
+          <View><UpperLabel>EXPERIENCE ANALYTICS</UpperLabel><View style={styles.portfolioName}><StudioText weight="semibold" size={16}>{experience.name}</StudioText><Ionicons name="caret-down" size={10} color={colors.textSecondary} /></View></View>
         </Pressable>
         <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.textSecondary} /></Pressable>
       </View>
@@ -640,8 +641,14 @@ function ConnectedHomeScreen() {
           </View>
 
           <View style={styles.section}>
-            <SectionHeading title="Benchmarks" subtitle="Party & casual · 7 day average" action="Analytics" onPress={() => router.push('/(tabs)/analytics')} />
-            <AnalyticsBenchmarkCarousel benchmarks={mostWordsWinBenchmarks} />
+            <SectionHeading title="Benchmarks" subtitle="Roblox comparison data" action="Analytics" onPress={() => router.push('/(tabs)/analytics')} />
+            <Card style={styles.insightCard}>
+              <View style={styles.insightIcon}><Ionicons name="podium-outline" size={19} color="#9DB0FF" /></View>
+              <View style={styles.flex}>
+                <StudioText weight="semibold" size={14}>No benchmark snapshot yet</StudioText>
+                <StudioText tone="muted" size={10} style={styles.connectedInsightCopy}>StudioPulse will only show comparisons returned for this authorized universe.</StudioText>
+              </View>
+            </Card>
           </View>
 
           <View style={styles.section}>

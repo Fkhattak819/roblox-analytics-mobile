@@ -26,6 +26,7 @@ import { appearanceLabel, useAppearancePreference, type AppearancePreference } f
 import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useSession } from '@/src/state/session-context';
+import { useApp } from '@/src/state/app-context';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -152,30 +153,30 @@ function SettingButton({ label, icon, onPress }: { label: string; icon: IconName
   );
 }
 
-const DATA_COVERAGE_UNIVERSE_ID = '10009166512';
-
 function DataCoverageSettingsScreen() {
+  const { selectedWorkspaceExperience: experience } = useApp();
+  const universeId = experience.universeId;
   const connected = appEnvironment.dataMode === 'aws_dev';
   const sampleSnapshot = useMemo<AnalyticsSnapshot>(() => ({
     mode: 'sample',
     source: 'sample_data',
     freshness: 'fixture',
-    universeId: DATA_COVERAGE_UNIVERSE_ID,
+    universeId,
     section: 'overview',
     range: '28D',
     metrics: [],
     charts: [],
     breakdowns: [],
     message: 'Connect Roblox to inspect official data coverage.',
-  }), []);
+  }), [universeId]);
   const overviewState = useAnalyticsSnapshot({
-    universeId: DATA_COVERAGE_UNIVERSE_ID,
+    universeId,
     section: 'overview',
     range: '28D',
     sampleSnapshot,
     enabled: connected,
   });
-  const quickLook = useAnalyticsQuickLook({ universeId: DATA_COVERAGE_UNIVERSE_ID, enabled: connected });
+  const quickLook = useAnalyticsQuickLook({ universeId, enabled: connected });
   const overview = overviewState.snapshot?.metrics.length ? overviewState.snapshot : undefined;
   const { engagement, retention, acquisition, monetization, performance } = quickLook.snapshots;
   const loading = overviewState.loading || quickLook.loading;
@@ -649,6 +650,7 @@ function CompactRow({ label, value, tone = 'primary', chevron = false }: { label
 
 function ProfileFigmaScreen() {
   const session = useSession();
+  const { selectedWorkspaceExperience, workspaceExperiences } = useApp();
   const { preference } = useAppearancePreference();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionError, setConnectionError] = useState<string>();
@@ -665,13 +667,13 @@ function ProfileFigmaScreen() {
         if (session.status !== 'authenticated') throw new Error('Sign in with Roblox to verify your profile.');
         const token = await getStoredSessionToken();
         if (!token) throw new Error('Sign in with Roblox to verify your profile.');
-        setConnection(await loadConnectionStatus({ universeId: '10009166512', sessionToken: token, signal: controller.signal }));
+        setConnection(await loadConnectionStatus({ universeId: selectedWorkspaceExperience.universeId, sessionToken: token, signal: controller.signal }));
       } catch (error) {
         if (!controller.signal.aborted) setConnectionError(error instanceof Error ? error.message : 'Profile could not be loaded.');
       }
     })();
     return () => controller.abort();
-  }, [session.revision, session.status]);
+  }, [selectedWorkspaceExperience.universeId, session.revision, session.status]);
 
   const username = connection?.identity.username
     ?? session.session?.user.preferredUsername
@@ -728,7 +730,7 @@ function ProfileFigmaScreen() {
       </CompactSection>
       <CompactSection title="WORKSPACE">
         <Card style={styles.workspaceSummary}>
-          <View style={styles.flex}><StudioText weight="semibold" size={13}>Most Words Win!</StudioText><StudioText tone="muted" size={10}>1 authorized experience</StudioText></View>
+          <View style={styles.flex}><StudioText weight="semibold" size={13}>{selectedWorkspaceExperience.name}</StudioText><StudioText tone="muted" size={10}>{workspaceExperiences.length} authorized {workspaceExperiences.length === 1 ? 'experience' : 'experiences'}</StudioText></View>
           <View style={styles.workspaceBadges}><StudioText tone={analyticsActive ? 'green' : 'muted'} weight="semibold" size={8}>{analyticsActive ? 'ANALYTICS ACTIVE' : 'AWAITING SYNC'}</StudioText></View>
         </Card>
       </CompactSection>
@@ -770,6 +772,7 @@ function ConnectionCard({ title, subtitle, badge, tone, children }: React.PropsW
 
 function ConnectionsFigmaScreen() {
   const session = useSession();
+  const { selectedWorkspaceExperience, workspaceExperiences } = useApp();
   const [connection, setConnection] = useState<ConnectionStatus>();
   const [connectionError, setConnectionError] = useState<string>();
   const [connecting, setConnecting] = useState(false);
@@ -787,7 +790,7 @@ function ConnectionsFigmaScreen() {
         const token = await getStoredSessionToken();
         if (!token) throw new Error('Sign in with Roblox to verify these connections.');
         setConnection(await loadConnectionStatus({
-          universeId: '10009166512',
+          universeId: selectedWorkspaceExperience.universeId,
           sessionToken: token,
           signal: controller.signal,
         }));
@@ -798,7 +801,7 @@ function ConnectionsFigmaScreen() {
       }
     })();
     return () => controller.abort();
-  }, [refreshAttempt, session.revision, session.status]);
+  }, [refreshAttempt, selectedWorkspaceExperience.universeId, session.revision, session.status]);
 
   const connect = async () => {
     if (connecting) return;
@@ -827,10 +830,10 @@ function ConnectionsFigmaScreen() {
       <CompactHeader title="Roblox connections" subtitle="Identity, analytics, and live event access" />
       <ConnectionCard title="Roblox identity + analytics" subtitle="OAuth PKCE · profile + read-only analytics" badge={connection ? 'CONNECTED' : 'NOT VERIFIED'} tone={connection ? 'green' : 'yellow'}><CompactRow label="Creator" value={connection?.identity.username ?? '—'} /><CompactRow label="Status" value={connectionError ?? (connection ? 'Verified' : 'Checking…')} tone={connection ? 'green' : 'muted'} /></ConnectionCard>
       {!connection ? <SettingButton label={connecting ? 'Connecting…' : 'Sign in with Roblox'} icon="log-in-outline" onPress={() => void connect()} /> : null}
-      <ConnectionCard title="Delegated analytics" subtitle="1 approved universe · server-side" badge={analyticsBadge} tone={analyticsTone}><CompactRow label="Last official sync" value={updated} /><CompactRow label="Scope" value="universe.analytics:read" tone="blue" /></ConnectionCard>
+      <ConnectionCard title="Delegated analytics" subtitle={`${workspaceExperiences.length} approved ${workspaceExperiences.length === 1 ? 'universe' : 'universes'} · server-side`} badge={analyticsBadge} tone={analyticsTone}><CompactRow label="Last official sync" value={updated} /><CompactRow label="Scope" value="universe.analytics:read" tone="blue" /></ConnectionCard>
       <ConnectionCard title="Signed live events" subtitle="Optional real-time sales instrumentation" badge="NOT SET UP" tone="yellow"><CompactRow label="Enabled" value="No experiences" tone="muted" /><CompactRow label="Signing" value="Unavailable" /></ConnectionCard>
       <CompactSection title="PERMISSIONS"><Card style={styles.compactGroup}><CompactRow label="Creator identity" value={connection ? 'READ' : 'UNVERIFIED'} tone={connection ? 'green' : 'yellow'} /><CompactRow label="Aggregated analytics" value={analyticsStatus === 'active' ? 'READ' : 'WAITING'} tone={analyticsStatus === 'active' ? 'green' : 'yellow'} /><CompactRow label="Signed live events" value="DISABLED" tone="muted" /><CompactRow label="Game edits & Robux spend" value="BLOCKED" tone="red" /></Card></CompactSection>
-      <CompactSection title="EXPERIENCE COVERAGE"><Card style={styles.compactGroup}><CompactRow label="Most Words Win!" value={analyticsStatus === 'active' ? 'OFFICIAL ANALYTICS' : 'AWAITING SYNC'} tone={analyticsStatus === 'active' ? 'green' : 'blue'} /></Card></CompactSection>
+      <CompactSection title="EXPERIENCE COVERAGE"><Card style={styles.compactGroup}>{workspaceExperiences.map((experience) => <CompactRow key={experience.id} label={experience.name} value={experience.id === selectedWorkspaceExperience.id && analyticsStatus === 'active' ? 'OFFICIAL ANALYTICS' : 'AUTHORIZED'} tone={experience.id === selectedWorkspaceExperience.id && analyticsStatus === 'active' ? 'green' : 'blue'} />)}</Card></CompactSection>
       <CompactSection title="CONNECTION ACTIVITY"><Card style={styles.compactGroup}><CompactRow label="Analytics refresh" value={updated} tone={analyticsStatus === 'active' ? 'green' : 'muted'} /><CompactRow label="Live delivery" value="Not configured" tone="muted" /></Card></CompactSection>
       <Card style={styles.securityTruth}><StudioText tone="muted" weight="medium" size={8}>SECURITY</StudioText><StudioText weight="semibold" size={12}>OAuth tokens stay backend-only</StudioText><StudioText tone="muted" size={9}>.ROBLOSECURITY is never requested or stored · OAuth PKCE · read-only analytics</StudioText></Card>
     </Screen>

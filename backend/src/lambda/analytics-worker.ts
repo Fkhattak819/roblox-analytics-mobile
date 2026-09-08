@@ -1,7 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { KMSClient } from '@aws-sdk/client-kms';
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import { loadConfig } from "../config.js";
+import { isAnalyticsUniverseAllowed, loadConfig } from "../config.js";
 import { DynamoDbAnalyticsConnectionStatusStore } from "../modules/analytics/connection-status-store.js";
 import { DynamoDbAnalyticsSnapshotStore } from "../modules/analytics/dynamodb-snapshot-store.js";
 import { RobloxAnalyticsQueryClient } from "../modules/analytics/roblox-analytics-query.js";
@@ -63,7 +63,7 @@ export type WorkerDependencies = {
 
 export async function processAnalyticsMessage(body: string | undefined, config: ReturnType<typeof loadConfig>, dependencies: WorkerDependencies): Promise<void> {
   const message = parseAnalyticsSyncMessage(JSON.parse(body ?? ""));
-  if (!config.analyticsUniverseIds.includes(message.universeId)) {
+  if (!isAnalyticsUniverseAllowed(config, message.universeId)) {
     throw new Error("Analytics universe is not allowed");
   }
   if (!isSyncableAnalyticsSection(message.section)) {
