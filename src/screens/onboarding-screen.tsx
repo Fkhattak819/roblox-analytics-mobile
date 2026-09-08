@@ -49,6 +49,7 @@ type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 export default function OnboardingScreen() {
   const session = useSession();
+  const sampleMode = appEnvironment.dataMode === 'sample';
   const [step, setStep] = useState<OnboardingStep>(0);
   const [selectedIds, setSelectedIds] = useState(() => new Set(['most-words-win']));
   const [creatorUsername, setCreatorUsername] = useState('Roblox creator');
@@ -105,7 +106,10 @@ export default function OnboardingScreen() {
         {step > 0 && step < 4 ? <BackButton onPress={goBack} /> : null}
 
         {step === 0 ? (
-          <WelcomeStep onPrimary={goForward} onSample={() => void exploreSample()} />
+          <WelcomeStep
+            sampleMode={sampleMode}
+            onPrimary={sampleMode ? () => void exploreSample() : goForward}
+          />
         ) : null}
         {step === 1 ? (
           <IdentityStep
@@ -114,10 +118,15 @@ export default function OnboardingScreen() {
               goForward();
             }}
             onSample={() => void exploreSample()}
+            sampleMode={sampleMode}
           />
         ) : null}
         {step === 2 ? (
-          <AnalyticsAccessStep onPrimary={goForward} onSample={() => void exploreSample()} />
+          <AnalyticsAccessStep
+            onPrimary={goForward}
+            onSample={() => void exploreSample()}
+            sampleMode={sampleMode}
+          />
         ) : null}
         {step === 3 ? (
           <ChooseExperiencesStep
@@ -246,7 +255,7 @@ function Actions({
   );
 }
 
-function WelcomeStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+function WelcomeStep({ onPrimary, sampleMode }: { onPrimary: () => void; sampleMode: boolean }) {
   return (
     <>
       <RobloxMark top={112} />
@@ -256,9 +265,7 @@ function WelcomeStep({ onPrimary, onSample }: { onPrimary: () => void; onSample:
       <AnalyticsPreview />
       <Actions
         onPrimary={onPrimary}
-        onSecondary={onSample}
-        primaryLabel="Get started"
-        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
+        primaryLabel={sampleMode ? 'Explore sample data' : 'Get started'}
       />
     </>
   );
@@ -353,7 +360,15 @@ function AnimatedTrendChart() {
   );
 }
 
-function IdentityStep({ onPrimary, onSample }: { onPrimary: (username: string) => void; onSample: () => void }) {
+function IdentityStep({
+  onPrimary,
+  onSample,
+  sampleMode,
+}: {
+  onPrimary: (username: string) => void;
+  onSample: () => void;
+  sampleMode: boolean;
+}) {
   const session = useSession();
   const connected = session.status === 'authenticated';
   const [connecting, setConnecting] = useState(false);
@@ -395,11 +410,9 @@ function IdentityStep({ onPrimary, onSample }: { onPrimary: (username: string) =
         top={580}
       />
       <Actions
-        disabled={connecting}
-        onPrimary={() => void connect()}
-        onSecondary={onSample}
-        primaryLabel={connecting ? "Connecting…" : "Continue with Roblox"}
-        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
+        disabled={!sampleMode && connecting}
+        onPrimary={sampleMode ? onSample : () => void connect()}
+        primaryLabel={sampleMode ? 'Explore sample data' : connecting ? 'Connecting…' : 'Continue with Roblox'}
       />
     </>
   );
@@ -427,7 +440,15 @@ function PermissionLine({
   );
 }
 
-function AnalyticsAccessStep({ onPrimary, onSample }: { onPrimary: () => void; onSample: () => void }) {
+function AnalyticsAccessStep({
+  onPrimary,
+  onSample,
+  sampleMode,
+}: {
+  onPrimary: () => void;
+  onSample: () => void;
+  sampleMode: boolean;
+}) {
   const [checking, setChecking] = useState(false);
 
   const verify = async () => {
@@ -468,11 +489,9 @@ function AnalyticsAccessStep({ onPrimary, onSample }: { onPrimary: () => void; o
       </View>
 
       <Actions
-        disabled={checking}
-        onPrimary={() => void verify()}
-        onSecondary={onSample}
-        primaryLabel={checking ? 'Verifying…' : 'Verify and continue'}
-        secondaryLabel={appEnvironment.dataMode === 'sample' ? 'Explore sample data' : undefined}
+        disabled={!sampleMode && checking}
+        onPrimary={sampleMode ? onSample : () => void verify()}
+        primaryLabel={sampleMode ? 'Explore sample data' : checking ? 'Verifying…' : 'Verify and continue'}
       />
     </>
   );

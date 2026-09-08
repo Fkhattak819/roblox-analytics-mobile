@@ -1,5 +1,11 @@
 # roblox-analytics-mobile handoff
 
+## Offline onboarding fallback fixed — September 7
+
+- Fixed the no-backend onboarding path shown in the simulator: sample mode no longer presents a Roblox OAuth action that can fail with `The backend URL is not configured`.
+- The primary welcome action is now `Explore sample data` in sample mode and transitions directly to the offline Analytics dashboard. The same fail-safe applies if an in-progress sample session is already on the identity or analytics-access step.
+- Verified the exact no-backend configuration on iPhone 17 Pro / iOS 26.0. The CTA completed without an alert or network request. TypeScript, lint and all 55 app tests pass; the local AWS-dev `.env.local` was restored after validation.
+
 ## Main/security reconciliation completed — September 7
 
 - Fetched `origin/main`, rebased the four local Expo/Figma commits, and merged `origin/codex/security-audit`. The merged app keeps the current SDK 57 UI while adding proof-bound OAuth, session lifecycle/account-state reset, tenant grant enforcement, bounded analytics work, recovery controls, CI and security operations documentation.
