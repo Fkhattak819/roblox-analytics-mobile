@@ -89,3 +89,12 @@ Do not record login email addresses, authorization data, tokens, secret values, 
 ## Approval rule
 
 “Visually approved” requires a live `get_design_context` read on the exact node, its exact-node screenshot, a successful Expo build, and a matching 393 x 852 simulator inspection. Metadata or a historical vault node ID alone is insufficient.
+
+## Creator Hub refinement — 2026-09-09
+
+At the owner's request, inspected Most Words Win in BrainNourishmentGames through the signed-in Creator Hub. Read live Home `59:7` and its exact screenshot, plus Analytics `81:7` metadata followed by full context and screenshots for `91:13`, `91:3`, and `117:5`. Intentionally increased KPI typography, card spacing, and touch controls while preserving palette, existing Builder Sans assets, charts, and navigation. Comparison captions and KPI deltas now honor comparison-off. Native sample-mode light/dark inspection passed at 402 × 874 points on iPhone 17 Pro; before/after screenshot overlay recorded. This owner-requested refinement is not a 393 × 852 Figma parity approval. See `docs/ui-review-2026-09-09/REVIEW.md` for evidence and scope.
+
+
+## September 9 Creator Hub long Home follow-up
+
+User requested a mobile Creator Hub organization and a substantially longer Home. Implemented unified sample/connected vertical reports, benchmarks, jump links, chart selection, and a searchable 61-entry tools directory. This deliberately supersedes compact Home geometry in frame 59:7 while retaining its visual tokens. More 140:109 read live before adding the directory row. See `ui-review-2026-09-09/CREATOR_HUB_PARITY.md` for parity boundaries, browser coverage, and native validation.
