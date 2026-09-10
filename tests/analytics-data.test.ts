@@ -108,6 +108,27 @@ test('connected analytics never falls back to sample data after a backend error'
   );
 });
 
+test('connected reports reject a different experience or period', async () => {
+  for (const mismatch of [{ universeId: '999' }, { range: '7D' }, { section: 'engagement' }]) {
+    await assert.rejects(loadAnalyticsSnapshot({
+      universeId: connectedSnapshot.universeId, section: connectedSnapshot.section,
+      range: connectedSnapshot.range, sampleSnapshot, sessionToken: 'a'.repeat(32),
+      environment: { dataMode: 'aws_dev', apiBaseUrl: 'https://example.test' },
+      fetchImpl: async () => Response.json({ ...connectedSnapshot, ...mismatch }),
+    }), (error: unknown) => error instanceof AnalyticsApiError && error.code === 'snapshot_mismatch');
+  }
+});
+
+test('service failures retain diagnostic codes with readable user messages', async () => {
+  await assert.rejects(loadAnalyticsSnapshot({
+    universeId: connectedSnapshot.universeId, section: connectedSnapshot.section,
+    range: connectedSnapshot.range, sampleSnapshot, sessionToken: 'a'.repeat(32),
+    environment: { dataMode: 'aws_dev', apiBaseUrl: 'https://example.test' },
+    fetchImpl: async () => Response.json({ error: 'analytics_unavailable' }, { status: 503 }),
+  }), (error: unknown) => error instanceof AnalyticsApiError && error.status === 503
+    && error.code === 'analytics_unavailable' && !error.message.includes('HTTP'));
+});
+
 test('analytics sync request is authenticated and contains no tenant or credential', async () => {
   let requestedBody = '';
   let authorization = '';

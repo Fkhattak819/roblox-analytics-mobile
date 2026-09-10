@@ -1,4 +1,5 @@
 import type { LoginProof } from './roblox-auth-proof';
+import { fetchWithTimeout } from './fetch-with-timeout';
 
 export type RobloxProfile = Readonly<{
   sub: string;
@@ -57,12 +58,11 @@ export async function connectRobloxIdentity({
   startUrl.searchParams.set('clientChallenge', proof.challenge);
   startUrl.searchParams.set('clientState', proof.state);
 
-  const startResponse = await fetchImpl(startUrl.toString(), {
+  const startResponse = await fetchWithTimeout(fetchImpl, startUrl.toString(), {
     method: 'GET',
     headers: { accept: 'application/json' },
     redirect: 'error',
-    signal: AbortSignal.timeout(15_000),
-  });
+  }, 15_000);
   if (!startResponse.ok) throw new Error('Roblox sign-in is not ready yet');
   const authorizationUrl = parseAuthorizationUrl(await startResponse.json());
 
@@ -72,7 +72,7 @@ export async function connectRobloxIdentity({
   }
 
   const callback = parseAppCallback(browserResult.url, appCallbackUri, proof.state);
-  const exchangeResponse = await fetchImpl(`${baseUrl}/v2/auth/session/exchange`, {
+  const exchangeResponse = await fetchWithTimeout(fetchImpl, `${baseUrl}/v2/auth/session/exchange`, {
     method: 'POST',
     headers: {
       accept: 'application/json',
@@ -80,8 +80,7 @@ export async function connectRobloxIdentity({
     },
     body: JSON.stringify({ code: callback.code, clientVerifier: proof.verifier }),
     redirect: 'error',
-    signal: AbortSignal.timeout(15_000),
-  });
+  }, 15_000);
   if (!exchangeResponse.ok) throw new Error('The Roblox sign-in expired. Please try again.');
 
   const session = parseSession(await exchangeResponse.json());

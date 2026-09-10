@@ -52,7 +52,10 @@ export function useAnalyticsQuickLook({
     }
 
     void (async () => {
-      if (active) setLoading(true);
+      if (active) {
+        setLoading(true);
+        setSnapshots({});
+      }
       try {
         const sessionToken = await getStoredSessionToken();
         if (!sessionToken) return;
@@ -71,6 +74,9 @@ export function useAnalyticsQuickLook({
         if (active) {
           setSnapshots(Object.fromEntries(entries.filter((entry) => Boolean(entry[1]))) as AnalyticsQuickLookSnapshots);
         }
+      } catch {
+        // Secure storage can fail before requests begin; do not leak an unhandled rejection.
+        if (active) setSnapshots({});
       } finally {
         if (active) setLoading(false);
       }

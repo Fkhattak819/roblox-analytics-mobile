@@ -86,9 +86,10 @@ test("development stack keeps OAuth state bounded and secrets server-side", () =
       PointInTimeRecoveryEnabled: true,
       RecoveryPeriodInDays: 35,
     },
-    ProvisionedThroughput: {
-      ReadCapacityUnits: 1,
-      WriteCapacityUnits: 1,
+    BillingMode: 'PAY_PER_REQUEST',
+    OnDemandThroughput: {
+      MaxReadRequestUnits: 100,
+      MaxWriteRequestUnits: 25,
     },
   });
 

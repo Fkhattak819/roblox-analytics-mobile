@@ -122,9 +122,10 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
       tableName: `${resourcePrefix}-app`,
       partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PROVISIONED,
-      readCapacity: 1,
-      writeCapacity: 1,
+      // Live dashboards fan out into authenticated, strongly consistent reads.
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      maxReadRequestUnits: 100,
+      maxWriteRequestUnits: 25,
       encryption: dynamodb.TableEncryption.DEFAULT,
       timeToLiveAttribute: "ttl",
       deletionProtection: true,

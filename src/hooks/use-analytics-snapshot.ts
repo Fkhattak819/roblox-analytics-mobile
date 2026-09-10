@@ -72,9 +72,31 @@ export function useAnalyticsSnapshot({
           sessionToken,
           signal: controller.signal,
         } as const;
-        let result;
+        let result: Awaited<ReturnType<typeof loadAnalyticsSnapshot>>;
+        let syncRequested = false;
+        const sync = async () => {
+          if (!sessionToken || syncRequested) return;
+          await requestAnalyticsSync({ universeId, section, range, sessionToken, signal: controller.signal });
+          syncRequested = true;
+        };
+        // A user retry must request new data, rather than only reread a failed cache.
+        if (attempt > 0) await sync();
         try {
           result = await loadWithTransientRetry(options, controller.signal);
+          const stale = result.snapshot.freshness === 'stale'
+            || (result.snapshot.asOf && Date.now() - Date.parse(result.snapshot.asOf) > 48 * 60 * 60 * 1_000);
+          if (sessionToken && stale) {
+            try {
+              await sync();
+              const updated = await pollForSnapshot(options, controller.signal, result.snapshot.asOf);
+              if (!updated) return;
+              result = updated;
+            } catch {
+              if (controller.signal.aborted) return;
+              result = { ...result, snapshot: { ...result.snapshot, freshness: 'stale',
+                message: `Saved report from ${result.snapshot.asOf?.slice(0, 10) ?? 'an earlier sync'}. The latest report is not ready yet; retry shortly.` } };
+            }
+          }
         } catch (initialError) {
           if (
             !(initialError instanceof AnalyticsApiError)
@@ -82,13 +104,7 @@ export function useAnalyticsSnapshot({
             || !sessionToken
           ) throw initialError;
 
-          await requestAnalyticsSync({
-            universeId,
-            section,
-            range,
-            sessionToken,
-            signal: controller.signal,
-          });
+          await sync();
           const polled = await pollForSnapshot(options, controller.signal);
           if (!polled) return;
           result = polled;
@@ -133,11 +149,13 @@ async function loadWithTransientRetry(
 async function pollForSnapshot(
   options: Parameters<typeof loadAnalyticsSnapshot>[0],
   signal: AbortSignal,
+  previousAsOf?: string,
 ) {
   for (const delay of [800, 1_600, 2_400, 3_200, 4_000]) {
     if (!(await wait(delay, signal))) return undefined;
     try {
-      return await loadAnalyticsSnapshot(options);
+      const result = await loadAnalyticsSnapshot(options);
+      if (!previousAsOf || (result.snapshot.asOf && Date.parse(result.snapshot.asOf) > Date.parse(previousAsOf))) return result;
     } catch (error) {
       if (!(error instanceof AnalyticsApiError) || error.code !== 'analytics_snapshot_not_found') {
         throw error;

@@ -52,6 +52,16 @@ export class AnalyticsApiError extends Error {
   }
 }
 
+function analyticsErrorMessage(status: number, code?: unknown): string {
+  if (status === 401) return 'Your session has expired. Sign in with Roblox again.';
+  if (status === 403) return 'Roblox has not granted analytics access to this experience. Check your connection.';
+  if (code === 'analytics_snapshot_not_found') return 'Your report is being prepared.';
+  if (status === 429) return 'Too many requests. Wait a moment, then retry.';
+  if (code === 'analytics_not_configured') return 'The analytics service is not configured yet.';
+  if (status >= 500) return 'The analytics service could not load this report. Please try again shortly.';
+  return 'This report could not be loaded. Please try again.';
+}
+
 export async function loadAnalyticsSnapshot({
   universeId,
   section,
@@ -90,11 +100,15 @@ export async function loadAnalyticsSnapshot({
     const candidate = payload && typeof payload === 'object' ? payload as Record<string, unknown> : undefined;
     const message = typeof candidate?.message === 'string'
       ? candidate.message
-      : `Analytics request failed with HTTP ${response.status}`;
+      : analyticsErrorMessage(response.status, candidate?.error);
     throw new AnalyticsApiError(message, response.status, typeof candidate?.error === 'string' ? candidate.error : undefined);
   }
 
-  return { snapshot: parseAnalyticsSnapshot(payload), transport: 'aws' };
+  const snapshot = parseAnalyticsSnapshot(payload);
+  if (snapshot.universeId !== universeId || snapshot.section !== section || snapshot.range !== range) {
+    throw new AnalyticsApiError('The service returned a different report. Please retry.', 502, 'snapshot_mismatch');
+  }
+  return { snapshot, transport: 'aws' };
 }
 
 export async function requestAnalyticsSync({
@@ -121,7 +135,7 @@ export async function requestAnalyticsSync({
   if (!response.ok) {
     const candidate = payload && typeof payload === 'object' ? payload as Record<string, unknown> : undefined;
     throw new AnalyticsApiError(
-      typeof candidate?.message === 'string' ? candidate.message : `Sync request failed with HTTP ${response.status}`,
+      typeof candidate?.message === 'string' ? candidate.message : analyticsErrorMessage(response.status, candidate?.error),
       response.status,
       typeof candidate?.error === 'string' ? candidate.error : undefined,
     );

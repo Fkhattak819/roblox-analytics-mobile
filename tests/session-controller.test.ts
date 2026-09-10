@@ -26,6 +26,38 @@ function setup(options: { token?: string; fetch?: typeof fetch; login?: () => Pr
   return { controller, requests, stored: () => stored };
 }
 
+test('concurrent sign-in calls share one browser flow across screen resets', async () => {
+  const started = deferred<void>();
+  const pending = deferred<ReturnType<typeof metadata> & { token: string }>();
+  let calls = 0;
+  const { controller, stored } = setup({ login: async () => {
+    calls++;
+    started.resolve();
+    return pending.promise;
+  } });
+  const first = controller.signIn();
+  assert.equal(controller.signIn(), first);
+  await started.promise;
+  assert.equal(controller.signIn(), first);
+  assert.equal(calls, 1);
+  pending.resolve({ ...metadata(), token });
+  await first;
+  assert.equal(controller.getSnapshot().status, 'authenticated');
+  assert.equal(stored(), token);
+});
+
+test('a failed sign-in releases the shared flow for retry', async () => {
+  let calls = 0;
+  const { controller } = setup({ login: async () => {
+    if (++calls === 1) throw new Error('cancelled');
+    return { ...metadata(), token };
+  } });
+  await assert.rejects(controller.signIn(), /cancelled/);
+  await controller.signIn();
+  assert.equal(calls, 2);
+  assert.equal(controller.getSnapshot().status, 'authenticated');
+});
+
 test('sample startup with no saved token is offline', async () => {
   const { controller, requests } = setup();
   await controller.restore();

@@ -250,6 +250,7 @@ function Actions({
 }
 
 function WelcomeStep({ onPrimary, sampleMode }: { onPrimary: () => void; sampleMode: boolean }) {
+  const busy = useSession().status === 'checking';
   return (
     <>
       <RobloxMark top={112} />
@@ -258,8 +259,9 @@ function WelcomeStep({ onPrimary, sampleMode }: { onPrimary: () => void; sampleM
       <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 306 }]}>Player growth, retention, and revenue—together{`\n`}in one focused mobile workspace.</StudioText>
       <AnalyticsPreview />
       <Actions
+        disabled={busy}
         onPrimary={onPrimary}
-        primaryLabel={sampleMode ? 'Explore sample data' : 'Get started'}
+        primaryLabel={busy ? 'Connecting…' : sampleMode ? 'Explore sample data' : 'Get started'}
       />
     </>
   );
@@ -368,7 +370,7 @@ function IdentityStep({
   const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
-    if (connecting) return;
+    if (connecting || session.status === 'checking') return;
     setConnecting(true);
     try {
       const session = await signInWithRoblox();
@@ -404,7 +406,7 @@ function IdentityStep({
         top={580}
       />
       <Actions
-        disabled={!sampleMode && connecting}
+        disabled={!sampleMode && (connecting || session.status === 'checking')}
         onPrimary={sampleMode ? onSample : () => void connect()}
         primaryLabel={sampleMode ? 'Explore sample data' : connecting ? 'Connecting…' : 'Continue with Roblox'}
       />

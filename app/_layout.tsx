@@ -13,7 +13,14 @@ import { hasCompletedOnboarding } from '@/src/state/onboarding-storage';
 import { SessionLifecycle } from '@/src/state/session-context';
 import { colors, fonts } from '@/src/theme/tokens';
 
-void SplashScreen.preventAutoHideAsync();
+function handleSplashScreenError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  // Expo Go can reload JS after its native splash view has already been removed.
+  if (message.includes('No native splash screen registered')) return;
+  console.warn('Splash screen operation failed:', message);
+}
+
+void SplashScreen.preventAutoHideAsync().catch(handleSplashScreenError);
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -61,7 +68,7 @@ function RootNavigation() {
   }, [appearanceReady, error, loaded, router, segments]);
 
   useEffect(() => {
-    if (initialRouteReady) void SplashScreen.hideAsync();
+    if (initialRouteReady) void SplashScreen.hideAsync().catch(handleSplashScreenError);
   }, [initialRouteReady]);
 
   // Web static rendering must produce the same initial tree on the server and client.

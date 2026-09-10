@@ -1,4 +1,5 @@
 import { parseSessionMetadata, validateAuthBaseUrl, type AppSession, type SessionMetadata } from './roblox-auth-core';
+import { fetchWithTimeout } from './fetch-with-timeout';
 
 export type SessionState = Readonly<{
   status: 'sample' | 'checking' | 'authenticated' | 'unavailable' | 'signed_out';
@@ -26,6 +27,7 @@ export class SessionController {
   private token: string | undefined;
   private operation = 0;
   private storageQueue: Promise<unknown> = Promise.resolve();
+  private pendingSignIn: Promise<SessionMetadata> | undefined;
   private readonly listeners = new Set<() => void>();
   constructor(private readonly dependencies: SessionDependencies) {}
 
@@ -49,10 +51,10 @@ export class SessionController {
   private async request(path: string, token: string, method = 'GET') {
     const baseUrl = validateAuthBaseUrl(this.dependencies.apiBaseUrl ?? '', this.dependencies.allowLocalHttp);
     if (!/^\/v[12]\/[a-zA-Z0-9/_-]+$/.test(path)) throw new Error('Invalid API path');
-    return this.dependencies.fetchImpl(`${baseUrl}${path}`, {
+    return fetchWithTimeout(this.dependencies.fetchImpl, `${baseUrl}${path}`, {
       method, headers: { accept: 'application/json', authorization: `Bearer ${token}` },
-      redirect: 'error', signal: AbortSignal.timeout(15_000),
-    });
+      redirect: 'error',
+    }, 15_000);
   }
 
   async restore(): Promise<void> {
@@ -82,7 +84,17 @@ export class SessionController {
     }
   }
 
-  async signIn(): Promise<SessionMetadata> {
+  signIn(): Promise<SessionMetadata> {
+    if (this.pendingSignIn) return this.pendingSignIn;
+    // Own the flow outside React: resetting account state remounts the screens.
+    const pending = Promise.resolve().then(() => this.performSignIn()).finally(() => {
+      if (this.pendingSignIn === pending) this.pendingSignIn = undefined;
+    });
+    this.pendingSignIn = pending;
+    return pending;
+  }
+
+  private async performSignIn(): Promise<SessionMetadata> {
     const operation = ++this.operation;
     const previousToken = this.token;
     this.token = undefined;
