@@ -17,7 +17,7 @@ export const experiences: Experience[] = [
   {
     id: 'most-words-win',
     name: 'Most Words Win',
-    creator: 'BrainNourish Studios',
+    creator: 'BrainNourishmentGames',
     image: require('../../assets/experiences/most_words_win_official.png'),
     ccu: 884,
     revenue: 2840,

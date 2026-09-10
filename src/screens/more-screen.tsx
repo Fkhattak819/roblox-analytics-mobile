@@ -147,6 +147,10 @@ export default function MoreScreen() {
         </View>
       </Card>
 
+      <SettingsGroup title="CREATOR HUB">
+        <SettingsRow title="Creator tools" value="All sections" onPress={() => router.push('/creator-tools')} last />
+      </SettingsGroup>
+
       <SettingsGroup title="ACCOUNT">
         <SettingsRow title="Profile and account" value={identityConnected ? creatorName : 'Sign in required'} onPress={() => router.push('/settings/account')} />
         <SettingsRow title="Notifications" value="Smart alerts" onPress={() => router.push('/notifications')} />

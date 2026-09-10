@@ -1,0 +1,307 @@
+[
+  {
+    "title": "Overview",
+    "path": "overview",
+    "group": "Overview"
+  },
+  {
+    "title": "Settings",
+    "path": "configure",
+    "group": "Configure"
+  },
+  {
+    "title": "Places",
+    "path": "places",
+    "group": "Configure"
+  },
+  {
+    "title": "Custom matchmaking",
+    "path": "matchmaking",
+    "group": "Configure"
+  },
+  {
+    "title": "Server management",
+    "path": "server-management",
+    "group": "Configure"
+  },
+  {
+    "title": "Permissions",
+    "path": "permissions",
+    "group": "Configure"
+  },
+  {
+    "title": "Configs",
+    "path": "configs",
+    "group": "Configure"
+  },
+  {
+    "title": "Experiments",
+    "path": "experiments",
+    "group": "Configure"
+  },
+  {
+    "title": "Alerts",
+    "path": "alerts",
+    "group": "Configure"
+  },
+  {
+    "title": "Secrets",
+    "path": "secrets",
+    "group": "Configure"
+  },
+  {
+    "title": "Webhooks",
+    "path": "webhooks",
+    "group": "Configure"
+  },
+  {
+    "title": "Data Stores manager",
+    "path": "analytics/data-stores",
+    "group": "Configure"
+  },
+  {
+    "title": "Leaderboard",
+    "path": "leaderboard",
+    "group": "Configure"
+  },
+  {
+    "title": "Extended services",
+    "path": "extended-services",
+    "group": "Configure"
+  },
+  {
+    "title": "Questionnaire",
+    "path": "experience-questionnaire",
+    "group": "Configure"
+  },
+  {
+    "title": "Retention",
+    "path": "analytics/retention",
+    "group": "Analytics"
+  },
+  {
+    "title": "Engagement",
+    "path": "analytics/engagement",
+    "group": "Analytics"
+  },
+  {
+    "title": "Acquisition",
+    "path": "analytics/acquisition",
+    "group": "Analytics"
+  },
+  {
+    "title": "Demographics",
+    "path": "analytics/audience",
+    "group": "Analytics"
+  },
+  {
+    "title": "Economy",
+    "path": "analytics/economy",
+    "group": "Analytics"
+  },
+  {
+    "title": "Funnels",
+    "path": "analytics/funnels",
+    "group": "Analytics"
+  },
+  {
+    "title": "Explore",
+    "path": "analytics/explore",
+    "group": "Analytics"
+  },
+  {
+    "title": "Manage all",
+    "path": "analytics/dashboards",
+    "group": "Analytics"
+  },
+  {
+    "title": "Overview",
+    "path": "monetization/overview",
+    "group": "Monetization"
+  },
+  {
+    "title": "Shop",
+    "path": "monetization/shop",
+    "group": "Monetization"
+  },
+  {
+    "title": "Managed pricing",
+    "path": "monetization/managed-pricing",
+    "group": "Monetization"
+  },
+  {
+    "title": "Developer products",
+    "path": "monetization/developer-products",
+    "group": "Monetization"
+  },
+  {
+    "title": "Passes",
+    "path": "monetization/passes",
+    "group": "Monetization"
+  },
+  {
+    "title": "Third-party avatar item commissions",
+    "path": "monetization/avatar-items",
+    "group": "Monetization"
+  },
+  {
+    "title": "Commerce",
+    "path": "monetization/commerce",
+    "group": "Monetization"
+  },
+  {
+    "title": "Ads",
+    "path": "monetization/immersive-ads",
+    "group": "Monetization"
+  },
+  {
+    "title": "Subscriptions",
+    "path": "monetization/subscriptions",
+    "group": "Monetization"
+  },
+  {
+    "title": "Roblox Plus",
+    "path": "monetization/roblox-plus",
+    "group": "Monetization"
+  },
+  {
+    "title": "Creator Rewards",
+    "path": "monetization/creator-rewards",
+    "group": "Monetization"
+  },
+  {
+    "title": "Avatar Creation Tokens",
+    "path": "monetization/avatar-creation-tokens",
+    "group": "Monetization"
+  },
+  {
+    "title": "Performance",
+    "path": "analytics/performance",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Error report",
+    "path": "analytics/errors",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Crashes",
+    "path": "analytics/crashes",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Memory Stores",
+    "path": "analytics/memory-stores",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Speech-to-Text",
+    "path": "analytics/speech-to-text",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Text-to-Speech",
+    "path": "analytics/text-to-speech",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Data Stores",
+    "path": "analytics/data-stores",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Http Service",
+    "path": "analytics/http-service",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Messaging Service",
+    "path": "analytics/messaging-service",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Video Service",
+    "path": "analytics/video-service",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Generation Service",
+    "path": "analytics/generative-ai",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Activity History",
+    "path": "activity-history",
+    "group": "Monitoring"
+  },
+  {
+    "title": "Reach",
+    "path": "audience-reach",
+    "group": "Audience"
+  },
+  {
+    "title": "Feedback",
+    "path": "feedback",
+    "group": "Audience"
+  },
+  {
+    "title": "Access settings",
+    "path": "access",
+    "group": "Audience"
+  },
+  {
+    "title": "Communication settings",
+    "path": "communication-settings",
+    "group": "Audience"
+  },
+  {
+    "title": "Localization",
+    "path": "localization",
+    "group": "Audience"
+  },
+  {
+    "title": "Events & updates",
+    "path": "events",
+    "group": "Promotion"
+  },
+  {
+    "title": "Social links",
+    "path": "social-links",
+    "group": "Promotion"
+  },
+  {
+    "title": "Notifications",
+    "path": "notifications",
+    "group": "Promotion"
+  },
+  {
+    "title": "Badges",
+    "path": "associated-items",
+    "group": "Promotion"
+  },
+  {
+    "title": "Referral rewards",
+    "path": "referral-reward-details",
+    "group": "Promotion"
+  },
+  {
+    "title": "Recommendation service",
+    "path": "recommendation-service",
+    "group": "Promotion"
+  },
+  {
+    "title": "Overview",
+    "path": "safety/overview",
+    "group": "Safety"
+  },
+  {
+    "title": "Moderation",
+    "path": "safety/bans",
+    "group": "Safety"
+  },
+  {
+    "title": "Collaborators",
+    "path": "safety/collaborators",
+    "group": "Safety"
+  }
+]
