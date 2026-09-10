@@ -1,12 +1,12 @@
-# StudioPulse AWS Backend: Free First, Scalable Later
+# Roblox Analytics Studio AWS Backend: Free First, Scalable Later
 
 **Status:** learning and implementation guide
 
 **Last reviewed:** 2026-08-26
 
-**Audience:** Fahd, building StudioPulse while learning AWS
+**Audience:** Fahd, building Roblox Analytics Studio while learning AWS
 
-**Product:** StudioPulse, an Expo-managed React Native analytics companion for Roblox creators
+**Product:** Roblox Analytics Studio, an Expo-managed React Native analytics companion for Roblox creators
 
 ## The goal
 
@@ -27,13 +27,13 @@ Expo React Native app
 
 EventBridge Scheduler starts periodic refresh work.
 S3 stores historical exports after the product has real data.
-Cognito authenticates StudioPulse users.
+Cognito authenticates Roblox Analytics Studio users.
 CloudWatch shows logs, metrics, and alarms.
 KMS and Secrets Manager protect credentials when real connections exist.
 AWS CDK defines the infrastructure in TypeScript.
 ```
 
-This design matches the current repository plan: sample mode works offline, the app talks to StudioPulse rather than directly to Roblox, and the mobile client never stores a Roblox Open Cloud API key.
+This design matches the current repository plan: sample mode works offline, the app talks to Roblox Analytics Studio rather than directly to Roblox, and the mobile client never stores a Roblox Open Cloud API key.
 
 ## The most important cost distinction
 
@@ -77,9 +77,9 @@ The first milestone should include:
 
 Delay the Roblox connection until this path works with deterministic sample data. That keeps the learning loop short and gives you a working backend before external authentication and API behavior enter the picture.
 
-## Why this AWS stack fits StudioPulse
+## Why this AWS stack fits Roblox Analytics Studio
 
-| AWS feature | What it teaches | StudioPulse job | Start now? |
+| AWS feature | What it teaches | Roblox Analytics Studio job | Start now? |
 | --- | --- | --- | --- |
 | IAM | Identity and permissions | Controls who or what can call AWS | Yes, before resources |
 | IAM Identity Center | Short-lived developer access | Lets you use the CLI without long-lived keys | Yes, if available for your plan |
@@ -91,7 +91,7 @@ Delay the Roblox connection until this path works with deterministic sample data
 | DynamoDB | Key-value and document access | Users, experiences, snapshots, sync state | Yes |
 | SQS | Durable work queue | Roblox refresh jobs and retries | Yes |
 | EventBridge Scheduler | Time-based automation | Starts scheduled refreshes | Yes, at low frequency |
-| Cognito User Pools | User authentication and JWTs | StudioPulse sessions | Learn with local users first |
+| Cognito User Pools | User authentication and JWTs | Roblox Analytics Studio sessions | Learn with local users first |
 | S3 | Object storage | Historical exports and reports | Later |
 | Secrets Manager | Secret storage and rotation | Platform secrets and temporary credentials | Only when real secrets exist |
 | KMS | Encryption key management | Protects persistent Roblox credentials | When persistent credentials exist |
@@ -105,7 +105,7 @@ This list gives you a useful AWS survey without asking you to learn EC2, Kuberne
 
 The backend design stays the same, but the client build and security guidance changes:
 
-| Client concern | StudioPulse choice |
+| Client concern | Roblox Analytics Studio choice |
 | --- | --- |
 | Fast development | Expo Go with `npx expo start` |
 | Production-like native runtime | Expo development build with `expo-dev-client` |
@@ -117,7 +117,7 @@ The backend design stays the same, but the client build and security guidance ch
 
 Expo Go is a useful learning and prototyping client with a fixed native runtime. It cannot load arbitrary native modules or test every production configuration. Move to a development build when you need custom native dependencies, app icons, URL schemes, remote push notifications, or behavior that must match the release binary. Use EAS Build for preview and production artifacts.
 
-The app bundle may contain public configuration such as an API base URL and environment name. It must not contain a Roblox Open Cloud key, OAuth client secret, AWS credential, or `.ROBLOSECURITY` value. Store StudioPulse session tokens with `expo-secure-store`, and keep Roblox credentials in the backend secret boundary.
+The app bundle may contain public configuration such as an API base URL and environment name. It must not contain a Roblox Open Cloud key, OAuth client secret, AWS credential, or `.ROBLOSECURITY` value. Store Roblox Analytics Studio session tokens with `expo-secure-store`, and keep Roblox credentials in the backend secret boundary.
 
 The mobile development loop is:
 
@@ -132,7 +132,7 @@ eas build --profile preview --platform <platform>
     -> verify a project-specific native build when needed
 ```
 
-Keep the client repository independent from the AWS implementation. The client should depend on stable StudioPulse domain models such as `Experience`, `MetricSnapshot`, `Freshness`, and `SyncStatus`, not DynamoDB item shapes or Roblox API responses.
+Keep the client repository independent from the AWS implementation. The client should depend on stable Roblox Analytics Studio domain models such as `Experience`, `MetricSnapshot`, `Freshness`, and `SyncStatus`, not DynamoDB item shapes or Roblox API responses.
 
 ## The recommended architecture
 
@@ -155,7 +155,7 @@ flowchart LR
 ### Request path
 
 1. The Expo app sends a request to API Gateway.
-2. API Gateway checks the StudioPulse JWT through a Cognito authorizer.
+2. API Gateway checks the Roblox Analytics Studio JWT through a Cognito authorizer.
 3. Lambda validates the route parameters and the workspace claim.
 4. Lambda reads a normalized snapshot from DynamoDB.
 5. Lambda returns the snapshot with `source`, `retrievedAt`, `lastSuccessfulSyncAt`, and `freshness` fields.
@@ -255,7 +255,7 @@ Do not put the account number in public screenshots or documentation unless you 
 
 The following allowances come from AWS pricing pages reviewed on 2026-08-26. They describe current published offers, not a guarantee for every account. Check the Billing console before relying on one.
 
-| Service | Published allowance or pricing signal | How to keep StudioPulse cheap |
+| Service | Published allowance or pricing signal | How to keep Roblox Analytics Studio cheap |
 | --- | --- | --- |
 | AWS Free Tier | New customers can receive up to $200 in credits. The free plan lasts six months or until credits run out. | Treat credits as learning runway. Track the expiry date. |
 | Lambda | 1 million requests and 400,000 GB-seconds per month in the Lambda free tier. | Keep handlers small, avoid polling loops inside long-running Lambdas, and right-size memory. |
@@ -285,7 +285,7 @@ Do not start with resources that create a fixed monthly or operational cost befo
 - Multi-region replication.
 - Customer-managed KMS keys before a real secret exists.
 
-These services have valid uses. They do not belong in the first learning milestone for StudioPulse.
+These services have valid uses. They do not belong in the first learning milestone for Roblox Analytics Studio.
 
 ## What to learn from each AWS feature
 
@@ -367,7 +367,7 @@ Validate:
 
 Do not expose an internal worker route to the public internet. Let SQS or an internal event trigger the worker.
 
-### Cognito: sessions for StudioPulse
+### Cognito: sessions for Roblox Analytics Studio
 
 Cognito User Pools can issue JWTs for the mobile app. API Gateway can validate those JWTs before invoking Lambda.
 
@@ -376,7 +376,7 @@ For the first learning milestone:
 1. Use a development user pool.
 2. Create a test user without using a real Roblox credential.
 3. Validate the token issuer, audience, expiration, and subject.
-4. Map the stable Cognito `sub` to a StudioPulse user record.
+4. Map the stable Cognito `sub` to a Roblox Analytics Studio user record.
 5. Keep the app's access and refresh tokens in `expo-secure-store`.
 
 For the Roblox identity milestone, test Authorization Code + PKCE with Roblox as an OIDC provider. Roblox identity and Roblox Open Cloud analytics authorization remain separate connections. A Roblox ID token does not grant Analytics Query API access.
@@ -483,7 +483,7 @@ When you add real Roblox analytics access:
 
 A customer-managed KMS key creates a monthly storage charge. That cost belongs in the security budget once you store real tenant credentials. Do not weaken credential protection to preserve a $0 target.
 
-Never use `.ROBLOSECURITY` for StudioPulse. Never ship a Roblox Open Cloud key in the mobile application.
+Never use `.ROBLOSECURITY` for Roblox Analytics Studio. Never ship a Roblox Open Cloud key in the mobile application.
 
 ### CloudWatch: learn from the system
 
@@ -520,7 +520,7 @@ Set log retention for development instead of keeping indefinite logs. Add alarms
 - Roblox 429 responses.
 - Sync failures per workspace.
 
-## The StudioPulse data contract
+## The Roblox Analytics Studio data contract
 
 The backend should return a stable domain shape so the React Native UI does not depend on AWS or Roblox response formats.
 
@@ -737,7 +737,7 @@ The first implementation can use DynamoDB adapters. A later adapter can read fro
 
 ### Separate control plane from data plane
 
-StudioPulse has two kinds of work:
+Roblox Analytics Studio has two kinds of work:
 
 - **Control plane:** users, workspaces, experience selections, credentials, preferences, and sync state.
 - **Data plane:** metric snapshots, historical exports, reports, and optional future game telemetry.
@@ -746,7 +746,7 @@ The control plane needs strong tenant authorization and small, current records. 
 
 ### Keep official analytics separate from game telemetry
 
-Roblox Analytics Query API returns aggregated platform analytics. It does not give StudioPulse a raw player-event warehouse. If a creator needs a game-specific question, add a small server-authoritative event schema in the Roblox experience and send approved summaries through a separate ingestion design.
+Roblox Analytics Query API returns aggregated platform analytics. It does not give Roblox Analytics Studio a raw player-event warehouse. If a creator needs a game-specific question, add a small server-authoritative event schema in the Roblox experience and send approved summaries through a separate ingestion design.
 
 Do not add Kinesis, Firehose, or a large event lake until you have a measured event volume and a clear question that official aggregates cannot answer.
 
@@ -757,7 +757,7 @@ Do not add Kinesis, Firehose, or a large event lake until you have a measured ev
 | Credential | Lives in | Used by | Never put in |
 | --- | --- | --- | --- |
 | AWS developer session | IAM Identity Center or temporary role | Local CLI and CDK | Git, app bundle, screenshots |
-| StudioPulse access token | Expo SecureStore | Expo app | Logs or analytics snapshots |
+| Roblox Analytics Studio access token | Expo SecureStore | Expo app | Logs or analytics snapshots |
 | Roblox Open Cloud key | Secrets Manager/KMS boundary | Roblox worker only | Mobile app, Git, chat, DynamoDB plaintext |
 | Roblox OAuth client secret | Backend secret store | OAuth callback/token exchange | Mobile app or public repository |
 | Webhook secret, if added | Secrets Manager | Webhook verifier | Logs or request records |
@@ -767,7 +767,7 @@ Do not add Kinesis, Firehose, or a large event lake until you have a measured ev
 Every request must follow this sequence:
 
 1. Validate the JWT signature and standard claims.
-2. Resolve the stable StudioPulse user ID.
+2. Resolve the stable Roblox Analytics Studio user ID.
 3. Load the user's workspace membership.
 4. Confirm the requested universe belongs to that workspace.
 5. Read or write only through a repository method that requires the authorized workspace context.
@@ -1009,7 +1009,7 @@ The note teaches you how usage maps to a bill. That skill matters more than memo
 
 ## What “scalable” means for this product
 
-For StudioPulse, scalability means:
+For Roblox Analytics Studio, scalability means:
 
 - API requests do not require a permanently running server.
 - Background sync can queue work when demand spikes.
@@ -1064,7 +1064,7 @@ Scalability does not mean adding every high-scale AWS service on day one. It mea
 ### Expo mobile app
 
 - [ ] Sample mode works with no AWS connection.
-- [ ] The app reads StudioPulse snapshots rather than Roblox directly.
+- [ ] The app reads Roblox Analytics Studio snapshots rather than Roblox directly.
 - [ ] Tokens use Expo SecureStore.
 - [ ] The UI labels freshness and source.
 - [ ] Offline and stale states are tested.
@@ -1121,4 +1121,4 @@ Check these links again before deployment because AWS pricing and product behavi
 
 Start locally, deploy one small CDK stack, and learn each service through one observable behavior. Use Cognito local users before paying for Roblox OIDC federation, use DynamoDB before a relational database, use SQS before streaming infrastructure, and keep Roblox credentials out of the system until the sample path works.
 
-When traffic or product requirements grow, measure the bottleneck, update the cost model, and introduce one service at a time. That gives you AWS experience and leaves StudioPulse with a backend you can operate.
+When traffic or product requirements grow, measure the bottleneck, update the cost model, and introduce one service at a time. That gives you AWS experience and leaves Roblox Analytics Studio with a backend you can operate.

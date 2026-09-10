@@ -1,4 +1,4 @@
-# roblox-analytics-mobile Figma implementation manifest
+# Roblox Analytics Studio Figma implementation manifest
 
 This is the audit trail between the live Figma file and the Expo / React Native app. Live Figma remains the visual source of truth; this file records the node IDs actually read before implementation.
 
@@ -14,7 +14,7 @@ Native screenshots and overlays remain pending. Most references are 393 x 852; c
 - Light-mode page: `187:104`, `02 — Mobile Light Mode`
 - Target iPhone canvas: 393 x 852 points
 - Target implementation: Expo 57, React Native, TypeScript
-- App product name: `roblox-analytics-mobile` (the older name remains only in the Figma file title and historical notes)
+- App product name: `Roblox Analytics Studio` (compatibility-sensitive repository, package, service, and cloud identifiers retain `roblox-analytics-mobile`)
 - Figma access mode: read-only
 
 ## MCP preflight — 2026-09-02
@@ -80,7 +80,7 @@ Do not record login email addresses, authorization data, tokens, secret values, 
 
 - Native iOS status bars, safe areas, and the Expo tab navigator replace Figma's drawn device chrome.
 - The light-mode implementation follows the exact Figma palette and surface hierarchy while preserving data-rich production content that intentionally extends beyond the shorter reference frames.
-- The visible product name is `roblox-analytics-mobile`, per the project owner's explicit naming decision, even where old Figma copy still says the historical name.
+- The visible product name is `Roblox Analytics Studio`, per the project owner's September 9 naming decision, even where old Figma copy still says the historical StudioPulse name.
 - Sample Mode remains explicitly labeled and offline; connected mode labels metrics official only when the authenticated backend returns a Roblox Open Cloud snapshot.
 - Dashboard benchmark values are labeled `ROBLOX WEB` rather than `OFFICIAL` API data because the supported Open Cloud Analytics Query API does not expose genre benchmark comparisons.
 - The production Home is intentionally longer and more information-dense than node `59:7`. Figma supplies the visual grammar; real snapshot availability and mobile decision usefulness determine the final content hierarchy.

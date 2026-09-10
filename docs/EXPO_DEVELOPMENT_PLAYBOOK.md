@@ -1,4 +1,4 @@
-# StudioPulse Expo Development Playbook
+# Roblox Analytics Studio Expo Development Playbook
 
 **Status:** current implementation source of truth
 
@@ -12,7 +12,7 @@
 
 ## 1. The stack decision
 
-StudioPulse uses Expo-managed React Native, not native SwiftUI. The repository should contain a JavaScript/TypeScript application and Expo configuration. The empty `StudioPulse.xcodeproj/` directory came from an earlier native-iOS plan and is not the application source.
+Roblox Analytics Studio uses Expo-managed React Native, not native SwiftUI. The repository should contain a JavaScript/TypeScript application and Expo configuration. The empty `StudioPulse.xcodeproj/` directory came from an earlier native-iOS plan and is not the application source.
 
 Use this progression:
 
@@ -34,7 +34,7 @@ The client stack is:
 | Routing | Expo Router when the project is initialized with it |
 | Networking | `fetch` behind typed repository/client modules |
 | Authentication | Opaque app sessions and Roblox OAuth Authorization Code + PKCE |
-| Secure storage | `expo-secure-store` for StudioPulse tokens |
+| Secure storage | `expo-secure-store` for Roblox Analytics Studio tokens |
 | Local sample data | Deterministic fixtures with no network requirement |
 | Build and distribution | Expo CLI, EAS CLI, preview builds, production builds |
 | Backend | API Gateway HTTP API, Lambda, DynamoDB, SQS, EventBridge, and related AWS services |
@@ -213,7 +213,7 @@ Create one typed API client around `fetch`. It should own:
 - 401 handling and sign-out behavior.
 - Retry rules for safe idempotent requests.
 
-The mobile client calls StudioPulse endpoints such as:
+The mobile client calls Roblox Analytics Studio endpoints such as:
 
 ```text
 GET /v1/me
@@ -222,9 +222,9 @@ GET /v1/experiences/{universeId}/home
 GET /v1/experiences/{universeId}/sync-status
 ```
 
-The mobile client does not call Roblox Open Cloud directly. AWS workers call Roblox asynchronously, and the app reads cached StudioPulse snapshots.
+The mobile client does not call Roblox Open Cloud directly. AWS workers call Roblox asynchronously, and the app reads cached Roblox Analytics Studio snapshots.
 
-Store the opaque StudioPulse app-session token with `expo-secure-store`. Do not store a Roblox Open Cloud API key, OAuth client secret, or `.ROBLOSECURITY` value in the app.
+Store the opaque Roblox Analytics Studio app-session token with `expo-secure-store`. Do not store a Roblox Open Cloud API key, OAuth client secret, or `.ROBLOSECURITY` value in the app.
 
 The current source and API contract use opaque backend app sessions, not Cognito/JWT. Roblox identity uses server-side Authorization Code + PKCE and a separate mobile S256 handoff described in `docs/API_CONTRACT.md`. The pending verifier and callback state stay in memory; only the resulting app session goes into secure storage. Session restoration, logout UI, and account-wide revocation are implemented locally with regression tests; native simulator validation remains pending. Roblox identity and Open Cloud analytics authorization remain separate connections.
 

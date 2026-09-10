@@ -1,9 +1,9 @@
-# StudioPulse first Expo goal
+# Roblox Analytics Studio first Expo goal
 
-Run the preparation checklist in `docs/EXPO_DEVELOPMENT_PLAYBOOK.md` first. Install the required Node.js and Expo tooling, authenticate the Figma connector to an account that can read the StudioPulse file, keep the Figma file available, and open this repository in Codex before pasting the goal below.
+Run the preparation checklist in `docs/EXPO_DEVELOPMENT_PLAYBOOK.md` first. Install the required Node.js and Expo tooling, authenticate the Figma connector to an account that can read the legacy StudioPulse-titled Figma file, keep the Figma file available, and open this repository in Codex before pasting the goal below.
 
 ```text
-/goal Build and verify StudioPulse's first local Expo vertical slice from the live Figma source without stopping until the project runs in Expo Go or an Expo development build, tests successfully, and has frame-matched visual evidence plus a complete handoff.
+/goal Build and verify Roblox Analytics Studio's first local Expo vertical slice from the live Figma source without stopping until the project runs in Expo Go or an Expo development build, tests successfully, and has frame-matched visual evidence plus a complete handoff.
 
 Read AGENTS.md, docs/EXPO_DEVELOPMENT_PLAYBOOK.md, docs/FIGMA_IMPLEMENTATION_MANIFEST.md, NIGHT_GOAL.md, and design-system-state-studiopulse-onboarding.json before changing files. Treat the repository as a planning scaffold and inspect the worktree first. The legacy StudioPulse/ and StudioPulse.xcodeproj/ paths are not the current application source.
 

@@ -33,16 +33,16 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const screenMeta: Record<string, { title: string; subtitle: string; icon: IconName }> = {
   account: { title: 'Profile', subtitle: 'Identity and creator account', icon: 'person-outline' },
   currency: { title: 'Currency display', subtitle: 'Choose how revenue appears', icon: 'cash-outline' },
-  appearance: { title: 'Appearance', subtitle: 'Make roblox-analytics-mobile feel right', icon: 'moon-outline' },
+  appearance: { title: 'Appearance', subtitle: 'Make Roblox Analytics Studio feel right', icon: 'moon-outline' },
   connections: { title: 'Connections', subtitle: 'Identity and analytics access', icon: 'link-outline' },
   'data-freshness': { title: 'Data coverage', subtitle: 'Know what is ready before you drill down', icon: 'layers-outline' },
   export: { title: 'Export data', subtitle: 'Prepare a clean CSV export', icon: 'download-outline' },
   'api-security': { title: 'API key security', subtitle: 'How your analytics access stays safe', icon: 'key-outline' },
   'event-signing': { title: 'Event signing', subtitle: 'Verify live events before showing them', icon: 'shield-checkmark-outline' },
-  sessions: { title: 'Sessions', subtitle: 'Devices signed in to roblox-analytics-mobile', icon: 'phone-portrait-outline' },
+  sessions: { title: 'Sessions', subtitle: 'Devices signed in to Roblox Analytics Studio', icon: 'phone-portrait-outline' },
   help: { title: 'Help center', subtitle: 'Answers about analytics and access', icon: 'help-circle-outline' },
-  privacy: { title: 'Privacy', subtitle: 'What roblox-analytics-mobile does and does not collect', icon: 'document-text-outline' },
-  about: { title: 'About roblox-analytics-mobile', subtitle: 'A calmer mobile view of Creator analytics', icon: 'information-circle-outline' },
+  privacy: { title: 'Privacy', subtitle: 'What Roblox Analytics Studio does and does not collect', icon: 'document-text-outline' },
+  about: { title: 'About Roblox Analytics Studio', subtitle: 'A calmer mobile view of Creator analytics', icon: 'information-circle-outline' },
 };
 
 function SectionLabel({ children }: React.PropsWithChildren) {
@@ -246,7 +246,7 @@ export default function SettingsScreen() {
   const screen = Array.isArray(params.setting) ? params.setting[0] : params.setting ?? 'account';
   const meta = screenMeta[screen] ?? {
     title: 'Settings',
-    subtitle: 'roblox-analytics-mobile preferences',
+    subtitle: 'Roblox Analytics Studio preferences',
     icon: 'settings-outline' as IconName,
   };
 
@@ -313,7 +313,7 @@ export default function SettingsScreen() {
             </SettingSection>
             <InfoBanner
               title="Robux is the source of truth"
-              body="Currency conversions are estimates for quick reference. roblox-analytics-mobile keeps official revenue and exports denominated in Robux."
+              body="Currency conversions are estimates for quick reference. Roblox Analytics Studio keeps official revenue and exports denominated in Robux."
               tone="blue"
             />
           </>
@@ -350,7 +350,7 @@ export default function SettingsScreen() {
             <InfoBanner
               icon="shield-checkmark-outline"
               title="One Roblox authorization"
-              body="Roblox OAuth handles identity and read-only analytics in one consent flow. Delegated tokens stay encrypted on the roblox-analytics-mobile server."
+              body="Roblox OAuth handles identity and read-only analytics in one consent flow. Delegated tokens stay encrypted on the Roblox Analytics Studio server."
               tone="green"
             />
             <SettingSection title="Identity connection">
@@ -395,7 +395,7 @@ export default function SettingsScreen() {
             <InfoBanner
               icon="warning-outline"
               title="Never paste a Roblox browser cookie"
-              body="roblox-analytics-mobile will never ask for .ROBLOSECURITY. If any app asks for it, stop—the cookie can grant account access."
+              body="Roblox Analytics Studio will never ask for .ROBLOSECURITY. If any app asks for it, stop—the cookie can grant account access."
               tone="yellow"
             />
           </>
@@ -451,12 +451,12 @@ export default function SettingsScreen() {
                 <KeyValueRow label="Recommended rotation" value="October 26, 2026" valueTone="blue" />
                 <KeyValueRow label="Last successful use" value="4 min ago" valueTone="green" />
               </Card>
-              <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>A fingerprint is a safe identifier, not a credential. Rotation happens in the Roblox Creator Dashboard and the roblox-analytics-mobile server vault.</StudioText>
+              <StudioText tone="muted" size={11} lineHeight={16} style={styles.finePrint}>A fingerprint is a safe identifier, not a credential. Rotation happens in the Roblox Creator Dashboard and the Roblox Analytics Studio server vault.</StudioText>
             </SettingSection>
             <InfoBanner
               icon="hand-left-outline"
               title="We never need your browser cookie"
-              body="Do not share .ROBLOSECURITY with roblox-analytics-mobile—or anyone. The app uses supported OAuth and Open Cloud access instead."
+              body="Do not share .ROBLOSECURITY with Roblox Analytics Studio—or anyone. The app uses supported OAuth and Open Cloud access instead."
               tone="yellow"
             />
           </>
@@ -468,7 +468,7 @@ export default function SettingsScreen() {
             <InfoBanner
               icon="shield-checkmark-outline"
               title="Signed before it reaches the app"
-              body="The roblox-analytics-mobile backend verifies each live event signature and timestamp. Invalid or replayed events are discarded."
+              body="The Roblox Analytics Studio backend verifies each live event signature and timestamp. Invalid or replayed events are discarded."
               tone="green"
             />
             <SettingSection title="Verification">
@@ -520,7 +520,7 @@ export default function SettingsScreen() {
           <>
             <Card style={styles.helpHero}>
               <View style={styles.helpIcon}><Ionicons name="sparkles" size={24} color={colors.blue} /></View>
-              <View style={styles.flex}><StudioText weight="bold" size={17}>roblox-analytics-mobile guide</StudioText><StudioText tone="muted" size={12}>Quick answers about data and security</StudioText></View>
+              <View style={styles.flex}><StudioText weight="bold" size={17}>Roblox Analytics Studio guide</StudioText><StudioText tone="muted" size={12}>Quick answers about data and security</StudioText></View>
             </Card>
             <SettingSection title="Common questions">
               <Card style={styles.zeroGapCard}>
@@ -579,7 +579,7 @@ export default function SettingsScreen() {
                 source={require('@/assets/images/roblox-analytics-logo.png')}
                 style={styles.appIcon}
               />
-              <StudioText weight="bold" size={26}>roblox-analytics-mobile</StudioText>
+              <StudioText weight="bold" size={26}>Roblox Analytics Studio</StudioText>
               <StudioText tone="muted" size={13}>Creator analytics at a glance</StudioText>
               <Badge label={appEnvironment.dataMode === 'aws_dev' ? 'CONNECTED BUILD' : 'SAMPLE BUILD'} tone={appEnvironment.dataMode === 'aws_dev' ? 'green' : 'blue'} />
             </Card>
@@ -747,7 +747,7 @@ function ProfileFigmaScreen() {
           <CompactRow label="Account exports" value="NOT AVAILABLE" tone="muted" />
         </Card>
       </CompactSection>
-      <Card style={styles.readOnlyCard}><StudioText weight="semibold" size={12}>Read-only Roblox identity</StudioText><StudioText tone="muted" size={10}>roblox-analytics-mobile can read your profile, but cannot edit your Roblox account.</StudioText></Card>
+      <Card style={styles.readOnlyCard}><StudioText weight="semibold" size={12}>Read-only Roblox identity</StudioText><StudioText tone="muted" size={10}>Roblox Analytics Studio can read your profile, but cannot edit your Roblox account.</StudioText></Card>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Sign out of Roblox"

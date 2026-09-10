@@ -1,6 +1,29 @@
-# roblox-analytics-mobile
+# Roblox Analytics Studio
 
-StudioPulse (`roblox-analytics-mobile`) is an Expo-managed React Native analytics companion for Roblox creators with a TypeScript serverless backend on AWS.
+Roblox Analytics Studio is an Expo-managed React Native analytics companion for Roblox creators with a TypeScript serverless backend on AWS. The repository and compatibility-sensitive service identifiers retain the original `roblox-analytics-mobile` name.
+
+## Review the project
+
+Start with the [reviewer guide and three-minute walkthrough](docs/REVIEWER_GUIDE.md).
+It explains the product, the engineering decisions, and the limits of the current release.
+
+On a Mac with Xcode and an iOS simulator, use Node 22.18 or newer:
+
+```sh
+npm ci
+npm run demo
+```
+
+The demo uses labeled fixtures and ignores `.env.local`. It needs no Roblox
+account or AWS credentials. For a standalone simulator build with embedded
+sample data, run `npm run demo:build:ios` and select an iPhone simulator.
+This is a development portfolio project; no App Store or TestFlight release
+is claimed. A JavaScript export is not an installable iPhone app.
+
+Run `npm run verify` for TypeScript, lint, mobile tests, and backend tests.
+The current local release candidate uses Expo SDK 54; include its lockfile and
+compatibility changes together when publishing it. See the
+[release checklist](docs/RELEASE_CHECKLIST.md) for verification status.
 
 Current implementation:
 
@@ -20,7 +43,7 @@ npm run typecheck
 npm start
 ```
 
-`EXPO_PUBLIC_DATA_MODE=sample` performs no network requests. Set it to `aws_dev` to load the same safe sample snapshot through the deployed AWS API. No Roblox credential belongs in Expo environment files.
+`EXPO_PUBLIC_DATA_MODE=sample` uses local fixtures. Set it to `aws_dev` to enable Roblox OAuth and authenticated cached analytics through the deployed AWS API. No Roblox credential belongs in Expo environment files.
 
 Start here:
 
@@ -42,6 +65,6 @@ Historical SwiftUI planning files remain in the repository for reference; Expo i
 - Persistent destinations: Home, Experiences, Analytics, Sales, More.
 - Sample mode works before any account or credential is connected.
 - The first real-data release is read-only toward Roblox experiences.
-- Roblox OAuth identity and Roblox Open Cloud analytics access are separate connections.
+- Roblox OAuth requests identity and read-only analytics access for the experiences the creator authorizes.
 - Roblox API keys never ship in the mobile app and `.ROBLOSECURITY` is never requested.
 - Official aggregate analytics must remain visually distinct from optional live-sale instrumentation.

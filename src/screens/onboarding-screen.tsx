@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -283,6 +283,7 @@ function AnalyticsPreview() {
 
 function AnimatedTrendChart() {
   const reduceMotion = useReducedMotion();
+  const dotColor = useColorScheme() === 'dark' ? '#6283FF' : '#5F83FF';
   const timeline = useSharedValue(reduceMotion ? 1 : 0);
 
   useEffect(() => {
@@ -351,7 +352,7 @@ function AnimatedTrendChart() {
           />
         </G>
       </Svg>
-      <Animated.View style={[styles.chartDot, animatedDotStyle]} />
+      <Animated.View style={[styles.chartDot, { backgroundColor: dotColor }, animatedDotStyle]} />
     </View>
   );
 }
@@ -391,7 +392,7 @@ function IdentityStep({
       <StudioText size={15} lineHeight={22} style={[styles.bodyCopy, { top: 302 }]}>Sign in once through Roblox to connect your{`\n`}identity and approve read-only analytics for{`\n`}the experiences you choose.</StudioText>
 
       <View style={styles.permissionsCard}>
-        <StudioText weight="semibold" size={14} lineHeight={19} style={styles.permissionsTitle}>What roblox-analytics-mobile receives</StudioText>
+        <StudioText weight="semibold" size={14} lineHeight={19} style={styles.permissionsTitle}>What Roblox Analytics Studio receives</StudioText>
         <PermissionLine symbol="✓" title="Roblox profile" top={51} value="openid + profile" />
         <PermissionLine symbol="✓" title="Experience analytics" top={91} value="read-only aggregate metrics" />
         <PermissionLine muted symbol="—" title="Never requested" top={131} value=".ROBLOSECURITY cookie" />
@@ -558,7 +559,7 @@ function ReadyStep({ selectedCount, username, onOpen, onReview }: { selectedCoun
         <PreviewMetric label="ACCESS" left={223} value="Read" />
       </View>
 
-      <Actions onPrimary={onOpen} onSecondary={onReview} primaryLabel="Open roblox-analytics-mobile" secondaryLabel="Review setup" />
+      <Actions onPrimary={onOpen} onSecondary={onReview} primaryLabel="Open Roblox Analytics Studio" secondaryLabel="Review setup" />
     </>
   );
 }
@@ -681,7 +682,7 @@ const styles = StyleSheet.create({
   metricChange: { marginTop: 1, color: palette.success },
   previewChart: { position: 'absolute', top: 101, left: 16, width: 308, height: 112, overflow: 'visible' },
   chartGrid: { position: 'absolute', left: 0, width: 308, height: 1, backgroundColor: palette.border },
-  chartDot: { position: 'absolute', top: 9, left: 301, width: 10, height: 10, borderRadius: 5, backgroundColor: palette.accentText },
+  chartDot: { position: 'absolute', top: 9, left: 301, width: 10, height: 10, borderRadius: 5 },
   primaryActionPosition: { position: 'absolute', top: 706, left: CONTENT_LEFT, width: CONTENT_WIDTH, height: 52 },
   secondaryActionPosition: { position: 'absolute', top: 770, left: CONTENT_LEFT, width: CONTENT_WIDTH, height: 52 },
   actionButton: { width: '100%', height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },

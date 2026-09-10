@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "roblox-analytics-mobile",
+    "name": "Roblox Analytics Studio",
     "slug": "roblox-analytics-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,8 @@
     "scheme": "robloxanalyticsmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.anonymous.roblox-analytics-mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,9 +40,7 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-image",
-      "expo-web-browser",
-      "expo-status-bar"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

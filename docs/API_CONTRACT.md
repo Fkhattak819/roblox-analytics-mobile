@@ -1,4 +1,4 @@
-# roblox-analytics-mobile API contract
+# Roblox Analytics Studio API contract
 
 The canonical machine-readable contract is [`contracts/openapi.json`](../contracts/openapi.json). The Home DTO and runtime parser live in [`contracts/src/home.ts`](../contracts/src/home.ts) and are compiled into the backend while also being consumed by Expo.
 

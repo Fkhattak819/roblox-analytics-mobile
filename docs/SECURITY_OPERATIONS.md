@@ -12,7 +12,7 @@ Limits reduce single-source abuse but do not eliminate attacks from many IPs. Sh
 
 Auth routes emit only a fixed event label, enumerated action, numeric status, and enumerated outcome. No request or error object is serialized; bodies, query strings, IPs, identity names, codes, tokens, and authorization headers are excluded. Public errors retain stable messages.
 
-CDK alarms detect five auth 5xx results in five minutes or three Lambda errors in five minutes. Lambda errors include hard timeouts that bypass application logging. Missing data is treated as nonbreaching. Both development alarms currently report `OK` and route to a TLS-only SNS topic. The email subscription is still `PendingConfirmation`; delivery is not active until the recipient clicks the AWS confirmation email. These alarms cover this StudioPulse deployment, not every AWS service or application in the account. Existing log retention is one week.
+CDK alarms detect five auth 5xx results in five minutes or three Lambda errors in five minutes. Lambda errors include hard timeouts that bypass application logging. Missing data is treated as nonbreaching. Both development alarms currently report `OK` and route to a TLS-only SNS topic. The email subscription is still `PendingConfirmation`; delivery is not active until the recipient clicks the AWS confirmation email. These alarms cover this Roblox Analytics Studio deployment, not every AWS service or application in the account. Existing log retention is one week.
 
 ## Incident response
 

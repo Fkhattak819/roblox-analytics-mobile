@@ -165,7 +165,7 @@ export default function MoreScreen() {
 
       <SettingsGroup title="SUPPORT">
         <SettingsRow title="Help & support" onPress={() => router.push('/settings/help')} />
-        <SettingsRow title="About roblox-analytics-mobile" value="v0.1" onPress={() => router.push('/settings/about')} last />
+        <SettingsRow title="About Roblox Analytics Studio" value="v0.1" onPress={() => router.push('/settings/about')} last />
       </SettingsGroup>
     </Screen>
   );

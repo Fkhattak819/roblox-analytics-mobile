@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "roblox-analytics-mobile API",
+    "title": "Roblox Analytics Studio API",
     "version": "0.3.0",
     "description": "Development API contract for sample data and Roblox identity sessions. Analytics credential submission remains disabled until its separate security gates are complete."
   },

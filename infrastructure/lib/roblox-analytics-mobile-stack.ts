@@ -111,7 +111,7 @@ export class RobloxAnalyticsMobileStack extends cdk.Stack {
 
     const securityAlarmTopic = new sns.Topic(this, 'SecurityAlarmTopic', {
       topicName: `${resourcePrefix}-security-alerts`,
-      displayName: 'StudioPulse security alerts',
+      displayName: 'Roblox Analytics Studio security alerts',
       enforceSSL: true,
     });
     securityAlarmTopic.addSubscription(

@@ -1,6 +1,7 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { sessionController } from '@/services/roblox-auth';
+import { appEnvironment } from '@/services/backend-api';
 
 export function useSession() {
   return useSyncExternalStore(sessionController.subscribe, sessionController.getSnapshot, sessionController.getSnapshot);
@@ -9,6 +10,8 @@ export function useSession() {
 export function SessionLifecycle({ children }: React.PropsWithChildren) {
   const state = useSession();
   useEffect(() => {
+    // A sample build must not restore a previous live session or contact its API.
+    if (appEnvironment.dataMode === 'sample') return;
     void sessionController.restore();
     const listener = AppState.addEventListener('change', (next) => {
       const status = sessionController.getSnapshot().status;

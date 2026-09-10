@@ -42,7 +42,7 @@ export default function NotificationsScreen() {
 
   return (
     <Screen>
-      <PageHeader back title="Notifications" subtitle="Choose how roblox-analytics-mobile gets your attention" />
+      <PageHeader back title="Notifications" subtitle="Choose how Roblox Analytics Studio gets your attention" />
       <Card>
         <View style={uiStyles.rowBetween}>
           <View style={uiStyles.flex}>

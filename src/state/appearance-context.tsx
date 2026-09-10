@@ -15,7 +15,7 @@ type AppearanceContextValue = Readonly<{
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 function applyPreference(preference: AppearancePreference) {
-  Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
+  Appearance.setColorScheme(preference === 'system' ? null : preference);
 }
 
 function isAppearancePreference(value: string | null): value is AppearancePreference {
