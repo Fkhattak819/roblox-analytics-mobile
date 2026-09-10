@@ -66,12 +66,13 @@ export function StudioText({
 
 type ScreenProps = React.PropsWithChildren<{
   scroll?: boolean;
+  scrollRef?: React.Ref<ScrollView>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: ScrollViewProps['refreshControl'];
   footer?: React.ReactNode;
 }>;
 
-export function Screen({ children, scroll = true, contentContainerStyle, refreshControl, footer }: ScreenProps) {
+export function Screen({ children, scroll = true, scrollRef, contentContainerStyle, refreshControl, footer }: ScreenProps) {
   const content = (
     <View style={[styles.screenContent, contentContainerStyle]}>
       {children}
@@ -82,6 +83,7 @@ export function Screen({ children, scroll = true, contentContainerStyle, refresh
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={styles.scrollContent}

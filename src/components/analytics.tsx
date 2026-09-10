@@ -200,9 +200,9 @@ export function AnalyticsMetricCard({
 
   return (
     <Card style={styles.metricCard}>
-      <StudioText tone="muted" weight="medium" size={9} numberOfLines={1}>{label.toUpperCase()}</StudioText>
-      <StudioText weight="semibold" size={23} numberOfLines={1} adjustsFontSizeToFit>{value}</StudioText>
-      {displayDelta ? <StudioText weight="medium" size={10} style={{ color: deltaColor }}>{displayDelta}</StudioText> : null}
+      <StudioText tone="secondary" weight="medium" size={12}>{label}</StudioText>
+      <StudioText weight="semibold" size={26} numberOfLines={1} adjustsFontSizeToFit>{value}</StudioText>
+      {displayDelta ? <StudioText weight="medium" size={11} style={{ color: deltaColor }}>{displayDelta}</StudioText> : null}
     </Card>
   );
 }
@@ -243,6 +243,7 @@ export function AnalyticsChartCard({
   yAxisLabels,
   showComparison = true,
   emptyMessage,
+  onExplore,
 }: {
   title: string;
   value?: string;
@@ -255,6 +256,7 @@ export function AnalyticsChartCard({
   yAxisLabels?: string[];
   showComparison?: boolean;
   emptyMessage?: string;
+  onExplore?: () => void;
 }) {
   const hasValues = values.length > 0;
   return (
@@ -264,7 +266,7 @@ export function AnalyticsChartCard({
           <StudioText weight="semibold" size={15}>{title}</StudioText>
           {summary ? <StudioText tone="muted" size={10}>{summary}</StudioText> : null}
         </View>
-        <StudioText tone="blue" weight="semibold" size={11}>Explore ›</StudioText>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Explore ${title}`} onPress={onExplore} disabled={!onExplore} style={{ minHeight: 44, justifyContent: 'center' }}>{onExplore ? <StudioText tone="blue" weight="semibold" size={11}>Explore ›</StudioText> : null}</Pressable>
       </View>
       {value ? <StudioText weight="semibold" size={24}>{value}</StudioText> : null}
       {hasValues ? (
@@ -482,8 +484,8 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   filterRow: { gap: 8, paddingRight: 18 },
   filterButton: {
-    height: 38,
-    maxWidth: 190,
+    minHeight: 44,
+    maxWidth: 220,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
   dropdownTitle: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 5 },
   dropdownOption: { minHeight: 42, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   dropdownOptionSelected: { backgroundColor: colors.selectedSurface },
-  metricCard: { flex: 1, minWidth: 0, height: 94, padding: 11, gap: 5, borderRadius: 9 },
+  metricCard: { flex: 1, minWidth: 0, minHeight: 116, padding: 14, gap: 8, borderRadius: 12 },
   chartCard: { padding: 14, gap: 9, borderRadius: 10 },
   chartHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.sm },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
