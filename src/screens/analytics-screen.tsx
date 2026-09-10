@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   AnalyticsChartCard,
@@ -13,16 +12,15 @@ import {
   AnalyticsMetricCard,
   AnalyticsSectionHeader,
 } from '@/src/components/analytics';
-import { AnalyticsBenchmarkCarousel } from '@/src/components/analytics-benchmarks';
-import { AnalyticsQuickLookGrid, buildAnalyticsQuickLookItems } from '@/src/components/analytics-quick-look';
-import { Card, Screen, StudioText } from '@/src/components/ui';
+import { buildAnalyticsQuickLookItems } from '@/src/components/analytics-quick-look';
+import { Card, ExperienceHeader, Screen, StudioText } from '@/src/components/ui';
 import type { AnalyticsDateRange, AnalyticsSnapshot } from '@/domain/analytics';
 import { appEnvironment } from '@/services/backend-api';
 import { mostWordsWinBenchmarks } from '@/src/data/roblox-benchmarks';
 import { useAnalyticsQuickLook } from '@/src/hooks/use-analytics-quick-look';
 import { useAnalyticsSnapshot } from '@/src/hooks/use-analytics-snapshot';
 import { useApp } from '@/src/state/app-context';
-import { colors, radii, spacing } from '@/src/theme/tokens';
+import { colors, spacing } from '@/src/theme/tokens';
 
 type TrendMetric = 'Day 1 retention' | 'New users' | 'Average playtime';
 
@@ -85,7 +83,7 @@ function TrendSwitcher({
   onChange: (metric: string) => void;
 }) {
   return (
-    <View style={styles.trendSwitcher}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trendSwitcher}>
       {options.map((option) => {
         const active = option === value;
         return (
@@ -95,46 +93,29 @@ function TrendSwitcher({
             accessibilityState={{ selected: active }}
             onPress={() => onChange(option)}
             style={[styles.trendOption, active && styles.trendOptionActive]}>
-            <StudioText size={9.5} weight="semibold" style={{ color: active ? '#9BB0FF' : colors.textMuted }} numberOfLines={1}>
+            <StudioText size={11} weight="semibold" style={{ color: active ? colors.blue : colors.textMuted }}>
               {option}
             </StudioText>
           </Pressable>
         );
       })}
-    </View>
-  );
-}
-
-function BenchmarkCard({ title, value, percentile }: { title: string; value: string; percentile: number }) {
-  return (
-    <Card style={styles.benchmarkCard}>
-      <View style={styles.benchmarkTop}>
-        <View style={styles.flex}>
-          <StudioText weight="medium" size={12} numberOfLines={1}>{title}</StudioText>
-          <StudioText weight="semibold" size={18}>{value}</StudioText>
-        </View>
-        <StudioText weight="semibold" size={12} tone="green">{percentile}th</StudioText>
-      </View>
-      <View style={styles.benchmarkTrack}>
-        <View style={[styles.benchmarkFill, { width: `${percentile}%` }]} />
-        <View style={[styles.benchmarkMarker, { left: `${Math.max(2, Math.min(96, percentile))}%` }]} />
-      </View>
-      <View style={styles.benchmarkLabels}>
-        <StudioText tone="muted" size={8}>0th</StudioText>
-        <StudioText tone="muted" size={8}>50th</StudioText>
-        <StudioText tone="muted" size={8}>90th</StudioText>
-      </View>
-    </Card>
+    </ScrollView>
   );
 }
 
 export default function AnalyticsScreen() {
   const { selectedWorkspaceExperience, dateRange, setDateRange, comparePrevious, setComparePrevious } = useApp();
+  const scrollRef = useRef<ScrollView>(null);
+  const reportsY = useRef(0);
+  const jumpToReports = async () => {
+    const reduced = await AccessibilityInfo.isReduceMotionEnabled();
+    scrollRef.current?.scrollTo({ y: reportsY.current, animated: !reduced });
+  };
   const [trendMetric, setTrendMetric] = useState<string>('Day 1 retention');
   const displayExperience = selectedWorkspaceExperience;
   const displayExperienceName = displayExperience.name;
   const universeId = displayExperience.universeId;
-  const sampleSnapshot = useMemo(() => createOverviewSampleSnapshot(dateRange, universeId), [dateRange, universeId]);
+  const sampleSnapshot = useMemo(() => createOverviewSampleSnapshot('7D', universeId), [universeId]);
   const { snapshot, loading, error, reload } = useAnalyticsSnapshot({
     universeId,
     section: 'overview',
@@ -151,7 +132,7 @@ export default function AnalyticsScreen() {
     loading: quickLook.loading,
   }), [isConnectedMode, quickLook.loading, quickLook.snapshots, snapshot]);
   const availableTrendOptions = useMemo<readonly string[]>(
-    () => snapshot?.charts.slice(0, 3).map((chart) => chart.title) ?? trendOptions,
+    () => snapshot?.charts.map((chart) => chart.title) ?? trendOptions,
     [snapshot],
   );
   const selectedTrendMetric = availableTrendOptions.includes(trendMetric)
@@ -165,111 +146,102 @@ export default function AnalyticsScreen() {
   }, [dateRange]);
 
   return (
-    <Screen contentContainerStyle={styles.screen}>
-      <View style={styles.selectorRow}>
-        <Pressable onPress={() => router.push('/experience-picker')} style={({ pressed }) => [styles.experienceSelector, pressed && styles.pressed]}>
-          <Image source={displayExperience.image} style={styles.experienceImage} contentFit="cover" />
-          <View style={styles.flex}>
-            <StudioText tone="muted" weight="semibold" size={9}>EXPERIENCE ANALYTICS</StudioText>
-            <StudioText weight="semibold" size={16} numberOfLines={1}>{displayExperienceName}</StudioText>
-          </View>
-          <Ionicons name="chevron-down" size={15} color={colors.textMuted} />
-        </Pressable>
-        <Pressable accessibilityLabel="Open notifications" onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}>
-          <Ionicons name="notifications-outline" size={18} color={colors.text} />
+    <Screen scrollRef={scrollRef} contentContainerStyle={styles.screen}>
+      <View style={styles.header}>
+        <View style={styles.flex}>
+          <StudioText tone="muted" size={12} weight="medium">EXPERIENCE REPORTS</StudioText>
+          <StudioText weight="bold" size={29}>Analytics</StudioText>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open analytics tools" onPress={() => router.push({ pathname: '/creator-tools', params: { group: 'Analytics' } })} style={styles.toolsButton}>
+          <Ionicons name="options-outline" size={23} color={colors.text} />
         </Pressable>
       </View>
-
-      <View style={styles.titleBlock}>
-        <StudioText weight="bold" size={27} lineHeight={33}>Analytics</StudioText>
-        <StudioText tone="muted" size={12}>{displayExperienceName} · {isConnectedMode ? 'Roblox Open Cloud snapshot' : 'Roblox reference snapshot'}</StudioText>
+      <ExperienceHeader image={displayExperience.image} name={displayExperienceName} creator={displayExperience.creator} onPress={() => router.push('/experience-picker')} />
+      <View style={styles.controls}>
+        {isConnectedMode ? <AnalyticsFilterBar
+          dateLabel={dateLabels[dateRange]}
+          dateOptions={dateRanges.map((range) => ({ label: dateLabels[range], selected: range === dateRange, onSelect: () => setDateRange(range) }))}
+          compareEnabled={comparePrevious}
+          onDatePress={() => setDateRange(nextDateRange)}
+          onComparePress={() => setComparePrevious(!comparePrevious)}
+        /> : <>
+          <StudioText tone="muted" size={12}>Sample overview · Aug 26 – Sep 1, 2026</StudioText>
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: comparePrevious }} onPress={() => setComparePrevious(!comparePrevious)} style={styles.compareButton}>
+            <Ionicons name={comparePrevious ? 'checkbox' : 'square-outline'} size={19} color={comparePrevious ? colors.blue : colors.textMuted} />
+            <StudioText size={12}>Compare previous period</StudioText>
+          </Pressable>
+        </>}
       </View>
-
-      <AnalyticsFilterBar
-        dateLabel={dateLabels[dateRange]}
-        dateOptions={dateRanges.map((range) => ({
-          label: dateLabels[range],
-          selected: range === dateRange,
-          onSelect: () => setDateRange(range),
-        }))}
-        compareEnabled={comparePrevious}
-        onDatePress={() => setDateRange(nextDateRange)}
-        onComparePress={() => setComparePrevious(!comparePrevious)}
-      />
 
       {loading ? <AnalyticsLoadingSkeleton /> : null}
       {error ? <AnalyticsErrorState message={error} onRetry={reload} /> : null}
 
       {!loading && !error && snapshot ? (
         <>
-          <AnalyticsSectionHeader title="Overview" detail={snapshot.asOf ? `Updated ${formatAsOf(snapshot.asOf)}` : 'Last inspected Sep 2'} />
+          <View style={styles.header}><View style={styles.flex}><StudioText size={22} weight="bold">Overview</StudioText><StudioText size={11} tone="muted">{snapshot.asOf ? `Updated ${formatAsOf(snapshot.asOf)}` : isConnectedMode ? 'Selected period' : '7-day reference'}</StudioText></View><Pressable accessibilityRole="button" accessibilityLabel="Jump to analytics reports" onPress={() => void jumpToReports()} style={{ minHeight: 44, justifyContent: 'center' }}><StudioText size={12} weight="semibold" tone="blue">All reports ↓</StudioText></Pressable></View>
           <View style={styles.metricsGrid}>
             {snapshot.metrics.map((metric) => (
               <View key={metric.id} style={styles.metricCell}>
-                <AnalyticsMetricCard label={metric.label} value={metric.displayValue} delta={metric.change} direction={metric.direction} />
+                <AnalyticsMetricCard label={metric.label} value={metric.displayValue} delta={comparePrevious ? metric.change : undefined} direction={metric.direction} />
               </View>
             ))}
           </View>
 
-          <AnalyticsDataStatus live={isOfficial} text={snapshot.message} />
-
-          {!isOfficial ? (
-            <>
-              <AnalyticsSectionHeader title="Insights" detail="1 insight" />
-              <Card style={styles.insightCard}>
-                <View style={styles.insightIcon}><Ionicons name="trending-up" size={19} color="#8EA7FF" /></View>
-                <View style={styles.flex}>
-                  <StudioText weight="semibold" size={14}>Weekly plays from ads</StudioText>
-                  <StudioText tone="muted" size={11} lineHeight={16}>New users from ads can temporarily shift overall engagement.</StudioText>
-                  <StudioText tone="blue" weight="semibold" size={11}>View acquisition ›</StudioText>
-                </View>
-              </Card>
-            </>
-          ) : null}
-
-          <AnalyticsSectionHeader title="Trend explorer" detail="Current vs previous" />
+          <AnalyticsSectionHeader title="Performance over time" detail={comparePrevious ? 'Current vs previous' : 'Current period'} />
           <TrendSwitcher value={selectedTrendMetric} options={availableTrendOptions} onChange={setTrendMetric} />
           {trendChart ? (
             <AnalyticsChartCard
               title={trendChart.title}
               value={trendChart.displayValue}
-              summary={trendChart.summary}
+              summary={comparePrevious ? trendChart.summary : undefined}
               values={trendChart.series[0]?.points.map((point) => point.value) ?? []}
               comparisonValues={trendChart.series[1]?.points.map((point) => point.value)}
               labels={chartLabels(trendChart)}
               pointTimes={trendChart.series[0]?.points.map((point) => point.time)}
               yAxisLabels={trendChart.yAxisLabels}
               showComparison={comparePrevious}
+              onExplore={() => router.push({ pathname: '/analytics/[section]', params: { section: trendReport(selectedTrendMetric) } })}
             />
           ) : null}
 
-          {isConnectedMode ? (
-            <View style={styles.benchmarkSection}>
-              <AnalyticsSectionHeader title="Benchmarks" detail="Party & casual · 7 day avg" />
-              <AnalyticsBenchmarkCarousel benchmarks={mostWordsWinBenchmarks} />
-              <AnalyticsDataStatus live={false} label="ROBLOX WEB" text="Captured from Roblox web · Open Cloud does not expose benchmark comparisons" />
-            </View>
-          ) : null}
+          <AnalyticsDataStatus live={isOfficial} text={snapshot.message} />
 
-          {!isOfficial ? (
-            <>
-              <AnalyticsSectionHeader title="Benchmarks" detail="Party & casual genre · reference only" />
-              <BenchmarkCard title="Average playtime" value="7.3 min" percentile={30} />
-              <BenchmarkCard title="Day 1 retention" value="7.34%" percentile={49} />
-            </>
-          ) : null}
+          <View style={styles.section} onLayout={(event) => { reportsY.current = event.nativeEvent.layout.y; }}>
+            <AnalyticsSectionHeader title="Reports" detail="Explore your experience" />
+            <StudioText tone="muted" size={12}>{isConnectedMode ? 'Each report shows its own latest available period.' : 'Sample report previews · Aug 6 – Sep 1'}</StudioText>
+            <Card style={styles.reportList}>
+              {quickLookItems.map((item, index) => (
+                <Pressable key={item.section} accessibilityRole="button" accessibilityLabel={`Open ${item.title} report`} onPress={() => router.push({ pathname: '/analytics/[section]', params: { section: item.section } })} style={[styles.reportRow, index > 0 && styles.reportDivider]}>
+                  <View style={styles.reportIcon}><Ionicons name={reportIcons[item.section]} size={21} color={colors.blue} /></View>
+                  <View style={styles.flex}>
+                    <StudioText size={15} weight="semibold">{item.section === 'audience' ? 'Demographics' : item.title}</StudioText>
+                    <StudioText size={12} tone="muted">{item.detail}</StudioText>
+                  </View>
+                  <View style={styles.reportValue}><StudioText size={13} weight="semibold">{item.value}</StudioText><Ionicons name="chevron-forward" size={15} color={colors.textMuted} /></View>
+                </Pressable>
+              ))}
+            </Card>
+          </View>
 
-          <AnalyticsSectionHeader title="Explore analytics" detail="6 core sections" />
-          <AnalyticsQuickLookGrid items={quickLookItems} />
+          {!isConnectedMode && universeId === '10009166512' ? <View style={styles.section}>
+            <AnalyticsSectionHeader title="Genre benchmarks" detail="Recorded Sep 2" />
+            <StudioText tone="muted" size={12}>Most Words Win · 7-day averages · similar experiences</StudioText>
+            {mostWordsWinBenchmarks.slice(0, 2).map((item) => <Card key={item.id} style={styles.benchmarkCard}>
+              <StudioText size={14} weight="semibold">{item.title.replace(/ \(.*\)/, '')}</StudioText>
+              <View style={styles.header}><StudioText size={26} weight="bold">{item.value}</StudioText><StudioText size={12} tone="muted">Percentile {item.percentile}</StudioText></View>
+              <View style={styles.benchmarkTrack}><View style={[styles.benchmarkFill, { width: `${item.percentile}%`, backgroundColor: item.accent }]} /></View>
+              <View style={styles.header}><StudioText size={11} tone="muted">Median {item.median}</StudioText><StudioText size={11} tone="muted">Top 10% {item.topDecile}</StudioText></View>
+            </Card>)}
+          </View> : null}
 
-          <AnalyticsSectionHeader title="More analytics" detail="12 sections" />
+          <AnalyticsSectionHeader title="Creator Hub tools" detail="All sections" />
           <Card
-            accessibilityLabel="Open all analytics sections"
-            onPress={() => router.push({ pathname: '/analytics/[section]', params: { section: 'all' } })}
+            accessibilityLabel="Open analytics tools"
+            onPress={() => router.push({ pathname: '/creator-tools', params: { group: 'Analytics' } })}
             style={styles.allAnalyticsCard}>
             <View style={styles.catalogIcon}><Ionicons name="list" size={20} color={colors.blue} /></View>
             <View style={styles.flex}>
-              <StudioText weight="semibold" size={14}>All analytics</StudioText>
+              <StudioText weight="semibold" size={14}>Analytics tools</StudioText>
               <StudioText tone="muted" size={10}>Economy, funnels, events, stores and more</StudioText>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.blue} />
@@ -313,6 +285,15 @@ function createOverviewSampleSnapshot(range: AnalyticsDateRange, universeId: str
   };
 }
 
+function trendReport(title: string): string {
+  const label = title.toLowerCase();
+  if (/retention|stickiness/.test(label)) return 'retention';
+  if (/revenue|robux|payer/.test(label)) return 'monetization';
+  if (/new user|impression|acquisition/.test(label)) return 'acquisition';
+  if (/crash|fps|concurrent/.test(label)) return 'performance';
+  return 'engagement';
+}
+
 function overviewPoints(values: number[]) {
   return values.map((value, index) => ({ time: overviewTimes[index], value }));
 }
@@ -337,29 +318,31 @@ function isConnectedModeUniverse(universeId: string): boolean {
   return appEnvironment.dataMode === 'aws_dev' && /^\d+$/.test(universeId) && universeId !== '0';
 }
 
+const reportIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+  engagement: 'people-outline', retention: 'repeat-outline', acquisition: 'compass-outline',
+  monetization: 'wallet-outline', audience: 'earth-outline', performance: 'pulse-outline',
+};
 const styles = StyleSheet.create({
-  screen: { paddingTop: 10, gap: 14 },
-  flex: { flex: 1 },
-  pressed: { opacity: 0.7 },
-  selectorRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  experienceSelector: { flex: 1, height: 60, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 7, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  experienceImage: { width: 44, height: 44, borderRadius: 8 },
-  bellButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised },
-  titleBlock: { gap: 2, marginTop: 10, marginBottom: 4 },
+  screen: { paddingTop: 8, paddingBottom: 32, gap: 20 },
+  flex: { flex: 1, gap: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  toolsButton: { minWidth: 48, minHeight: 48, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  controls: { gap: 4 },
+  compareButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  metricCell: { width: '48.2%' },
-  insightCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 10 },
-  insightIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
-  trendSwitcher: { height: 32, flexDirection: 'row', padding: 2, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundRaised },
-  trendOption: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 6, paddingHorizontal: 3 },
-  trendOptionActive: { backgroundColor: colors.selectedSurface },
-  benchmarkSection: { gap: 12, marginTop: 6, marginBottom: 8 },
-  benchmarkCard: { padding: 12, gap: 9, borderRadius: radii.md },
-  benchmarkTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  metricCell: { width: '48%', flexGrow: 1 },
+  trendSwitcher: { gap: 8 },
+  trendOption: { minHeight: 44, justifyContent: 'center', borderRadius: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  trendOptionActive: { backgroundColor: colors.blueSoft, borderColor: colors.blueBorder },
+  section: { gap: 14, marginTop: 8 },
+  reportList: { padding: 0, gap: 0 },
+  reportRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, minHeight: 88, flexWrap: 'wrap' },
+  reportDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  reportIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.blueSoft },
+  reportValue: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  benchmarkCard: { padding: 18, gap: 16 },
   benchmarkTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceSoft },
-  benchmarkFill: { height: 6, borderRadius: 3, backgroundColor: '#7AC463' },
-  benchmarkMarker: { position: 'absolute', top: -3, width: 12, height: 12, marginLeft: -6, borderRadius: 6, backgroundColor: colors.surface, borderWidth: 2, borderColor: '#A6E68E' },
-  benchmarkLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-  allAnalyticsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, padding: 12 },
-  catalogIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: colors.blueSoft },
+  benchmarkFill: { height: 6, borderRadius: 3 },
+  allAnalyticsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  catalogIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.blueSoft },
 });
