@@ -43,8 +43,9 @@ Do not submit a release as complete while its distribution gates are open.
   development API URL with local dotenv disabled and succeeded with zero
   errors and three native warnings. The signed app has no `.otf` files; its
   JavaScript bundle and current source/history produced zero Gitleaks findings.
-  Its `ditto`-extracted ZIP passed integrity and strict codesign checks,
-  installed, and launched directly on the iPhone 17 Pro with no Metro listener.
+  The app installed and launched directly on the iPhone 17 Pro with no Metro
+  listener. A temporary ZIP used to rehearse packaging was deleted at the
+  owner's request and is not a deliverable.
   The screenshot showed a connected cached-analytics surface with an explicit
   unavailable state while signed out, not sample numbers. A fresh creator
   OAuth login and first official snapshot were not verified on this build.
@@ -119,11 +120,11 @@ Do not submit a release as complete while its distribution gates are open.
   [repository](https://github.com/Fkhattak819/roblox-analytics-mobile)
   provides source and build instructions.
 - [ ] Provide a public install/download link for an appropriate distributable
-  app. Both signed simulator ZIPs remain local: one is sample-mode-only and
-  one uses the development connected mode. Neither is a physical-device IPA
-  or App Store release. Historical font exposure and native/device/distribution
-  gates remain disclosed; no public binary was uploaded under the
-  repository-push authorization.
+  app. The local sample-mode simulator ZIP is not a physical-device IPA or
+  App Store release; the temporary connected ZIP was deleted at the owner's
+  request. Historical font exposure and native/device/distribution gates
+  remain disclosed; no public binary was uploaded under the repository-push
+  authorization.
 
 The owner's graduation date and individual contribution statement still need
 personal confirmation before any application or interview claim.
@@ -140,17 +141,6 @@ documented in the reviewer guide. SHA-256:
 
 ```text
 c876f7c31dd9fb1f9065faf27f790f866f89baf89281894b04b3e6117ca56a11
-```
-
-`artifacts/reviewer/RobloxAnalyticsStudio-connected-simulator.zip` is a
-separate ignored connected-development candidate, not a public download. It
-was built with dotenv disabled and only the public API variables supplied; an
-approved creator must authenticate to see official reports. It passed
-`unzip -tq`, `ditto -x -k`/strict codesign, direct
-simulator installation/launch, and a JavaScript-bundle secret scan. SHA-256:
-
-```text
-d99af7fcbc2b91a055a8e74227eecbab5abb10809fee5d7933a21407f37977f2
 ```
 
 The superseded September 10 ZIP remains local as

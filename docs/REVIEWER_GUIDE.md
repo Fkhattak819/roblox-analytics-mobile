@@ -58,16 +58,13 @@ EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 \
   npx expo run:ios --configuration Release --no-bundler
 ```
 
-The September 15 local connected-mode simulator ZIP is
-`artifacts/reviewer/RobloxAnalyticsStudio-connected-simulator.zip`, SHA-256
-`d99af7fcbc2b91a055a8e74227eecbab5abb10809fee5d7933a21407f37977f2`.
-It is ignored by Git and has not been publicly uploaded. Use the `ditto`,
-`codesign`, and `xcrun simctl` commands above with this ZIP filename if it is
-available locally. Its extracted signed app installed and launched without
+The September 15 connected Release build installed and launched without
 Metro. Without creator sign-in it showed a connected-mode unavailable state,
 not sample metrics; a fresh OAuth login and official snapshot were not
-validated on this packaged build. The private OAuth application restricts who
-can test live data, and this is still only a simulator package.
+validated on that build. The temporary connected simulator ZIP was deleted at
+the owner's request and is not a reviewer deliverable. The private OAuth
+application restricts who can test live data, and a simulator build is not a
+physical-device release.
 
 ## Three-minute walkthrough
 

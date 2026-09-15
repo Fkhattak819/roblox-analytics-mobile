@@ -35,14 +35,12 @@
   HTTPS development API URL. Build: zero errors, three native warnings. The
   app signature verifies, no `.otf` files are included, and Gitleaks reports
   zero findings for its embedded JavaScript, current source, and reachable
-  history. With no Metro listener, the signed app and its `ditto`-extracted
-  ZIP installed and launched on the iPhone 17 Pro. Home displayed connected
+  history. With no Metro listener, the signed app installed and launched on
+  the iPhone 17 Pro. Home displayed connected
   cached-analytics labels and an unavailable state asking for Roblox sign-in,
   not fixtures. A fresh creator OAuth login/official snapshot remains untested
-  on this new packaged build. The ignored connected ZIP is
-  `artifacts/reviewer/RobloxAnalyticsStudio-connected-simulator.zip`, SHA-256
-  `d99af7fcbc2b91a055a8e74227eecbab5abb10809fee5d7933a21407f37977f2`.
-  No public binary was uploaded.
+  on this build. The temporary connected simulator ZIP was deleted at the
+  owner's request; no public binary was uploaded.
 
 ## Reviewer candidate refresh — September 15
 
