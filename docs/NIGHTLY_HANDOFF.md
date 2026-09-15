@@ -1,5 +1,91 @@
 # roblox-analytics-mobile handoff
 
+## Reviewer candidate refresh — September 15
+
+- Captured five tracked iPhone 17 Pro simulator screenshots from the standalone
+  offline Sample Mode Release build. Rewrote
+  the README and reviewer narrative without a company-specific reference.
+- Inspected live Figma nodes `72:7`, `132:7`, `132:1359`, and `132:2035` before
+  correcting sample portfolio, sales, product, and purchase wording. Native
+  system typography replaced Builder Sans in the current release tree; artwork
+  redistribution rights and old font history still need review.
+- Fixed the Node/tsx security audit loader that failed remote CI. The local
+  18-observation audit, TypeScript, lint, 61 app tests, 59 backend tests, one
+  infrastructure test, sample iOS export, and both low-threshold dependency
+  audits pass. Checksum-verified Gitleaks 8.30.1 found zero findings in reachable
+  history, working source, that export, the extracted final app, and the
+  committed candidate's fresh sample export. The native executable's
+  printable-string boundary exception is documented below.
+- Refreshed the non-root AWS SSO session. A fresh CDK diff adds/removes no
+  resources: it reconciles the table template to already-live PAY_PER_REQUEST
+  limits and renames an SNS display name. CDK staged a synthesized template in
+  its bootstrap area during the diff, but no stack deployment occurred;
+  explicit authorization was requested for deployment. The
+  stack remains `UPDATE_COMPLETE`, last updated September 8. The live table is
+  `ACTIVE`, capped at 100 read / 25 write units, and deletion-protected. The
+  reviewer commit still needs its own CI run after the candidate is pushed.
+- A clean rebuild removed four stale Builder Sans assets from the native app,
+  produced a valid extracted simulator ZIP with SHA-256
+  `c876f7c31dd9fb1f9065faf27f790f866f89baf89281894b04b3e6117ca56a11`,
+  and launched offline without Metro. Extracted-app and JS-bundle secret scans
+  passed. Raw executable `strings` scanning joined a SDWebImage selector to
+  the next independent C-string and raised two generic-key heuristics (one per
+  architecture); boundary-preserving scan found zero. This exception is
+  documented in the release checklist without exposing candidate values.
+- Rehearsed the reviewer ZIP itself: plain `unzip` extracted it but failed
+  strict signature verification; macOS `ditto -x -k` preserved the signature.
+  The `ditto`-extracted app installed and launched on the booted iPhone 17 Pro,
+  displayed labeled Sample Mode Home, and needed no Metro listener. The
+  reviewer guide now specifies the verified extraction and install commands.
+- A fresh current-worktree inventory snapshot at
+  `/private/tmp/roblox-reviewer-current.UUD0ED` passed locked root and CDK
+  installations, full verification, infrastructure test, and sample iOS
+  export. Remote push was explicitly authorized; artwork redistribution
+  confirmation remains a separate pending question.
+- A clean archive of the local release commit, excluding all ignored local
+  files, independently passed the same locked installs, full verification,
+  infrastructure test, sample export, both dependency audits, and Gitleaks on
+  that export. The release screenshot-to-Figma overlay review is recorded in
+  `docs/FIGMA_IMPLEMENTATION_MANIFEST.md`; structural layout is checked, while
+  intentionally different sample copy, font metrics, and native device chrome
+  prevent a pixel-parity claim.
+- The security audit's corrected `node --import tsx` invocation passed all 18
+  synthetic observations under the CI workflow's exact Node.js 22.18.0 runtime,
+  downloaded from Node's official archive and SHA-256 verified. A remote CI
+  run on the published commit is still needed.
+- The owner waived recording as a release deliverable. Both local clips remain
+  recoverable in ignored `artifacts/reviewer/`; only the five screenshots are
+  included in the release commit.
+- Roblox's published Builder font license restricts non-platform distribution
+  without written permission. Public `origin/main` still contained four OTF
+  files, so the owner-authorized font-remediation subset was isolated, passed
+  locked install, full verification, and sample iOS export, then fast-forward
+  pushed as `a39b216`. The current public tree has no Builder Sans files;
+  older reachable history still does. The public remediation CI failed in the
+  preexisting audit loader (`ERR_UNSUPPORTED_RESOLVE_REQUEST` from a data URL),
+  not a demonstrated font regression. The unpublished reviewer patch contains
+  the locally verified `node --import tsx` fix and was rebased onto `a39b216`
+  with one typography-comment conflict resolved. Artwork confirmation and a
+  separate historical-font decision remain open before broader distribution.
+- The authenticated CI log confirmed the public `a39b216` failure was the old
+  security-audit loader's relative import from a data URL, not a font test.
+  Isolated the already-authorized two-file workflow/audit fix, verified its
+  18 synthetic observations under Node.js 22.18.0 with zero findings, and
+  fast-forward pushed it as `844b44b`. Its public Security and build CI run
+  completed successfully. The still-local screenshot/reviewer commit was
+  rebased onto this green public base and will require its own published CI run.
+- After that rebase, the clean local reviewer commit passed `npm run verify`
+  (TypeScript, lint, 61 mobile and 59 backend tests), the infrastructure stack
+  test, `npm run demo:export`, the Node.js 22.18.0 synthetic audit (18
+  observations, zero findings), and Gitleaks on reachable history, current
+  source, and the refreshed iOS sample export. No new screenshots, artwork, or
+  simulator ZIP were uploaded.
+- Read-only font-history scope: public remote advertises only `main` and no
+  tags; four Builder Sans blobs entered at `c024f66`. A removal from reachable
+  history would rewrite 34 commits and invalidate their IDs/CI references, but
+  would not retract earlier clones. No force push, repository-access change,
+  or historical deletion was performed.
+
 ## Product rename — September 9
 
 - Renamed the visible product to **Roblox Analytics Studio** in Expo configuration, current application copy, the README, API title, and active Figma implementation manifest.

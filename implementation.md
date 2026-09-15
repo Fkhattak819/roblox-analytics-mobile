@@ -74,7 +74,11 @@ The client parses unknown responses before passing them to screens. Report ident
 
 ### Keep sample and live data separate
 
-Sample data supports offline exploration. A connected request failure must not silently substitute fixture metrics. Some sample Sales/product labels still incorrectly imply official or recently updated data; fixing that copy is an open release task.
+Sample data supports offline exploration. A connected request failure must not
+silently substitute fixture metrics. The September 15 reviewer pass corrected
+sample Sales, product, purchase, and Experiences labels after live Figma
+inspection. These fixtures are not official Roblox reports; formal visual
+parity remains open.
 
 ## Verification commands
 
@@ -102,8 +106,9 @@ These results do not prove accessibility, load capacity, physical-device correct
 ## Next implementation and release work
 
 1. Connect the physical iPhone, select the appropriate signing team, install, and test the complete account/report lifecycle.
-2. Correct misleading sample labels after the required live-design inspection.
-3. Run source/history/binary secret checks and confirm bundled font/artwork distribution rights.
+2. Review formal visual parity and artwork redistribution rights before public distribution.
+3. Scan the final native binary/package and confirm distribution gates; the
+   current source, reachable history, and iOS export scans pass.
 4. Reconcile the deployed CloudFormation table configuration with the CDK capacity repair.
 5. Test release behavior, document supported versus unavailable capabilities, and prepare distribution only after those gates pass.
 

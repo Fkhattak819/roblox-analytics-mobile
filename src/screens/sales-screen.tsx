@@ -68,7 +68,7 @@ function SaleRow({ sale }: { sale: Sale }) {
       </View>
       <View style={styles.saleValue}>
         <StudioText weight="bold" size={14}>R$ {sale.price}</StudioText>
-        <Badge label={sale.status} tone={sale.status === 'Official' ? 'green' : 'yellow'} />
+        <Badge label="Sample" tone="neutral" />
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
     </Pressable>
@@ -94,7 +94,7 @@ function Overview({ onSelect }: { onSelect: (section: SalesSection) => void }) {
         <View style={styles.revenueChart}>
           <LineChart values={revenueTrend} color={colors.blue} height={48} showLastDot={false} />
         </View>
-        <StudioText tone="muted" size={9}>Official aggregate · reconciled</StudioText>
+        <StudioText tone="muted" size={9}>Sample revenue fixture · not a Roblox report</StudioText>
       </Card>
 
       <View style={styles.coreMetricsHeader}>
@@ -151,7 +151,7 @@ function Overview({ onSelect }: { onSelect: (section: SalesSection) => void }) {
         ))}
       </Card>
 
-      <SectionTitle title="Live sales" subtitle="Signed events, reconciled with official data" action="View live" onAction={() => onSelect('Live')} />
+      <SectionTitle title="Purchase event preview" subtitle="Example events · signed integration not configured" action="View preview" onAction={() => onSelect('Live')} />
       <Card style={styles.listCard}>
         {liveSales.slice(0, 3).map((sale, index) => (
           <React.Fragment key={sale.id}>
@@ -184,13 +184,13 @@ function LiveSales() {
       <Card onPress={() => router.push('/notifications')} style={styles.smartGrouping}>
         <View style={uiStyles.flex}>
           <StudioText tone="blue" weight="semibold" size={9}>SMART GROUPING</StudioText>
-          <StudioText weight="semibold" size={14}>12 routine sales grouped</StudioText>
+          <StudioText weight="semibold" size={14}>12 example sales grouped</StudioText>
           <StudioText tone="muted" size={10}>R$ 2,180 · last 5 min</StudioText>
         </View>
         <StudioText tone="blue" weight="medium" size={11}>Open  ›</StudioText>
       </Card>
 
-      <SectionTitle title="Confirmed purchases" action="Filter  ›" />
+      <SectionTitle title="Example purchases" action="Filter  ›" />
       <View style={styles.livePurchaseList}>
         {liveSales.slice(0, 4).map((sale) => <LivePurchaseRow key={sale.id} sale={sale} />)}
       </View>
@@ -238,7 +238,7 @@ function LivePurchaseRow({ sale }: { sale: Sale }) {
       </View>
       <View style={styles.livePurchaseAmount}>
         <StudioText weight="semibold" size={13}>R$ {sale.price.toLocaleString()}</StudioText>
-        <StudioText weight="semibold" size={8} style={{ color: statusTone }}>{sale.status.toUpperCase()}</StudioText>
+        <StudioText weight="semibold" size={8} style={{ color: statusTone }}>SAMPLE</StudioText>
       </View>
     </Pressable>
   );
@@ -257,7 +257,7 @@ function Products() {
   return (
     <>
       <View style={uiStyles.rowBetween}>
-        <StudioText tone="muted" size={12}>Ranked by official 7-day revenue</StudioText>
+        <StudioText tone="muted" size={12}>Example ranking · sample fixture only</StudioText>
         <Badge label="Read only" tone="blue" />
       </View>
       {products.map((product, index) => (
@@ -423,9 +423,9 @@ export default function SalesScreen() {
           <StudioText weight="bold" size={28}>{section === 'Live' ? 'Live sales' : 'Sales'}</StudioText>
           <StudioText tone="muted" size={11}>{isConnectedMode
             ? section === 'Overview' ? 'Roblox Open Cloud snapshot' : 'This data source is not configured'
-            : section === 'Live' ? 'Preliminary events · updates in real time' : 'Official revenue · updated 2 min ago'}</StudioText>
+            : section === 'Live' ? 'Example events · not a live feed' : 'Sample revenue · not official data'}</StudioText>
         </View>
-        {section === 'Live' && !isConnectedMode ? <View style={styles.livePill}><View style={styles.liveDot} /><StudioText tone="green" weight="semibold" size={9}>LIVE</StudioText></View> : <Pressable
+        {section === 'Live' && !isConnectedMode ? <View style={styles.livePill}><View style={styles.liveDot} /><StudioText tone="green" weight="semibold" size={9}>SAMPLE</StudioText></View> : <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Date range: ${salesRangeLabels[salesDateRange]}`}
           onPress={() => setSalesDateRange(nextRange)}
@@ -441,7 +441,7 @@ export default function SalesScreen() {
         <Ionicons name="shield-checkmark-outline" size={19} color={colors.green} />
         <View style={uiStyles.flex}>
           <StudioText weight="semibold" size={13}>Truth you can trace</StudioText>
-          <StudioText tone="muted" size={11}>Official totals come from Open Cloud. Live events are labeled until reconciled.</StudioText>
+          <StudioText tone="muted" size={11}>These figures are local fixtures. Connected mode reads authorized Roblox aggregate snapshots; exact events need a separate integration.</StudioText>
         </View>
       </Card> : null}
     </Screen>

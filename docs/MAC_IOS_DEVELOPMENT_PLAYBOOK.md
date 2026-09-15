@@ -320,7 +320,7 @@ Keep one TypeScript workspace with these modules:
 | `connections` | analytics-key validation, fingerprint, encryption, rotation/revocation state |
 | `experiences` | selected universe metadata and connection eligibility |
 | `analytics` | query definitions, date windows, normalization, snapshot reads |
-| `sync` | queue messages, locks, retries, `202` operation polling, cursors |
+| `sync` | queue messages, locks, retries, `202` operation polling, pagination tokens |
 | `sales` | aggregate monetization read models; no receipt claims |
 | `platform` | DynamoDB, S3, KMS, HTTP client, logging, configuration |
 

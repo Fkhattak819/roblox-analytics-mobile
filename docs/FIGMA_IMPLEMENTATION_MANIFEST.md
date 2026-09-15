@@ -4,9 +4,38 @@ This is the audit trail between the live Figma file and the Expo / React Native 
 
 ## Source
 
+September 15 reviewer-copy pass: live design context was read for Experiences
+`72:7`, Sales overview `132:7`, sale detail `132:1359`, and product detail
+`132:2035`; an exact Sales screenshot was retrieved. Layout was retained while
+fixture labels were changed to prevent sample data from being mistaken for
+official reports or signed purchase events. The iPhone 17 Pro simulator opened
+all five tabs and produced tracked screenshots, but formal pixel parity is not
+claimed. Builder Sans was replaced with native system typography in the current
+release tree because standalone redistribution rights were not established;
+this is an intentional typography departure from Figma.
+
+September 15 release visual check: exact live light-mode context and screenshots
+were also read for Experiences `187:675` and Sales `187:3013`, alongside the
+dark Sales frame `132:7`. The 393 x 852 light frames were overlaid at half
+opacity with the captured iPhone 17 Pro Sample Mode screenshots, scaled to the
+same canvas. Sales retains the experience switcher, range control, segmented
+view selector, revenue hero, four KPI cards, sources section, and bottom tabs in
+the reference order. Experiences retains the portfolio switcher, search/filter,
+experience cards, metrics, groups, and bottom tabs. The overlay also makes the
+departures visible: 402 x 874-point simulator geometry, native status/safe-area
+and tab chrome, system-font metrics instead of the Figma fonts, and truthful
+sample labels/counts instead of the reference's official-data copy. This is a
+structural visual review of the release screenshots, not a pixel-parity approval
+or a claim that the sample fixtures match the Figma's data.
+
 September 6 security pass: authenticated live design context and exact screenshots were retrieved for `210:471` (identity), `140:109` (More), `140:211` (profile), `140:313` (connections), `210:500` (analytics access), and `210:588` (ready). Exact returned assets are preserved under `assets/figma/security-2026-09-06/`. No motion was reported for these reads. Views now use verified session facts and explicitly disabled analytics access; these intentional text changes supersede demonstration security claims. Obsolete sessions/security routes reuse reviewed account/connections views.
 
-Native screenshots and overlays remain pending. Most references are 393 x 852; connections is 393 x 1343. Live frames mix Geist and Builder Sans; current typography has not been approved as matching all frames. No new font was bundled in this security pass. See `docs/MAC_SECURITY_VALIDATION.md` for the required device evidence. Older status rows below describe earlier checkpoints.
+For the September 6 security views, native screenshots and overlays remain
+pending. Most references are 393 x 852; connections is 393 x 1343. Live frames
+mix Geist and Builder Sans; current typography has not been approved as
+matching all frames. No new font was bundled in that security pass. See
+`docs/MAC_SECURITY_VALIDATION.md` for the required device evidence. Older
+status rows below describe earlier checkpoints.
 
 - Figma file key: `WCcDt0bYdwuoypf03dYcCg`
 - Figma file: [StudioPulse — Roblox Analytics Wireframes](https://www.figma.com/design/WCcDt0bYdwuoypf03dYcCg/StudioPulse-%E2%80%94-Roblox-Analytics-Wireframes)

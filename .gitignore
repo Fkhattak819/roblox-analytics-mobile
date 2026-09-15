@@ -10,6 +10,7 @@ dist-security-ios/
 .security-tools/
 .security-scan/
 artifacts/
+assets/fonts/*.otf
 web-build/
 expo-env.d.ts
 cdk.out/

@@ -33,9 +33,9 @@ export default function SaleDetailScreen() {
       <View style={styles.titleRow}>
         <View style={styles.flex}>
           <StudioText weight="bold" size={27}>Sale detail</StudioText>
-          <StudioText tone="muted" size={11}>Confirmed purchase · 12:41 AM</StudioText>
+          <StudioText tone="muted" size={11}>Sample purchase · example timestamp</StudioText>
         </View>
-        <StatusPill label="RECONCILED" />
+        <StatusPill label="SAMPLE" />
       </View>
 
       <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
@@ -43,7 +43,7 @@ export default function SaleDetailScreen() {
       </Pressable>
 
       <Card style={styles.purchaseCard}>
-        <StudioText tone="green" weight="semibold" size={9}>CONFIRMED PURCHASE</StudioText>
+        <StudioText tone="green" weight="semibold" size={9}>EXAMPLE PURCHASE</StudioText>
         <StudioText weight="bold" size={29}>R$ {sale.price.toLocaleString()}</StudioText>
         <StudioText weight="semibold" size={17}>{sale.product}</StudioText>
         <View style={styles.productLinkRow}>
@@ -61,9 +61,9 @@ export default function SaleDetailScreen() {
         <Divider />
         <DetailRow label="Received" value="Today · 12:41 AM" />
         <Divider />
-        <DetailRow label="State" value="Reconciled" green />
+        <DetailRow label="State" value="Sample fixture" green />
         <Divider />
-        <DetailRow label="Source" value="Official + instrumented" />
+        <DetailRow label="Source" value="Local sample data" />
       </Card>
 
       <StudioText weight="semibold" size={17}>Premium Bundle today</StudioText>
@@ -91,7 +91,7 @@ export default function SaleDetailScreen() {
 
       <Card style={styles.privacyCard}>
         <Ionicons name="lock-closed-outline" size={18} color={colors.green} />
-        <View style={styles.flex}><StudioText weight="semibold" size={13}>Private by default</StudioText><StudioText tone="muted" size={10} lineHeight={14}>No player identity is shown. Purchase references are workspace-safe and access-controlled.</StudioText></View>
+        <View style={styles.flex}><StudioText weight="semibold" size={13}>Sample only</StudioText><StudioText tone="muted" size={10} lineHeight={14}>No player identity is shown. The example purchase reference is not a real transaction.</StudioText></View>
       </Card>
     </Screen>
   );

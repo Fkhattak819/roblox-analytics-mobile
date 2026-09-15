@@ -235,7 +235,7 @@ function SampleExperiencesScreen() {
 
       <View style={styles.titleBlock}>
         <StudioText size={28} lineHeight={34} weight="bold">Experiences</StudioText>
-        <StudioText tone="muted" size={13}>{isConnectedMode ? '1 connected game · Roblox Open Cloud' : '5 connected games · 2 groups'}</StudioText>
+        <StudioText tone="muted" size={13}>{isConnectedMode ? '1 authorized game · Roblox Open Cloud' : 'Sample portfolio · 5 games · 2 groups'}</StudioText>
       </View>
 
       <View style={styles.searchField}>
@@ -260,7 +260,7 @@ function SampleExperiencesScreen() {
 
       {yourGames.length ? (
         <View style={styles.section}>
-          <SectionHeading title={isConnectedMode ? 'Authorized experience' : 'Your games'} detail={isConnectedMode ? 'Official analytics' : 'Recently active'} />
+          <SectionHeading title={isConnectedMode ? 'Authorized experience' : 'Example games'} detail={isConnectedMode ? 'Official analytics' : 'Sample fixtures'} />
           {yourGames.map((experience) => (
             <ExperienceCard key={experience.id} experience={experience} expanded presentation={isConnectedMode ? connectedPresentation : undefined} />
           ))}
@@ -299,7 +299,7 @@ function SampleExperiencesScreen() {
         accessibilityRole="button"
         onPress={() => router.push('/settings/connections')}
         style={({ pressed }) => [styles.manageRow, pressed && styles.pressed]}>
-        <StudioText tone="secondary" size={13}>Manage connected experiences</StudioText>
+        <StudioText tone="secondary" size={13}>How to connect real experiences</StudioText>
         <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />
       </Pressable>
     </Screen>

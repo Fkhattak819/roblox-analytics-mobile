@@ -45,7 +45,7 @@ The implementation keeps the existing Expo Router, React context, StyleSheet tok
 | Poll metric operation | `GET https://apis.roblox.com/analytics-query-api/v1/universes/{universeId}/operations/metrics/{operationId}` | Used after `202 Accepted`; response exposes operation completion and metric result values. | Same Open Cloud authorization |
 | Poll dimension operation | `GET https://apis.roblox.com/analytics-query-api/v1/universes/{universeId}/operations/dimension-values/{operationId}` | Used after an asynchronous dimension-values request. | Same Open Cloud authorization |
 
-Supported documented granularities include `OneMinute`, `HalfHour`, `OneHour`, `OneDay`, `OneWeek`, `OneMonth`, and `None`. Metric responses group `dataPoints` under breakdown combinations. Dimension-value requests accept `dimensions` and optional `filter`, `granularity`, and `limit`. Analytics requests are universe-scoped; no place ID is required by these four documented paths. Pagination is not exposed as a page cursor on metric results; `limit` constrains returned groupings.
+Supported documented granularities include `OneMinute`, `HalfHour`, `OneHour`, `OneDay`, `OneWeek`, `OneMonth`, and `None`. Metric responses group `dataPoints` under breakdown combinations. Dimension-value requests accept `dimensions` and optional `filter`, `granularity`, and `limit`. Analytics requests are universe-scoped; no place ID is required by these four documented paths. Pagination is not exposed as a page token on metric results; `limit` constrains returned groupings.
 
 ### Comparison
 

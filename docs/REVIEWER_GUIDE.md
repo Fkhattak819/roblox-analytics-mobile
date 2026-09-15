@@ -3,6 +3,8 @@
 A mobile workspace for Roblox creators to inspect engagement, retention,
 acquisition, and aggregate revenue across authorized experiences. Five tabs
 organize the product: Home, Experiences, Analytics, Sales, and More.
+This is an independent, unofficial portfolio project, not affiliated with or
+endorsed by Roblox.
 
 ## Try it
 
@@ -21,14 +23,24 @@ requires a separate signing and distribution workflow.
 `artifacts/reviewer-ios`; that export is build evidence, not a simulator binary.
 All three commands force sample mode and ignore local environment files.
 
-For the local simulator ZIP candidate, unzip it, boot an iPhone simulator in
-Xcode, and run from the extracted directory:
+For the local simulator ZIP candidate at
+`artifacts/reviewer/RobloxAnalyticsStudio-simulator.zip`, first verify its
+SHA-256 is
+`c876f7c31dd9fb1f9065faf27f790f866f89baf89281894b04b3e6117ca56a11`.
+Boot an iPhone simulator in Xcode, then extract with macOS `ditto` so the app's
+signed bundle metadata is preserved. From the repository root:
 
 ```sh
-xcrun simctl install booted RobloxAnalyticsStudio.app
+shasum -a 256 artifacts/reviewer/RobloxAnalyticsStudio-simulator.zip
+review_extract_dir=$(mktemp -d)
+ditto -x -k artifacts/reviewer/RobloxAnalyticsStudio-simulator.zip "$review_extract_dir"
+codesign --verify --strict "$review_extract_dir/RobloxAnalyticsStudio.app"
+xcrun simctl install booted "$review_extract_dir/RobloxAnalyticsStudio.app"
 xcrun simctl launch booted com.anonymous.roblox-analytics-mobile
 ```
 
+Plain `unzip` extracted this package but failed strict code-signature
+verification in the September 15 reviewer rehearsal; `ditto -x -k` passed.
 This is a simulator app, not an IPA for a physical phone. The current package
 has not been cleared for public distribution. See the release checklist.
 
@@ -44,10 +56,10 @@ has not been cleared for public distribution. See the release checklist.
    individual purchase events. Sample previews do not establish live-sale support.
 6. Open **More** to inspect settings and the Creator Hub tools directory.
 
-For a recorded walkthrough, show sample mode first and keep account details,
-authorization prompts, and credentials out of the recording. Demonstrate live
-mode separately only with an authorized creator account. No recording or public
-install link is claimed until the release checklist records one.
+The five screenshots in `screenshots/` use offline Sample Mode and contain no
+account details or authorization prompts. Demonstrate live mode separately
+only with an authorized creator account. A public install link is not yet
+available.
 
 ## Engineering worth inspecting
 
@@ -81,10 +93,9 @@ database-capacity tradeoff in their own words.
 
 ## Current limitations
 
-- The current sample Sales and product-detail screens still contain misleading
-  “official” and recent-update labels. These are fixtures, not live results.
-  Experiences also describes fixture games as connected. These copy defects
-  block the public reviewer release until corrected.
+- The sample Sales, product-detail, sale-detail, and Experiences screens now
+  identify their fixtures. This copy was corrected after inspecting the live
+  Figma nodes; visual parity has not been formally approved.
 - Live reports depend on the creator's granted resources and Roblox's data
   availability; a zero or missing metric is not replaced with an estimate.
 - Individual purchase alerts, product rankings, and some Creator Hub reports

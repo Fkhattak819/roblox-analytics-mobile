@@ -38,7 +38,7 @@ export default function ProductDetailScreen() {
       </View>
 
       <View style={styles.titleRow}>
-        <View style={styles.flex}><StudioText weight="bold" size={27}>Product analytics</StudioText><StudioText tone="muted" size={11}>Official revenue · updated 2 min ago</StudioText></View>
+        <View style={styles.flex}><StudioText weight="bold" size={27}>Product analytics</StudioText><StudioText tone="muted" size={11}>Sample product fixture · not a live report</StudioText></View>
         <View style={styles.rangeButton}><StudioText weight="medium" size={11}>Last 30 days</StudioText><Ionicons name="chevron-down" size={10} color={colors.textSecondary} /></View>
       </View>
 
@@ -51,7 +51,7 @@ export default function ProductDetailScreen() {
         </View>
         <StudioText style={styles.purpleLabel} weight="semibold" size={9}>TOP EARNING PRODUCT</StudioText>
         <View style={styles.heroValueRow}><StudioText weight="bold" size={28}>R$ 31.8K</StudioText><StudioText tone="green" weight="semibold" size={11}>↑ 24.0%</StudioText></View>
-        <StudioText tone="muted" size={9}>Official aggregate · reconciled</StudioText>
+        <StudioText tone="muted" size={9}>Sample revenue · not reconciled with Roblox</StudioText>
       </Card>
 
       <StudioText weight="semibold" size={17}>Performance</StudioText>
@@ -68,13 +68,13 @@ export default function ProductDetailScreen() {
         <RevenueConversionChart />
       </Card>
 
-      <View style={styles.sectionTitle}><StudioText weight="semibold" size={17}>Recent live activity</StudioText><StudioText tone="blue" weight="medium" size={11}>View all  ›</StudioText></View>
+      <View style={styles.sectionTitle}><StudioText weight="semibold" size={17}>Example event activity</StudioText><StudioText tone="blue" weight="medium" size={11}>View all  ›</StudioText></View>
       <View style={styles.activityList}>
         {liveSales.slice(0, 3).map((sale) => (
           <Pressable key={sale.id} onPress={() => router.push({ pathname: '/sale/[id]', params: { id: sale.id } })} style={styles.activityRow}>
             <View style={styles.activityTile}><StudioText weight="bold" size={12}>P</StudioText></View>
             <View style={styles.flex}><StudioText weight="semibold" size={13}>Premium Bundle</StudioText><StudioText tone="muted" size={10}>Most Words Win! · {sale.time}</StudioText></View>
-            <View style={styles.activityAmount}><StudioText weight="semibold" size={12}>R$ 1,499</StudioText><StudioText tone="green" weight="semibold" size={8}>{sale.status.toUpperCase()}</StudioText></View>
+            <View style={styles.activityAmount}><StudioText weight="semibold" size={12}>R$ 1,499</StudioText><StudioText tone="green" weight="semibold" size={8}>SAMPLE</StudioText></View>
           </Pressable>
         ))}
       </View>

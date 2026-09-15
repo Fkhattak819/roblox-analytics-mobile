@@ -1,70 +1,74 @@
 # Roblox Analytics Studio
 
-Roblox Analytics Studio is an Expo-managed React Native analytics companion for Roblox creators with a TypeScript serverless backend on AWS. The repository and compatibility-sensitive service identifiers retain the original `roblox-analytics-mobile` name.
+An iOS analytics workspace for Roblox creators. The Expo/React Native app presents engagement, retention, acquisition, and aggregate monetization reports for experiences authorized through Roblox OAuth. A TypeScript AWS backend keeps delegated credentials off the device, queries Roblox asynchronously, and serves cached, tenant-scoped snapshots. The five destinations are Home, Experiences, Analytics, Sales, and More.
 
-## Review the project
+This is an independent, unofficial development portfolio project, not
+affiliated with or endorsed by Roblox and not a production service or App
+Store release. The repository retains the compatibility-sensitive
+`roblox-analytics-mobile` identifiers.
 
-Start with the [reviewer guide and three-minute walkthrough](docs/REVIEWER_GUIDE.md).
-It explains the product, the engineering decisions, and the limits of the current release.
+## Screenshots
 
-On a Mac with Xcode and an iOS simulator, use Node 22.18 or newer:
+These iPhone 17 Pro simulator captures use offline Sample Mode. Every displayed metric is a local fixture, not a live Roblox result.
+
+| Home | Experiences | Analytics | Sales | More |
+| --- | --- | --- | --- | --- |
+| <img src="docs/screenshots/home.png" width="180" alt="Sample-mode Home dashboard" /> | <img src="docs/screenshots/experiences.png" width="180" alt="Sample portfolio of experiences" /> | <img src="docs/screenshots/analytics.png" width="180" alt="Sample analytics overview" /> | <img src="docs/screenshots/sales.png" width="180" alt="Sample sales overview" /> | <img src="docs/screenshots/more.png" width="180" alt="Account and creator tools menu" /> |
+
+## Where to inspect the engineering
+
+- [Mobile session control](services/session-controller.ts) rejects late sign-in
+  results after logout or cancellation; [its tests](tests/session-controller.test.ts)
+  exercise those races. The [OAuth exchange](services/roblox-auth-core.ts)
+  additionally binds callbacks to the initiating app.
+- [Backend authorization tests](backend/tests/analytics-authorization.test.mjs)
+  exercise cross-account and concrete-universe grants before analytics are
+  returned. The [worker](backend/src/lambda/analytics-worker.ts) rechecks access
+  before publishing queued results.
+- The [live connection incident](docs/LIVE_CONNECTION_FIX_2026-09-10.md)
+  traces a real DynamoDB read-throttling failure from observed metrics to a
+  bounded repair, with the remaining infrastructure reconciliation stated
+  explicitly.
+
+## Try the offline demo
+
+On macOS with Xcode, an iPhone simulator, and Node.js 22.18 or newer:
 
 ```sh
 npm ci
 npm run demo
 ```
 
-The demo uses labeled fixtures and ignores `.env.local`. It needs no Roblox
-account or AWS credentials. For a standalone simulator build with embedded
-sample data, run `npm run demo:build:ios` and select an iPhone simulator.
-This is a development portfolio project; no App Store or TestFlight release
-is claimed. A JavaScript export is not an installable iPhone app.
+Choose **Explore sample data** if onboarding appears. The demo wrapper forces Sample Mode and ignores local `.env.local`; no Roblox account, AWS credentials, or paid service is needed. Expo Go must match Expo SDK 54. To avoid relying on Expo Go, run `npm run demo:build:ios`, select an iPhone simulator, and launch the standalone Release app. It embeds its JavaScript bundle and subsequently runs without Metro. `npm run demo:export` creates a JavaScript export, not an installable iPhone app.
 
-Run `npm run verify` for TypeScript, lint, mobile tests, and backend tests.
-The current local release candidate uses Expo SDK 54; include its lockfile and
-compatibility changes together when publishing it. See the
-[release checklist](docs/RELEASE_CHECKLIST.md) for verification status.
+The [reviewer guide](docs/REVIEWER_GUIDE.md) has a three-minute walkthrough. The [release checklist](docs/RELEASE_CHECKLIST.md) records what is verified and what remains open.
 
-Current implementation:
+## How the live path works
 
-- Expo onboarding, five-tab app shell, analytics screens, and detail routes restored from the repository safety backup
-- Home dashboard with offline Sample Mode and an explicit AWS development mode
-- typed, runtime-validated API client
-- API Gateway HTTP API + Lambda backend
-- DynamoDB, SQS/DLQ, and private S3 foundations
-- AWS budget and cost-anomaly safeguards
+The app requests Roblox identity and read-only `universe.analytics:read` permission through OAuth. The initiating app binds the callback to a local S256 proof and exchanges it once for an opaque app session. The device stores only that session through SecureStore. Delegated Roblox tokens are encrypted server-side with KMS; neither a Roblox API key nor a `.ROBLOSECURITY` cookie is requested by the app.
 
-Run the app:
+The API validates the session and the creator's concrete universe grant before reading snapshots or enqueueing a refresh. An SQS worker calls Roblox Analytics Query and verifies authorization again before publishing tenant-scoped DynamoDB data. Screens never call Roblox while rendering. Connected-mode failures do not silently substitute sample figures; missing, zero, stale, and failed reports remain distinct states.
+
+This separation addresses three concrete problems:
+
+- OAuth callbacks and async Keychain writes can race with cancellation or logout. Shared sign-in control, one-time exchange, and stale-result rejection prevent a late operation from reviving a signed-out account.
+- Roblox analytics queries may be slow or unavailable. Queued refreshes keep the mobile UI responsive while snapshots expose freshness and source.
+- A creator must not read another creator's universe. Authorization is derived from the verified session and checked at enqueue, worker execution, and transactional publication—not from a universe ID supplied by a screen alone.
+
+The [architecture](architecture.md), [implementation map](implementation.md), and [API contract](docs/API_CONTRACT.md) show the modules and boundaries. The [live connection incident](docs/LIVE_CONNECTION_FIX_2026-09-10.md) documents how CloudWatch read throttles exposed an undersized DynamoDB table, the bounded capacity change, and the remaining deployment reconciliation.
+
+## Verify the code
 
 ```sh
-cp .env.example .env.local
-npm install
-npm run typecheck
-npm start
+npm run verify
+npm --prefix infrastructure test
+npm audit --audit-level=moderate
 ```
 
-`EXPO_PUBLIC_DATA_MODE=sample` uses local fixtures. Set it to `aws_dev` to enable Roblox OAuth and authenticated cached analytics through the deployed AWS API. No Roblox credential belongs in Expo environment files.
+`verify` runs TypeScript, lint, mobile tests, and backend tests. The infrastructure suite has a CDK stack assertion. Tests include callback correlation, duplicate sign-in, logout races, cross-tenant access, revoked worker jobs, time budgets, and stale-data behavior. Local checks are necessary but do not certify a physical device, accessibility, load capacity, cloud recovery, or public distribution.
 
-Start here:
+Live development mode requires `EXPO_PUBLIC_DATA_MODE=aws_dev` and a public HTTPS `EXPO_PUBLIC_API_BASE_URL`; use the normal Expo commands rather than the sample-forcing demo wrapper. Do not put secrets into Expo environment files.
 
-- [Expo development playbook](docs/EXPO_DEVELOPMENT_PLAYBOOK.md)
-- [API contract and backend route plan](docs/API_CONTRACT.md)
-- [AWS backend learning and scaling guide](docs/AWS_BACKEND_LEARNING_AND_SCALING_GUIDE.md)
-- [Mac and iOS development playbook](docs/MAC_IOS_DEVELOPMENT_PLAYBOOK.md)
-- [Ready-to-paste overnight Codex goal](NIGHT_GOAL.md)
-- [Figma implementation manifest](docs/FIGMA_IMPLEMENTATION_MANIFEST.md)
-- [Local Figma node-map snapshot](design-system-state-studiopulse-onboarding.json)
+## Supported boundaries
 
-The connected live Figma file remains the visual source of truth for future production screens. The current screens are a functional prototype and integration surface, not a claim of final Figma parity.
-
-Historical SwiftUI planning files remain in the repository for reference; Expo is the active mobile implementation in this workspace.
-
-## Product contract
-
-- Expo-managed React Native mobile app, with the current Figma reference designed on a 393 x 852 point mobile canvas.
-- Persistent destinations: Home, Experiences, Analytics, Sales, More.
-- Sample mode works before any account or credential is connected.
-- The first real-data release is read-only toward Roblox experiences.
-- Roblox OAuth requests identity and read-only analytics access for the experiences the creator authorizes.
-- Roblox API keys never ship in the mobile app and `.ROBLOSECURITY` is never requested.
-- Official aggregate analytics must remain visually distinct from optional live-sale instrumentation.
+The current connection supplies aggregate analytics for authorized experiences. Exact individual purchases, sale alerts, product rankings, and some Creator Hub reports require separate signed instrumentation or are unavailable. Simulator screenshots are not physical-device evidence. The release checklist tracks asset redistribution rights, security scans, native lifecycle checks, CI, and delivery gates before any public install claim.
