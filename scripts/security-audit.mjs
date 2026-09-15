@@ -1,17 +1,17 @@
 // Local audit observations, not a security approval or a replacement for regression tests.
 // Run: node node_modules/typescript/bin/tsc -p backend/tsconfig.json
-//      node scripts/security-audit.mjs
+//      node --import tsx scripts/security-audit.mjs
 // All identities, tokens, browser responses, and network responses below are synthetic.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { stripTypeScriptTypes } from 'node:module';
 import { AuthService } from '../backend/dist/backend/src/modules/auth/auth-service.js';
 import { InMemoryAuthStore } from '../backend/dist/backend/src/modules/auth/in-memory-auth-store.js';
 import { StaticOAuthCredentialsProvider } from '../backend/dist/backend/src/modules/auth/oauth-credentials.js';
 import { RobloxOAuthApi } from '../backend/dist/backend/src/modules/auth/roblox-oauth-api.js';
 import { loadConfig } from '../backend/dist/backend/src/config.js';
 import { routeRequest } from '../backend/dist/backend/src/router.js';
+import mobileAuthCore from '../services/roblox-auth-core.ts';
+const { connectRobloxIdentity } = mobileAuthCore;
 
 // Prevent accidental outgoing requests, including AWS credential discovery.
 globalThis.fetch = async () => { throw new Error('Network disabled for security audit'); };
@@ -22,12 +22,6 @@ delete process.env.ROBLOX_OAUTH_CLIENT_SECRET;
 process.env.PORT = '8787';
 process.env.SESSION_TTL_SECONDS = '300';
 const { handler } = await import('../backend/dist/backend/src/lambda/api-handler.js');
-const mobileSource = stripTypeScriptTypes(readFileSync(
-  new URL('../services/roblox-auth-core.ts', import.meta.url), 'utf8',
-));
-const { connectRobloxIdentity } = await import(
-  `data:text/javascript;base64,${Buffer.from(mobileSource).toString('base64')}`
-);
 const observations = [];
 function record(check, protectedBehavior, detail) {
   observations.push({ check, result: protectedBehavior ? 'protected' : 'finding', detail });

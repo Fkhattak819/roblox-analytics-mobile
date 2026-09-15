@@ -40,7 +40,7 @@ jobs:
           npm test
           npm --prefix backend test
           npm --prefix infrastructure test
-          node scripts/security-audit.mjs
+          node --import tsx scripts/security-audit.mjs
       - name: Export iOS sample artifact
         run: npx expo export --platform ios --output-dir dist-security-ios
       - name: Install verified secret scanner
