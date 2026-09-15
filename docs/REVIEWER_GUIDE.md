@@ -44,6 +44,31 @@ verification in the September 15 reviewer rehearsal; `ditto -x -k` passed.
 This is a simulator app, not an IPA for a physical phone. The current package
 has not been cleared for public distribution. See the release checklist.
 
+## Connected development build
+
+The repository also contains a real connected mode; the demo wrapper above
+intentionally forces fixtures. An approved private Roblox OAuth tester can
+build the connected simulator app using the public development API URL, with
+local dotenv settings disabled:
+
+```sh
+EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 \
+  EXPO_PUBLIC_DATA_MODE=aws_dev \
+  EXPO_PUBLIC_API_BASE_URL=https://bqrr070bkf.execute-api.us-east-2.amazonaws.com \
+  npx expo run:ios --configuration Release --no-bundler
+```
+
+The September 15 local connected-mode simulator ZIP is
+`artifacts/reviewer/RobloxAnalyticsStudio-connected-simulator.zip`, SHA-256
+`d99af7fcbc2b91a055a8e74227eecbab5abb10809fee5d7933a21407f37977f2`.
+It is ignored by Git and has not been publicly uploaded. Use the `ditto`,
+`codesign`, and `xcrun simctl` commands above with this ZIP filename if it is
+available locally. Its extracted signed app installed and launched without
+Metro. Without creator sign-in it showed a connected-mode unavailable state,
+not sample metrics; a fresh OAuth login and official snapshot were not
+validated on this packaged build. The private OAuth application restricts who
+can test live data, and this is still only a simulator package.
+
 ## Three-minute walkthrough
 
 1. Open the app and choose **Explore sample data** if onboarding appears.

@@ -27,6 +27,22 @@
   [Security and build run](https://github.com/Fkhattak819/roblox-analytics-mobile/actions/runs/35022165417)
   completed successfully for that exact SHA. The signed sample-mode simulator
   ZIP remains local and was not publicly uploaded.
+- The factual status follow-up `b8238ce` was also pushed; its
+  [Security and build run](https://github.com/Fkhattak819/roblox-analytics-mobile/actions/runs/35022494456)
+  completed successfully for that docs-only SHA.
+- To distinguish the full app from its offline review presentation, built a
+  separate `aws_dev` Release simulator app with dotenv disabled and the public
+  HTTPS development API URL. Build: zero errors, three native warnings. The
+  app signature verifies, no `.otf` files are included, and Gitleaks reports
+  zero findings for its embedded JavaScript, current source, and reachable
+  history. With no Metro listener, the signed app and its `ditto`-extracted
+  ZIP installed and launched on the iPhone 17 Pro. Home displayed connected
+  cached-analytics labels and an unavailable state asking for Roblox sign-in,
+  not fixtures. A fresh creator OAuth login/official snapshot remains untested
+  on this new packaged build. The ignored connected ZIP is
+  `artifacts/reviewer/RobloxAnalyticsStudio-connected-simulator.zip`, SHA-256
+  `d99af7fcbc2b91a055a8e74227eecbab5abb10809fee5d7933a21407f37977f2`.
+  No public binary was uploaded.
 
 ## Reviewer candidate refresh — September 15
 

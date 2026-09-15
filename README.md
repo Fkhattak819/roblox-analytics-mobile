@@ -2,6 +2,11 @@
 
 An iOS analytics workspace for Roblox creators. The Expo/React Native app presents engagement, retention, acquisition, and aggregate monetization reports for experiences authorized through Roblox OAuth. A TypeScript AWS backend keeps delegated credentials off the device, queries Roblox asynchronously, and serves cached, tenant-scoped snapshots. The five destinations are Home, Experiences, Analytics, Sales, and More.
 
+The repository contains both the connected development app and a deterministic
+offline Sample Mode. The screenshots below use fixtures for repeatable review;
+connected mode reads official cached reports only after an authorized creator
+signs in. It does not replace a missing live report with sample numbers.
+
 This is an independent, unofficial development portfolio project, not
 affiliated with or endorsed by Roblox and not a production service or App
 Store release. The repository retains the compatibility-sensitive
