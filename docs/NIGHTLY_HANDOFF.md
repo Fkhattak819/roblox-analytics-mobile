@@ -1,5 +1,33 @@
 # roblox-analytics-mobile handoff
 
+## Owner approvals and release publication — September 15
+
+- The owner confirmed permission to redistribute the experience artwork and
+  logo in the five screenshots, approved those captures, and waived the video.
+  The screenshots and local simulator ZIP show labeled offline Sample Mode;
+  the app also has a separate live Roblox OAuth/AWS path. This is not evidence
+  of a finished production or App Store release.
+- The owner declined a Builder Sans history rewrite. Current `main` and the
+  simulator app have no Builder Sans OTF files, but four blobs remain in older
+  public commits. No written font permission or repository-access restriction
+  was provided, so historical distribution remains disclosed and unresolved.
+- Under the owner's AWS deployment approval, the fresh CDK diff showed only
+  the SNS display-name change and table-template alignment to the already-live
+  on-demand 100-read/25-write caps, with no resource add/remove/replacement.
+  `npm --prefix infrastructure run deploy:dev` completed in account
+  `896979073148`, us-east-2. CloudFormation reports `UPDATE_COMPLETE` with a
+  September 15 update; health returned 200; a subsequent CDK diff is zero.
+- `npm run verify` passed TypeScript, lint, 61 app tests, and 59 backend tests;
+  the infrastructure test passed. The first sandboxed test attempt failed to
+  create the tsx IPC pipe (`EPERM`), so verification was rerun with the
+  required execution permission. This was an execution restriction, not a
+  failing assertion.
+- The screenshot/reviewer candidate was fast-forward pushed as `41e3a45` to
+  public `main`. Its
+  [Security and build run](https://github.com/Fkhattak819/roblox-analytics-mobile/actions/runs/35022165417)
+  completed successfully for that exact SHA. The signed sample-mode simulator
+  ZIP remains local and was not publicly uploaded.
+
 ## Reviewer candidate refresh — September 15
 
 - Captured five tracked iPhone 17 Pro simulator screenshots from the standalone
