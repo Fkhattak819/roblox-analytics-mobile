@@ -47,10 +47,12 @@ export const colors = {
 } as const;
 
 export const fonts = {
-  regular: 'BuilderSansRegular',
-  medium: 'BuilderSansMedium',
-  semibold: 'BuilderSansSemibold',
-  bold: 'BuilderSansBold',
+  // The Builder license does not cover standalone app redistribution.
+  // Use the platform font unless written shipping rights are confirmed.
+  regular: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+  medium: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+  semibold: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+  bold: Platform.OS === 'ios' ? 'System' : 'sans-serif',
 } as const;
 
 export const spacing = {

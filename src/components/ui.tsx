@@ -21,6 +21,9 @@ import { metricTrendColor } from '@/src/utils/metric-trend';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type TextWeight = 'regular' | 'medium' | 'semibold' | 'bold';
+const nativeWeights: Record<TextWeight, '400' | '500' | '600' | '700'> = {
+  regular: '400', medium: '500', semibold: '600', bold: '700',
+};
 type TextTone = 'primary' | 'secondary' | 'muted' | 'blue' | 'green' | 'yellow' | 'red';
 
 const toneColors: Record<TextTone, string> = {
@@ -55,6 +58,7 @@ export function StudioText({
         {
           color: toneColors[tone],
           fontFamily: fonts[weight],
+          fontWeight: nativeWeights[weight],
           fontSize: size,
           lineHeight: lineHeight ?? Math.round(size * 1.28),
         },

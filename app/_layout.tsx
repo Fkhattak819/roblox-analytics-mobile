@@ -1,10 +1,9 @@
-import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
@@ -12,7 +11,7 @@ import { AppProvider } from '@/src/state/app-context';
 import { AppearanceProvider, useAppearancePreference } from '@/src/state/appearance-context';
 import { hasCompletedOnboarding } from '@/src/state/onboarding-storage';
 import { SessionLifecycle } from '@/src/state/session-context';
-import { colors, fonts } from '@/src/theme/tokens';
+import { colors } from '@/src/theme/tokens';
 
 function handleSplashScreenError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -36,15 +35,8 @@ function RootNavigation() {
   const { ready: appearanceReady } = useAppearancePreference();
   const initialRouteChecked = useRef(false);
   const [initialRouteReady, setInitialRouteReady] = useState(false);
-  const [loaded, error] = useFonts({
-    [fonts.regular]: require('../assets/fonts/BuilderSans-Regular-400.otf'),
-    [fonts.medium]: require('../assets/fonts/BuilderSans-Medium-500.otf'),
-    [fonts.semibold]: require('../assets/fonts/BuilderSans-SemiBold-600.otf'),
-    [fonts.bold]: require('../assets/fonts/BuilderSans-Bold-700.otf'),
-  });
-
   useEffect(() => {
-    if ((!loaded && !error) || !appearanceReady) return;
+    if (!appearanceReady) return;
 
     if (!initialRouteChecked.current) {
       initialRouteChecked.current = true;
@@ -66,15 +58,13 @@ function RootNavigation() {
     }
 
     setInitialRouteReady(true);
-  }, [appearanceReady, error, loaded, router, segments]);
+  }, [appearanceReady, router, segments]);
 
   useEffect(() => {
     if (initialRouteReady) void SplashScreen.hideAsync().catch(handleSplashScreenError);
   }, [initialRouteReady]);
 
-  // Web static rendering must produce the same initial tree on the server and client.
-  // Native can safely wait behind the splash screen until Builder Sans is loaded.
-  if ((!loaded && !error || !appearanceReady) && Platform.OS !== 'web') return null;
+  if (!appearanceReady) return null;
 
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
